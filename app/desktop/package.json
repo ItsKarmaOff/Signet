@@ -1,7 +1,7 @@
 {
   "name": "@signet/desktop",
   "productName": "Signet",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "desktopName": "signet.desktop",
   "description": "A sidebar-first web browser for macOS, Linux and Windows: spaces, command bar, split view, Little Signet and Peek.",
   "private": true,
