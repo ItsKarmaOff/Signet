@@ -30,12 +30,16 @@ const chromeTime = (us: unknown): number => {
   }
 }
 
-/** Presence of each data file in the profile. */
+/**
+ * Presence of each data file in the profile, to offer the import. Only checks that files exist, never reads them nor
+ * lists a folder: macOS protects other browsers' data (Settings › Privacy & Security › Files & Folders), and even
+ * listing it makes macOS block Signet with a "Data Access Blocked" alert. Reading happens when the user imports.
+ */
 export function profileHas(profile: string): { history: boolean; passwords: boolean; extensions: boolean } {
   return {
     history: existsSync(join(profile, 'History')),
     passwords: existsSync(join(profile, 'Login Data')),
-    extensions: extensionIds(profile).length > 0
+    extensions: existsSync(join(profile, 'Extensions'))
   }
 }
 
@@ -107,7 +111,10 @@ export function extensionIds(profile: string): string[] {
   let dirs: string[]
   try {
     dirs = readdirSync(join(profile, 'Extensions')).filter((d) => /^[a-p]{32}$/.test(d))
-  } catch {
+  } catch (e) {
+    // Access denied (macOS protection): reported to the user, not taken for "no extension".
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'EPERM' || code === 'EACCES') throw e
     return []
   }
   const settings = extensionSettings(profile)

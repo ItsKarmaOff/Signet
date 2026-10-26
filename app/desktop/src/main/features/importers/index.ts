@@ -284,6 +284,19 @@ export async function runImport(b: Browser, id: ImportSource, kinds?: ImportKind
         if (response === 0) void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles')
         return
       }
+      // macOS protects other browsers' data: Signet needs the user's permission (Files & Folders › Signet › <browser>).
+      if (process.platform === 'darwin' && PERMISSION.test(message)) {
+        const { response } = await show({
+          type: 'warning',
+          message: t('import.appDataDenied.message', { name: def.name }),
+          detail: t(app.isPackaged ? 'import.appDataDenied.detailPackaged' : 'import.appDataDenied.detailDev', { name: def.name }),
+          buttons: [t('import.safariDenied.openSettings'), t('dialog.cancel')],
+          defaultId: 0,
+          cancelId: 1
+        })
+        if (response === 0) void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders')
+        return
+      }
       errors.push(t('import.kindFailed', { kind: t(`import.kind.${kind}`), error: message }))
     }
   }
