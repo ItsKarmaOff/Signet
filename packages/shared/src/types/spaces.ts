@@ -32,7 +32,7 @@ export interface Space {
   name: string
   /** Un emoji. */
   icon: string
-  /** HSL hue 0–359 that colors the sidebar; with a gradient, it is its first color (accent). */
+  /** HSL hue 0-359 that colors the sidebar; with a gradient, it is its first color (accent). */
   hue: number
   /** Background gradient of the space. Missing = solid color (`hue`). */
   theme?: SpaceTheme
@@ -68,7 +68,7 @@ export interface SpaceDraft {
 
 /** Background of a gradient space: 2 or 3 hues (the first is also `Space.hue`) and an optional grain. */
 export interface SpaceTheme {
-  /** HSL hues 0–359, in gradient order (2 or 3). */
+  /** HSL hues 0-359, in gradient order (2 or 3). */
   hues: number[]
   /** Texture grain, from 0 (smooth) to 1. */
   grain: number

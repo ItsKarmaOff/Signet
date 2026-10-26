@@ -15,6 +15,7 @@ import { Pip } from '../windows/pip'
 import { PrivateWindows } from '../windows/private'
 import { SettingsWindow } from '../windows/settings'
 import { WelcomeWindow } from '../windows/welcome'
+import { PasskeyPrompt } from '../windows/passkey'
 import { Swipe } from './swipe'
 import { Bookmarks } from '../features/bookmarks'
 import { SitePanel } from './sitepanel'
@@ -63,7 +64,7 @@ import { Views } from './views'
 import { MainWindow } from './window'
 
 /**
- * Composition root: creates the browser's parts and links them. It holds no logic — see `model/`
+ * Composition root: creates the browser's parts and links them. It holds no logic; see `model/`
  * (state rules), `views.ts` (pages), `layout.ts` + `broadcast.ts` (window and broadcast), `overlay.ts` + `peek.ts`
  * (overlays), and the `*-actions.ts` (user gestures).
  *
@@ -81,6 +82,7 @@ export class Browser {
   readonly boosts = new Boosts(this)
   readonly settings = new SettingsWindow(this)
   readonly welcome = new WelcomeWindow(this)
+  readonly passkeys = new PasskeyPrompt(this)
   readonly swipe = new Swipe(this)
   readonly bookmarks = new Bookmarks(this)
   readonly library = new LibraryWindow(this)

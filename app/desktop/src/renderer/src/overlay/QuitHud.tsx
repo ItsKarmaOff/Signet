@@ -28,26 +28,29 @@ export function QuitHud() {
 }
 
 /**
- * Until a key repeat proves a held press, the gauge runs at normal speed up to the expected repeat,
- * then slows down smoothly (it never stops dead) and gains at most KNEE more. Catch-up speed: × the normal speed.
+ * Until a key repeat proves a held press, the gauge only creeps (ease-in) up to CREEP at the expected
+ * repeat time and stays there: a tap barely moves it. The first repeat then lets it fill up to 100% over the rest of the hold.
+ * Catch-up speed: × the normal speed.
  */
-const KNEE = 0.1
+const CREEP = 0.1
 const CATCH_UP = 2
 /** Share used when the main process does not send the expected repeat delay. */
 const DEFAULT_WAIT_SHARE = 0.4
 
-/** Gauge target `x` (elapsed share of the hold) before the repeat: linear up to `xw`, then easing toward `xw + KNEE`. */
-function waitingTarget(x: number, xw: number): number {
-  return x <= xw ? x : xw + KNEE * Math.tanh((x - xw) / KNEE)
+/** Gauge target at time `t` (ms since the press) for a hold of `d` ms with the first repeat expected at `w`. */
+function gaugeTarget(t: number, d: number, w: number, repeating: boolean): number {
+  if (!repeating) return CREEP * Math.min(1, t / w) ** 2
+  return Math.min(1, CREEP + ((1 - CREEP) * Math.max(0, t - w)) / Math.max(1, d - w))
 }
 
 /**
  * Gauge: animated here, frame by frame, from the start of the press sent by the main process (a single message).
- * On release it returns toward zero from its current value (CSS transition).
+ * On release it freezes at once at its current value (no easing); a new press starts again from zero.
  */
 function Gauge({ st }: { st: QuitHudState }) {
   const ref = useRef<HTMLDivElement>(null)
   const live = useRef(0)
+  const lastStart = useRef<number | undefined>(undefined)
   const { holding, start, duration, wait, repeating } = st
   // `repeating` changes mid-press: the loop reads the latest value without restarting.
   const repeatRef = useRef(false)
@@ -57,21 +60,20 @@ function Gauge({ st }: { st: QuitHudState }) {
     const el = ref.current
     if (!el) return
     if (!holding || start === undefined || !duration) {
-      el.style.transform = 'scaleX(0)'
-      live.current = 0
+      // Released: the loop is cancelled and the gauge stays where it is (the pill is remounted on each display).
       return
     }
-    // Resumes from the current value (a return during the recoil has no jump): the transition is off during the press.
-    const current = new DOMMatrixReadOnly(getComputedStyle(el).transform).a
-    live.current = Number.isFinite(current) ? current : 0
+    // Same press resumed after a wrong release guess: continues from the frozen value; a new press starts from zero.
+    if (lastStart.current !== start) live.current = 0
+    lastStart.current = start
     let raf = 0
     let last = performance.now()
     const frame = (now: number) => {
       const dt = now - last
       last = now
-      const x = Math.max(0, (Date.now() - start) / duration)
-      const xw = wait !== undefined ? wait / duration : DEFAULT_WAIT_SHARE
-      const target = Math.min(1, repeatRef.current ? x : waitingTarget(x, xw))
+      const t = Math.max(0, Date.now() - start)
+      const w = Math.max(1, wait ?? duration * DEFAULT_WAIT_SHARE)
+      const target = gaugeTarget(t, duration, w, repeatRef.current)
       // Catches up to its target at most CATCH_UP times the normal speed: no jump when the repeat arrives late.
       live.current = Math.min(target, live.current + (dt * CATCH_UP) / duration)
       el.style.transform = `scaleX(${live.current})`

@@ -1,4 +1,4 @@
-import { StrictMode, type ComponentType } from 'react'
+import { StrictMode, useEffect, type ComponentType, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { I18nextProvider } from 'react-i18next'
 import { createI18n } from '@signet/shared/i18n'
@@ -12,11 +12,22 @@ import { QuitHud } from './overlay/QuitHud'
 import { ToastWindow } from './overlay/Toast'
 import { Recovery, reportUiError } from './windows/Recovery'
 
+// Boot marker, read by the main process watchdog (guard.ts): 'started' -> 'ready', or 'retrying' on a startup failure.
+document.documentElement.dataset.boot = 'started'
+
 // Without a bridge script (`preload` unreadable at launch, e.g. during a build), nothing can work:
 // we reload a bit later rather than crash silently (the main process reloads too, see guard.ts).
 if (!window.signet) {
   setTimeout(() => location.reload(), 1500)
   throw new Error('preload absent : rechargement')
+}
+
+/** Marks the boot as done once the first commit is in (effects run even in a hidden window, unlike animation frames). */
+function Ready({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    document.documentElement.dataset.boot = 'ready'
+  }, [])
+  return children
 }
 
 // One class per route sets the backgrounds (see styles/).
@@ -29,6 +40,7 @@ const ROUTES: Record<string, string> = {
   '#boost': 'boost',
   '#settings': 'settings',
   '#welcome': 'welcome',
+  '#passkey': 'passkey',
   '#library': 'library',
   '#pip': 'pip',
   '#quit': 'quit',
@@ -67,6 +79,7 @@ const LAZY: Record<string, () => Promise<ComponentType>> = {
   boost: () => import('./overlay/Boost').then((m) => m.Boost),
   settings: () => import('./settings/Settings').then((m) => m.Settings),
   welcome: () => import('./windows/Welcome').then((m) => m.Welcome),
+  passkey: () => import('./windows/Passkey').then((m) => m.Passkey),
   library: () => import('./windows/Library').then((m) => m.Library),
   pip: () => import('./windows/Pip').then((m) => m.Pip),
   private: () => import('./windows/Private').then((m) => m.Private),
@@ -131,9 +144,11 @@ void Promise.resolve()
     createRoot(document.getElementById('root')!).render(
       <StrictMode>
         <I18nextProvider i18n={i18n}>
-          <Recovery route={route}>
-            <View />
-          </Recovery>
+          <Ready>
+            <Recovery route={route}>
+              <View />
+            </Recovery>
+          </Ready>
         </I18nextProvider>
       </StrictMode>
     )
@@ -141,6 +156,7 @@ void Promise.resolve()
   // Startup impossible (UI chunk unreadable, e.g. during an update): log, then retry.
   .catch((error: unknown) => {
     reportUiError(route, error, 'startup')
+    document.documentElement.dataset.boot = 'retrying'
     // Retry, increasingly spaced (1.5 s, 3 s, 6 s… 30 s at most): the view eventually comes back as soon as the code is
     // readable again, without ever staying empty (an empty, transparent view is invisible).
     const tries = (() => {

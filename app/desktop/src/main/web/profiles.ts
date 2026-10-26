@@ -5,9 +5,10 @@ import { join } from 'node:path'
 import type { Space } from '@shared/types'
 import type { Browser } from '../browser/browser'
 import { applyLanguages, applySpellcheck } from './languages'
+import { webauthnInterceptEnabled } from './webauthn'
 import { attachInternal } from './internal'
 import { attachUiProtocol } from '../browser/uiprotocol'
-import { identityPath, notesPath, passwordsPath, swipePath } from '../core/urls'
+import { identityPath, notesPath, passwordsPath, swipePath, webauthnPath } from '../core/urls'
 
 let browser: Browser | null = null
 const configured = new WeakSet<Session>()
@@ -89,6 +90,16 @@ function registerIdentity(ses: Session): void {
   }
 }
 
+/** Passkey requests answered by Signet (cancelled for now) where Electron would leave the page hanging. */
+function registerWebAuthn(ses: Session): void {
+  if (!webauthnInterceptEnabled()) return
+  try {
+    ses.registerPreloadScript({ id: 'signet-webauthn', type: 'frame', filePath: webauthnPath })
+  } catch (e) {
+    console.error('WebAuthn: page script unavailable', e)
+  }
+}
+
 /** Settings common to all sessions, applied only once per session. */
 export function configureSession(ses: Session): void {
   if (!browser || configured.has(ses)) return
@@ -103,6 +114,7 @@ export function configureSession(ses: Session): void {
   attachInternal(ses, browser)
   attachUiProtocol(ses)
   registerIdentity(ses)
+  registerWebAuthn(ses)
   // Swipe to navigate: the script decides by itself whether to act (a tab's main frame), the main process filters the rest.
   try {
     ses.registerPreloadScript({ id: 'signet-swipe', type: 'frame', filePath: swipePath })
@@ -141,6 +153,7 @@ export function configurePrivateSession(ses: Session): void {
   attachInternal(ses, browser)
   attachUiProtocol(ses)
   registerIdentity(ses)
+  registerWebAuthn(ses)
   try {
     ses.registerPreloadScript({ id: 'signet-swipe', type: 'frame', filePath: swipePath })
   } catch (e) {

@@ -78,7 +78,7 @@ function MediaChipView({ media, tab, closing }: { media: MediaInfo; tab?: TabInf
   const signet = window.signet
   const [failed, setFailed] = useState<string | null>(null)
   const cover = media.artwork && failed !== media.artwork ? media.artwork : undefined
-  const label = media.artist ? `${media.title} — ${media.artist}` : media.title
+  const label = media.artist ? `${media.title} - ${media.artist}` : media.title
   return (
     <div
       className={`media-chip${closing ? ' closing' : ''}`}

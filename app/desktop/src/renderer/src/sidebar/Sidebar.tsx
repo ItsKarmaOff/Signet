@@ -22,7 +22,7 @@ import { DownloadFlight, DownloadsPanel, progressOf, useNewDownload, useUnseenDo
 import { useExit } from '../lib/useExit'
 import { DRAG_FAVORITE_MIME, DRAG_MIME } from '../lib/util'
 
-// Same bounds as main (store.ts): 180–420 px, the rubber band covers the rest during the gesture.
+// Same bounds as main (store.ts): 180-420 px, the rubber band covers the rest during the gesture.
 const SIDEBAR_MIN = 180
 const SIDEBAR_MAX = 420
 

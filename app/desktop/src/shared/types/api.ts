@@ -24,7 +24,7 @@ import type { BrowsingDataKind, SettingsInfo } from './settings'
 import type { PermissionState, SitePermissionEntry } from './permissions'
 import type { Snapshot, StatePatch } from './state'
 import type { CaptureTarget, DragSource, DropTarget, FindState, IconTarget, TabPreviewPayload } from './tabs'
-import type { LittleState, PipCommand, PipState, PrivateState, WebAppState, WebAppsInfo } from './windows'
+import type { LittleState, PasskeyPromptState, PasskeyStatus, PipCommand, PipState, PrivateState, WebAppState, WebAppsInfo } from './windows'
 
 /**
  * API exposed to the UI by the preload under `window.signet`.
@@ -384,6 +384,14 @@ export interface SignetApi {
   privateCloseTab(tabId: string): Promise<void>
   privateNavigate(input: string): Promise<void>
   openPrivateWindow(): Promise<void>
+
+  // Passkey from a phone (`#passkey` window)
+  /** The request waiting for a phone (QR code to show), or null if there is none anymore. */
+  getPasskeyPrompt(): Promise<PasskeyPromptState | null>
+  /** Cancels the request (button, Escape): the site gets a refusal and offers its other methods. */
+  cancelPasskeyPrompt(): Promise<void>
+  /** The request moved on (Bluetooth state, phone found). */
+  onPasskeyStatus(cb: (status: PasskeyStatus) => void): () => void
 
   // Apps (installed sites: `webapp` overlay, Settings › Apps)
   /** Installs the site offered by the overlay (`token`) under this name, with this icon (1024 px PNG as a data URL). */

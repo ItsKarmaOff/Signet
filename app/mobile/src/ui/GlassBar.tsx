@@ -12,7 +12,7 @@ export interface GlassBarProps {
   edge?: 'top' | 'bottom' | 'none'
   /** Floating bar: rounded corners and shadow (for the address bar), otherwise full width. */
   floating?: boolean
-  /** Blur strength (0–100). */
+  /** Blur strength (0-100). */
   intensity?: number
   style?: StyleProp<ViewStyle>
 }

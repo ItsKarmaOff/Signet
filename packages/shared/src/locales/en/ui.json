@@ -318,7 +318,7 @@
     },
     "privacy": {
       "adblock": "Block ads and trackers",
-      "archive": "Archived tabs — {{count}}",
+      "archive": "Archived tabs: {{count}}",
       "cache": "Cache",
       "clear": "Clear",
       "clearAllEllipsis": "Clear all…",
@@ -329,11 +329,11 @@
       "confirm": "Permanently clear the selection?",
       "confirmAll": "Clear history, archived tabs, downloads list, cache, cookies, data and permissions of all sites? You will be signed out of sites.",
       "cookies": "Cookies and site data",
-      "downloads": "Downloads list — {{count}}",
-      "history_one": "History — {{count}} entry",
-      "history_other": "History — {{count}} entries",
-      "permissions_one": "Site permissions — {{count}} choice",
-      "permissions_other": "Site permissions — {{count}} choices",
+      "downloads": "Downloads list: {{count}}",
+      "history_one": "History: {{count}} entry",
+      "history_other": "History: {{count}} entries",
+      "permissions_one": "Site permissions: {{count}} choice",
+      "permissions_other": "Site permissions: {{count}} choices",
       "permAllowed": "Allowed",
       "permDenied": "Denied",
       "permEmpty": "No saved choices. Sites that ask for the camera, location or notifications will appear here.",
@@ -947,7 +947,7 @@
     "dockWindow": "Separate window",
     "close": "Close developer tools",
     "resize": "Drag to resize, double-click for the default size",
-    "windowTitle": "Developer Tools — {{site}}"
+    "windowTitle": "Developer Tools - {{site}}"
   },
   "develop": {
     "noCache": "cache disabled",
@@ -962,11 +962,11 @@
       "offline": "offline"
     },
     "ua": {
-      "safari-mac": "Safari — Mac",
-      "safari-iphone": "Safari — iPhone",
-      "safari-ipad": "Safari — iPad",
-      "chrome-android": "Chrome — Android",
-      "firefox-mac": "Firefox — Mac"
+      "safari-mac": "Safari (Mac)",
+      "safari-iphone": "Safari (iPhone)",
+      "safari-ipad": "Safari (iPad)",
+      "chrome-android": "Chrome (Android)",
+      "firefox-mac": "Firefox (Mac)"
     },
     "responsive": "responsive mode ({{device}})",
     "device": {
@@ -988,6 +988,24 @@
     "exitResponsive": "Exit responsive design mode",
     "resizeDevice": "Drag to resize",
     "scaleShort": "{{percent}}%"
+  },
+  "passkey": {
+    "getTitle": "Use a passkey from your phone",
+    "createTitle": "Create a passkey on your phone",
+    "getText": "Scan this QR code with your phone's camera to sign in to {{site}}.",
+    "createText": "Scan this QR code with your phone's camera to create a passkey for {{site}}.",
+    "qrAlt": "QR code to scan with your phone",
+    "hint": "Bluetooth must be on, on this computer and on the phone.",
+    "cancel": "Cancel",
+    "status": {
+      "off": "Bluetooth is off on this computer. Turn it on, then scan the code.",
+      "no-adapter": "No Bluetooth adapter found on this computer.",
+      "denied": "Signet can't access Bluetooth on this computer.",
+      "error": "Signet can't access Bluetooth on this computer.",
+      "connecting": "Phone found. Connecting…",
+      "confirm": "Confirm on your phone.",
+      "failed": "Couldn't connect to the phone. Try again."
+    }
   },
   "welcome": {
     "step": "Step {{current}} of {{total}}",

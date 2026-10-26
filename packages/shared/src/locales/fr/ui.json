@@ -318,7 +318,7 @@
     },
     "privacy": {
       "adblock": "Bloquer les pubs et les traqueurs",
-      "archive": "Onglets archivés — {{count}}",
+      "archive": "Onglets archivés : {{count}}",
       "cache": "Cache",
       "clear": "Effacer",
       "clearAllEllipsis": "Tout effacer…",
@@ -329,12 +329,12 @@
       "confirm": "Effacer définitivement la sélection ?",
       "confirmAll": "Effacer l’historique, les onglets archivés, la liste des téléchargements, le cache, les cookies, les données et les autorisations de tous les sites ? Vous serez déconnecté des sites.",
       "cookies": "Cookies et données des sites",
-      "downloads": "Liste des téléchargements — {{count}}",
-      "history_one": "Historique — {{count}} entrée",
-      "history_other": "Historique — {{count}} entrées",
+      "downloads": "Liste des téléchargements : {{count}}",
+      "history_one": "Historique : {{count}} entrée",
+      "history_other": "Historique : {{count}} entrées",
       "permAllowed": "Autorisé",
-      "permissions_one": "Autorisations des sites — {{count}} choix",
-      "permissions_other": "Autorisations des sites — {{count}} choix",
+      "permissions_one": "Autorisations des sites : {{count}} choix",
+      "permissions_other": "Autorisations des sites : {{count}} choix",
       "permDenied": "Refusé",
       "permEmpty": "Aucun choix enregistré. Les sites qui demandent la caméra, la position ou les notifications apparaîtront ici.",
       "permNames": {
@@ -947,7 +947,7 @@
     "dockWindow": "Dans une fenêtre à part",
     "close": "Fermer les outils",
     "resize": "Glisser pour redimensionner, double-clic pour la taille d’origine",
-    "windowTitle": "Outils de développement — {{site}}"
+    "windowTitle": "Outils de développement - {{site}}"
   },
   "develop": {
     "noCache": "cache désactivé",
@@ -962,11 +962,11 @@
       "offline": "hors ligne"
     },
     "ua": {
-      "safari-mac": "Safari — Mac",
-      "safari-iphone": "Safari — iPhone",
-      "safari-ipad": "Safari — iPad",
-      "chrome-android": "Chrome — Android",
-      "firefox-mac": "Firefox — Mac"
+      "safari-mac": "Safari (Mac)",
+      "safari-iphone": "Safari (iPhone)",
+      "safari-ipad": "Safari (iPad)",
+      "chrome-android": "Chrome (Android)",
+      "firefox-mac": "Firefox (Mac)"
     },
     "responsive": "mode responsive ({{device}})",
     "device": {
@@ -988,6 +988,24 @@
     "exitResponsive": "Quitter le mode responsive",
     "resizeDevice": "Glisser pour changer la taille",
     "scaleShort": "{{percent}} %"
+  },
+  "passkey": {
+    "getTitle": "Utiliser une clé d’accès de votre téléphone",
+    "createTitle": "Créer une clé d’accès sur votre téléphone",
+    "getText": "Scannez ce QR code avec l’appareil photo de votre téléphone pour vous connecter à {{site}}.",
+    "createText": "Scannez ce QR code avec l’appareil photo de votre téléphone pour créer une clé d’accès pour {{site}}.",
+    "qrAlt": "QR code à scanner avec votre téléphone",
+    "hint": "Le Bluetooth doit être activé sur cet ordinateur et sur le téléphone.",
+    "cancel": "Annuler",
+    "status": {
+      "off": "Le Bluetooth est désactivé sur cet ordinateur. Activez-le, puis scannez le code.",
+      "no-adapter": "Aucun adaptateur Bluetooth trouvé sur cet ordinateur.",
+      "denied": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
+      "error": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
+      "connecting": "Téléphone trouvé. Connexion…",
+      "confirm": "Confirmez sur votre téléphone.",
+      "failed": "Connexion au téléphone impossible. Réessayez."
+    }
   },
   "welcome": {
     "step": "Étape {{current}} sur {{total}}",

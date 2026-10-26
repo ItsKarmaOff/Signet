@@ -21,7 +21,8 @@
     "library": "Library",
     "private": "Private Browsing",
     "boost": "Boost · {{site}}",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "passkey": "Passkey"
   },
   "dialog": {
     "cancel": "Cancel",
@@ -694,7 +695,7 @@
     "missingDetail": "It was uninstalled from Signet: you can move its launcher to the Trash."
   },
   "devtools": {
-    "windowTitle": "Developer Tools — {{site}}",
+    "windowTitle": "Developer Tools - {{site}}",
     "dockRight": "Dock to Right",
     "dockBottom": "Dock to Bottom",
     "dockWindow": "Separate Window",
@@ -721,11 +722,11 @@
     "uaTitle": "User Agent",
     "ua": {
       "default": "Default (Signet)",
-      "safari-mac": "Safari — Mac",
-      "safari-iphone": "Safari — iPhone",
-      "safari-ipad": "Safari — iPad",
-      "chrome-android": "Chrome — Android",
-      "firefox-mac": "Firefox — Mac"
+      "safari-mac": "Safari (Mac)",
+      "safari-iphone": "Safari (iPhone)",
+      "safari-ipad": "Safari (iPad)",
+      "chrome-android": "Chrome (Android)",
+      "firefox-mac": "Firefox (Mac)"
     },
     "reset": "Reset Tab Settings",
     "palette": {

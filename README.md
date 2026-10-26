@@ -76,11 +76,11 @@ Download the file for your system from the [latest release](https://github.com/I
 | System                              | Intel / AMD (64-bit)           | ARM (64-bit)                                      |
 | ----------------------------------- | ------------------------------ | ------------------------------------------------- |
 | macOS                               | `Signet-X.Y.Z-x64.dmg`         | `Signet-X.Y.Z-arm64.dmg` (Apple Silicon: M1, M2…) |
-| Windows                             | `Signet-X.Y.Z-x64-setup.exe`   | —                                                 |
+| Windows                             | `Signet-X.Y.Z-x64-setup.exe`   | -                                                 |
 | Linux, any distribution (AppImage)  | `Signet-X.Y.Z-x86_64.AppImage` | `Signet-X.Y.Z-arm64.AppImage`                     |
 | Linux: Debian, Ubuntu, Mint (`deb`) | `Signet-X.Y.Z-amd64.deb`       | `Signet-X.Y.Z-arm64.deb`                          |
 | Linux: Fedora, openSUSE (`rpm`)     | `Signet-X.Y.Z-x86_64.rpm`      | `Signet-X.Y.Z-aarch64.rpm`                        |
-| Android                             | —                              | `Signet-X.Y.Z-android-arm64.apk`                  |
+| Android                             | -                              | `Signet-X.Y.Z-android-arm64.apk`                  |
 
 The apps are not signed with a paid certificate yet, so your system will warn you the first time:
 

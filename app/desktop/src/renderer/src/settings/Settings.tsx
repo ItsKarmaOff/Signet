@@ -254,7 +254,7 @@ function Developer({ info }: { info: SettingsInfo }) {
   const { t } = useTranslation()
   const { settings } = info
   const on = settings.devMode === true
-  const keys = (id: string) => shortcutLabel(id, settings.shortcuts, IS_MAC) || '—'
+  const keys = (id: string) => shortcutLabel(id, settings.shortcuts, IS_MAC) || '-'
   return (
     <>
       <Group>

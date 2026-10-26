@@ -21,7 +21,8 @@
     "library": "Bibliothèque",
     "private": "Navigation privée",
     "boost": "Boost · {{site}}",
-    "welcome": "Bienvenue"
+    "welcome": "Bienvenue",
+    "passkey": "Clé d'accès"
   },
   "dialog": {
     "cancel": "Annuler",
@@ -694,7 +695,7 @@
     "missingDetail": "Elle a été désinstallée de Signet : vous pouvez mettre son lanceur à la corbeille."
   },
   "devtools": {
-    "windowTitle": "Outils de développement — {{site}}",
+    "windowTitle": "Outils de développement - {{site}}",
     "dockRight": "À droite",
     "dockBottom": "En bas",
     "dockWindow": "Dans une fenêtre à part",
@@ -721,11 +722,11 @@
     "uaTitle": "Agent utilisateur",
     "ua": {
       "default": "Par défaut (Signet)",
-      "safari-mac": "Safari — Mac",
-      "safari-iphone": "Safari — iPhone",
-      "safari-ipad": "Safari — iPad",
-      "chrome-android": "Chrome — Android",
-      "firefox-mac": "Firefox — Mac"
+      "safari-mac": "Safari (Mac)",
+      "safari-iphone": "Safari (iPhone)",
+      "safari-ipad": "Safari (iPad)",
+      "chrome-android": "Chrome (Android)",
+      "firefox-mac": "Firefox (Mac)"
     },
     "reset": "Réinitialiser les réglages de l’onglet",
     "palette": {
