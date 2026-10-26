@@ -5,7 +5,13 @@ const INTERVAL = 1500
 /** After this many identical samples in a row, or this ceiling (animated header), the tab is only probed every `SLOW_INTERVAL` ms. */
 const STABLE_AFTER = 4
 const MAX_SAMPLES = 12
-const SLOW_INTERVAL = 15_000
+const SLOW_INTERVAL = 5000
+/** In slow mode, a sample that differs from the previous one wakes the tab up (fast probes again) at most this many times per navigation or interaction, so an animated header ends up slow. */
+const MAX_WAKES = 2
+/** After a click or a key press (usual trigger of an in-page color change), samples (ms) spread over a few seconds to catch transitions and fetches. */
+const INTERACTION_BURST = [100, 300, 700, 1300, 2200]
+/** At most one interaction burst per this delay (ms), typing must not restart one per key. */
+const INTERACTION_DEBOUNCE = 500
 /** After a navigation, closely spaced samples (ms) to follow the page from its first renders. */
 const BURST = [60, 200, 450, 900]
 /** Sampled row (px): under the loading bars stuck to the top (YouTube, GitHub…), in the header. */
@@ -43,7 +49,8 @@ export class SiteColor {
   private meta = new Map<string, string>()
   private shown = new Set<string>()
   /** Per-tab tracking: last sampled color, identical samples in a row, total since the last navigation, date of the last one. */
-  private stable = new Map<string, { color: string | null; same: number; n: number; at: number }>()
+  private stable = new Map<string, { color: string | null; same: number; n: number; wakes: number; at: number }>()
+  private lastInteraction = new Map<string, number>()
   private bursts = new Map<string, NodeJS.Timeout[]>()
   private timer: NodeJS.Timeout
 
@@ -65,25 +72,37 @@ export class SiteColor {
     wc.on('did-change-theme-color', (_e, color) => {
       if (color) this.meta.set(tabId, color.slice(0, 7))
       else this.meta.delete(tabId)
+      this.burst(tabId, INTERACTION_BURST)
     })
+    // Interaction: a click or a key press often changes the page colors (theme toggle, SPA view). Events are only observed.
+    wc.on('before-mouse-event', (_e, mouse) => mouse.type === 'mouseUp' && this.interact(tabId))
+    wc.on('before-input-event', (_e, input) => input.type === 'keyDown' && this.interact(tabId))
     wc.once('destroyed', () => {
       for (const t of this.bursts.get(tabId) ?? []) clearTimeout(t)
       this.bursts.delete(tabId)
       this.meta.delete(tabId)
       this.inflight.delete(tabId)
       this.stable.delete(tabId)
+      this.lastInteraction.delete(tabId)
     })
+  }
+
+  private interact(tabId: string): void {
+    const now = Date.now()
+    if (now - (this.lastInteraction.get(tabId) ?? -Infinity) < INTERACTION_DEBOUNCE) return
+    this.lastInteraction.set(tabId, now)
+    this.burst(tabId, INTERACTION_BURST)
   }
 
   /** Burst of samples after a page event, the previous one is canceled.
    * A tab neither displayed nor detached (Peek, Little Signet) is not sampled: `onShown` will do it when it returns. */
-  private burst(tabId: string): void {
+  private burst(tabId: string, delays = BURST): void {
     for (const t of this.bursts.get(tabId) ?? []) clearTimeout(t)
     this.stable.delete(tabId)
     const visible = () => this.shown.has(tabId) || this.b.store.detached.has(tabId)
     this.bursts.set(
       tabId,
-      BURST.map((ms) => setTimeout(() => visible() && void this.sample(tabId, true), ms))
+      delays.map((ms) => setTimeout(() => visible() && void this.sample(tabId, true), ms))
     )
   }
 
@@ -136,7 +155,12 @@ export class SiteColor {
     const tab = this.b.store.state.tabs[tabId]
     if (!tab) return
     const st = this.stable.get(tabId)
-    this.stable.set(tabId, { color, same: st && st.color === color ? st.same + 1 : 0, n: (st?.n ?? 0) + 1, at: Date.now() })
+    const changed = !!st && st.color !== color
+    let entry = { color, same: changed || !st ? 0 : st.same + 1, n: (st?.n ?? 0) + 1, wakes: st?.wakes ?? 0, at: Date.now() }
+    // Slow mode and the color moved: probe fast again for a few samples, but only MAX_WAKES times (animated header).
+    if (st && changed && (st.same >= STABLE_AFTER || st.n >= MAX_SAMPLES) && st.wakes < MAX_WAKES)
+      entry = { ...entry, n: Math.min(entry.n, MAX_SAMPLES - STABLE_AFTER), wakes: st.wakes + 1 }
+    this.stable.set(tabId, entry)
     const next = color ?? this.meta.get(tabId)
     if (next && tab.themeColor !== next) this.b.broadcast.patchTab(tabId, { themeColor: next })
   }
