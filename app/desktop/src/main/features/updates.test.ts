@@ -31,7 +31,8 @@ const updater = vi.hoisted(() => ({
   downloadUpdate: vi.fn(async () => []),
   quitAndInstall: vi.fn()
 }))
-vi.mock('electron-updater', () => ({ autoUpdater: updater }))
+// Same shape as the built app sees it: `autoUpdater` only under `default` (CommonJS getter, see `Updates.load`).
+vi.mock('electron-updater', () => ({ default: { autoUpdater: updater } }))
 
 // Message key, followed by its parameters: enough to tell the messages apart.
 vi.mock('../app/i18n', () => ({ t: (key: string, params?: object) => (params ? `${key} ${JSON.stringify(params)}` : key) }))
