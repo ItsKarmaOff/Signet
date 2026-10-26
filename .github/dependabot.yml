@@ -1,0 +1,54 @@
+# Dependabot: weekly pull requests that update the dependencies, into dev (the default branch).
+# Commit messages follow docs/git/commit-policy.md ("build(deps): bump …", "ci(deps): bump …"), so the
+# "commit messages" check passes; the "branch name" check accepts dependabot/* branches into dev.
+version: 2
+updates:
+  # npm: one lockfile at the root for every workspace (app/desktop, app/mobile, packages/shared).
+  - package-ecosystem: npm
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: build(deps)
+    groups:
+      # The mobile app's Expo SDK packages move together (patch versions only, see `ignore`).
+      expo:
+        patterns: ['expo', 'expo-*', '@expo/*', 'react-native-*', '@react-native/*', '@react-native-*/*']
+      # Everything else: one pull request for the minor and patch updates; a major update gets its own.
+      minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # TypeScript stays on 6.0.x: typescript-eslint doesn't support 6.1 yet.
+      - dependency-name: typescript
+        versions: ['>=6.1.0']
+      # React Native needs the exact React version of its renderer, and an Expo SDK pins React Native and its
+      # modules: they change with an SDK upgrade (npx expo install --fix), not one by one.
+      - dependency-name: react
+      - dependency-name: react-dom
+      - dependency-name: react-native
+      - dependency-name: 'expo'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'expo-*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: '@expo/*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: 'react-native-*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+      - dependency-name: '@react-native/*'
+        update-types: ['version-update:semver-major', 'version-update:semver-minor']
+
+  # GitHub Actions used by the workflows (actions/checkout, actions/setup-node…), in one pull request.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci(deps)
+    groups:
+      actions:
+        patterns: ['*']
