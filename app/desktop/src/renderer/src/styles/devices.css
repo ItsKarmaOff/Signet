@@ -1,0 +1,39 @@
+/* Settings › Devices: phone list and pairing QR code. */
+.dv-icon {
+  flex: none;
+  color: var(--text-2);
+}
+.dv-row .switch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.dv-off .dv-icon,
+.dv-off .st-label {
+  opacity: 0.6;
+}
+.dv-qr {
+  flex: none;
+  /* Big enough for an average phone's camera. */
+  width: 232px;
+  height: 232px;
+  border-radius: var(--r-row);
+  /* A QR code reads as black on white, whatever the theme. */
+  background: #fff;
+  overflow: hidden;
+}
+.dv-qr img,
+.dv-qr-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dv-qr img {
+  image-rendering: pixelated;
+}
+.dv-pair .st-row {
+  align-items: flex-start;
+  gap: var(--s3);
+}
+.toolbar button.icon.phone-btn {
+  color: var(--text-2);
+}

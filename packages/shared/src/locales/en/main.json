@@ -1,0 +1,794 @@
+{
+  "defaults": {
+    "folder": "New folder",
+    "folderFallback": "Folder",
+    "space": "Personal",
+    "spaceNumbered": "Space {{number}}",
+    "bookmarkFolder": "New Folder"
+  },
+  "appIcon": {
+    "aurore": "Aurora",
+    "ocean": "Ocean",
+    "corail": "Coral",
+    "menthe": "Mint",
+    "nuit": "Night",
+    "papier": "Paper",
+    "graphite": "Graphite",
+    "or": "Gold"
+  },
+  "window": {
+    "settings": "Settings",
+    "library": "Library",
+    "private": "Private Browsing",
+    "boost": "Boost · {{site}}",
+    "welcome": "Welcome"
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "ok": "OK",
+    "deleteFolder": {
+      "message": "Delete the folder “{{name}}” and its tabs?",
+      "detail": "The tabs it contains will be closed.",
+      "confirm": "Delete"
+    },
+    "deleteSpace": {
+      "message": "Delete the space “{{name}}”?",
+      "detail": "This removes {{summary}}. You can undo right after.",
+      "detailEmpty": "You can undo right after.",
+      "isolatedNote": "This space has an isolated profile: its cookies and sign-ins will be erased for good once the undo window has passed.",
+      "tabs_one": "{{count}} tab",
+      "tabs_other": "{{count}} tabs",
+      "folders_one": "{{count}} folder",
+      "folders_other": "{{count}} folders",
+      "bookmarks_one": "{{count}} bookmark",
+      "bookmarks_other": "{{count}} bookmarks",
+      "confirm": "Delete"
+    },
+    "clearSpaceData": {
+      "message": "Clear the data of the space “{{name}}”?",
+      "detail": "Cookies, local storage and cache of this space will be deleted; you will be signed out of its accounts.",
+      "confirm": "Clear"
+    },
+    "isolateProfile": {
+      "message": "Isolate the profile of the space “{{name}}”?",
+      "detail": "The tabs of this space will reload. Signed-in accounts will not be shared with the other spaces.",
+      "confirm": "Continue"
+    },
+    "shareProfile": {
+      "message": "Share the profile of the space “{{name}}”?",
+      "detail": "The tabs of this space will reload. They will regain the signed-in accounts of the other shared spaces.",
+      "confirm": "Continue"
+    },
+    "permission": {
+      "detail": "You can change this choice in the site panel.",
+      "allow": "Allow",
+      "deny": "Block",
+      "later": "Not now",
+      "media": "{{origin}} is asking for access to the camera and microphone",
+      "camera": "{{origin}} is asking for access to the camera",
+      "microphone": "{{origin}} is asking for access to the microphone",
+      "geolocation": "{{origin}} is asking for access to your location",
+      "notifications": "{{origin}} is asking for permission to send notifications",
+      "clipboard-read": "{{origin}} is asking for access to the clipboard",
+      "midi": "{{origin}} is asking for access to MIDI devices",
+      "display-capture": "{{origin}} is asking for access to screen sharing"
+    },
+    "display": {
+      "message": "Choose what to share with {{origin}}",
+      "screen": "Screen {{n}}",
+      "cancel": "Cancel"
+    },
+    "external": {
+      "message": "Open a link with an external application (“{{scheme}}”)?",
+      "detail": "{{url}}",
+      "open": "Open"
+    },
+    "extension": {
+      "message": "Add “{{name}}”?",
+      "detail": "This extension will be able to:\n{{permissions}}",
+      "detailNone": "This extension does not ask for any particular permission.",
+      "more_one": "…and {{count}} more",
+      "more_other": "…and {{count}} more",
+      "perm": {
+        "allSites": "Read and change all your data on all websites",
+        "hosts": "Read and change your data on {{hosts}}",
+        "hostsMore": "Read and change your data on {{hosts}} and {{count}} more sites",
+        "tabs": "Read your browsing activity (open tabs and their addresses)",
+        "history": "Read and change your browsing history",
+        "topSites": "Read the sites you visit most",
+        "bookmarks": "Read and change your bookmarks",
+        "cookies": "Read and change your cookies",
+        "webRequest": "Observe and block network requests",
+        "declarativeNetRequest": "Block or modify content on pages",
+        "downloads": "Manage your downloads",
+        "clipboardRead": "Read data you copy",
+        "clipboardWrite": "Write to the clipboard",
+        "notifications": "Show notifications",
+        "nativeMessaging": "Communicate with programs on your computer",
+        "geolocation": "Know your location",
+        "management": "Manage your other extensions",
+        "proxy": "Control how the browser connects to the internet",
+        "debugger": "Debug pages and read everything they contain",
+        "privacy": "Change your privacy settings",
+        "identity": "Know your identity and sign you in",
+        "desktopCapture": "Capture the content of your screen or tabs",
+        "pageCapture": "Save pages as files",
+        "browsingData": "Clear your browsing data"
+      },
+      "add": "Add"
+    },
+    "removeExtension": {
+      "confirm": "Remove",
+      "detail": "The extension and its data will be removed from all your spaces.",
+      "message": "Remove “{{name}}”?"
+    },
+    "passwordExtension": {
+      "failed": "Couldn’t install {{name}}. Try again from the Chrome Web Store."
+    }
+  },
+  "sitePanel": {
+    "media": "Camera and microphone",
+    "geolocation": "Location",
+    "notifications": "Notifications",
+    "clipboard-read": "Clipboard",
+    "midi": "MIDI devices",
+    "display-capture": "Screen sharing"
+  },
+  "menu": {
+    "settings": "Settings…",
+    "app": {
+      "about": "About Signet",
+      "hide": "Hide Signet",
+      "hideOthers": "Hide Others",
+      "showAll": "Show All",
+      "quit": "Quit Signet"
+    },
+    "file": {
+      "title": "File",
+      "newTab": "New Tab",
+      "newLittleSignet": "New Little Signet Window",
+      "newPrivateWindow": "New Private Window",
+      "reopenTab": "Reopen Closed Tab",
+      "closeTab": "Close Tab",
+      "closeWindow": "Close Window",
+      "savePage": "Save Page As…",
+      "exportPdf": "Export as PDF…",
+      "print": "Print…",
+      "capture": "Take Screenshot…",
+      "newNote": "New Note",
+      "newEasel": "New Easel",
+      "installApp": "Install This Site as App…"
+    },
+    "edit": {
+      "title": "Edit",
+      "undo": "Undo",
+      "redo": "Redo",
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "pasteMatchStyle": "Paste and Match Style",
+      "selectAll": "Select All",
+      "find": "Find…",
+      "findNext": "Find Next",
+      "findPrevious": "Find Previous"
+    },
+    "view": {
+      "title": "View",
+      "toggleSidebar": "Show Sidebar",
+      "compact": "Compact Mode",
+      "reload": "Reload",
+      "hardReload": "Force Reload",
+      "zoomIn": "Zoom In",
+      "zoomOut": "Zoom Out",
+      "actualSize": "Actual Size",
+      "customizeSite": "Customize This Site…",
+      "fullScreen": "Enter Full Screen",
+      "devTools": "Developer Tools",
+      "tabsTop": "Tabs on Top",
+      "showBookmarksBar": "Show Bookmarks Bar",
+      "hideBookmarksBar": "Hide Bookmarks Bar",
+      "reader": "Reader Mode",
+      "translate": "Translate Page",
+      "viewSource": "View Page Source",
+      "mods": "Interface Mods",
+      "reloadInterface": "Reload Interface",
+      "jsConsole": "JavaScript Console"
+    },
+    "navigate": {
+      "title": "Navigate",
+      "back": "Back",
+      "forward": "Forward",
+      "openAddress": "Open Address",
+      "library": "Library",
+      "copyUrl": "Copy URL",
+      "togglePin": "Pin / Unpin Tab",
+      "splitView": "Split View",
+      "nextTab": "Next Tab",
+      "previousTab": "Previous Tab",
+      "nextSpace": "Next Space",
+      "previousSpace": "Previous Space",
+      "space": "Space {{number}}",
+      "tab": "Tab {{number}}",
+      "lastTab": "Last Tab",
+      "toggleBookmark": "Bookmark / Remove Bookmark"
+    },
+    "window": {
+      "title": "Window",
+      "minimize": "Minimize",
+      "zoom": "Zoom",
+      "bringAllToFront": "Bring All to Front"
+    },
+    "page": {
+      "openInNewTab": "Open in New Tab",
+      "openInPeek": "Open in Peek",
+      "openInSplit": "Open in Split View",
+      "openInPrivate": "Open in Private Window",
+      "copyLink": "Copy Link",
+      "openImageInNewTab": "Open Image in New Tab",
+      "copyImage": "Copy Image",
+      "saveImage": "Save Image",
+      "search": "Search for “{{text}}”",
+      "back": "Back",
+      "forward": "Forward",
+      "reload": "Reload",
+      "pip": "Picture in Picture",
+      "customizeSite": "Customize This Site…",
+      "inspect": "Inspect",
+      "noSuggestions": "No Suggestions",
+      "addToDictionary": "Add to Dictionary",
+      "savePage": "Save As…",
+      "print": "Print…",
+      "translate": "Translate to {{language}}",
+      "showOriginal": "Show Original",
+      "reader": "Open in Reader Mode",
+      "exitReader": "Exit Reader Mode",
+      "viewSource": "View Page Source",
+      "capture": "Take Screenshot…",
+      "installApp": "Install as App…",
+      "openInApp": "Open in “{{name}}” App"
+    },
+    "tab": {
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "addFavorite": "Add to Favorites",
+      "removeFavorite": "Remove from Favorites",
+      "splitWithActive": "Split View with Active Tab",
+      "removeFromSplit": "Remove from Split View",
+      "leaveGroup": "Remove from Group",
+      "layout": "Layout",
+      "layoutColumns": "Side by Side",
+      "layoutRows": "Stacked",
+      "layoutGrid": "Grid",
+      "equalize": "Equalize Panes",
+      "duplicate": "Duplicate",
+      "copyUrl": "Copy URL",
+      "moveUp": "Move Up",
+      "moveDown": "Move Down",
+      "moveToSpace": "Move to Space",
+      "alwaysOpenIn": "Always open {{site}} in",
+      "stopRouting": "Stop Routing This Site",
+      "addToFolder": "Add to Folder",
+      "newFolder": "New Folder",
+      "rename": "Rename…",
+      "chooseIcon": "Choose an Icon…",
+      "resetNameAndIcon": "Reset Name and Icon",
+      "close": "Close",
+      "unload": "Unload",
+      "addBookmark": "Add to Bookmarks",
+      "removeBookmark": "Remove from Bookmarks",
+      "installApp": "Install as App…",
+      "openInApp": "Open in “{{name}}” App",
+      "openOnPhone": "Open on my phone"
+    },
+    "group": {
+      "rename": "Rename",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "pin": "Pin Group",
+      "ungroup": "Ungroup",
+      "close": "Close Group"
+    },
+    "folder": {
+      "rename": "Rename",
+      "newInside": "New Folder Inside",
+      "color": "Color",
+      "colorNone": "None",
+      "unpin": "Unpin",
+      "delete": "Delete Folder",
+      "deleteWithTabs": "Delete Folder and Its Tabs",
+      "hue": {
+        "red": "Red",
+        "orange": "Orange",
+        "yellow": "Yellow",
+        "green": "Green",
+        "turquoise": "Turquoise",
+        "blue": "Blue",
+        "purple": "Purple",
+        "pink": "Pink"
+      },
+      "refresh": "Refresh",
+      "editSource": "Edit Source…",
+      "newFolder": "New Folder",
+      "newLiveFolder": "New Live Folder…"
+    },
+    "space": {
+      "edit": "Edit Space…",
+      "moveLeft": "Move Left",
+      "moveRight": "Move Right",
+      "isolatedProfile": "Isolated Profile",
+      "clearData": "Clear Space Data…",
+      "delete": "Delete Space…",
+      "newLiveFolder": "New Live Folder…"
+    },
+    "extension": {
+      "hide": "Unpin from Toolbar",
+      "manage": "Manage Extensions…",
+      "options": "Options",
+      "remove": "Remove from Signet…",
+      "pin": "Pin to Toolbar",
+      "all": "Extensions",
+      "pinned": "Pinned to Toolbar",
+      "none": "No extensions with a button"
+    },
+    "bookmark": {
+      "open": "Open",
+      "openInNewTab": "Open in New Tab",
+      "openAll": "Open All in New Tabs",
+      "rename": "Rename…",
+      "delete": "Delete Bookmark",
+      "deleteFolder": "Delete Folder",
+      "newFolder": "New Folder"
+    },
+    "develop": {
+      "title": "Develop"
+    },
+    "help": {
+      "title": "Help",
+      "checkUpdates": "Check for Updates…",
+      "releaseNotes": "Release Notes",
+      "reportIssue": "Report a Problem…",
+      "github": "Signet on GitHub"
+    }
+  },
+  "palette": {
+    "favorites": "Favorites",
+    "goToTab": "Go to tab · {{space}}",
+    "openAddress": "Open this address",
+    "searchWith": "Search for “{{query}}” on {{engine}}",
+    "archived": "Archived · {{url}}",
+    "subtitle": {
+      "on": "On",
+      "off": "Off",
+      "current": "Current",
+      "packagedOnly": "Only works in the packaged app"
+    },
+    "action": {
+      "settings": "Settings",
+      "library": "Library",
+      "newSpace": "New Space",
+      "splitView": "Split View",
+      "unsplit": "Leave Split View",
+      "splitColumns": "Split View: Side by Side",
+      "splitRows": "Split View: Stacked",
+      "splitGrid": "Split View: Grid",
+      "splitEqualize": "Equalize Panes",
+      "toggleSidebar": "Show / Hide Sidebar",
+      "compact": "Compact Mode",
+      "pin": "Pin Tab",
+      "unpin": "Unpin Tab",
+      "addFavorite": "Add to Favorites",
+      "removeFavorite": "Remove from Favorites",
+      "copyUrl": "Copy URL",
+      "newLittleSignet": "New Little Signet Window",
+      "newPrivateWindow": "New Private Window",
+      "pip": "Picture in Picture",
+      "archiveToday": "Archive Today’s Tabs",
+      "closeTab": "Close Tab",
+      "reopenTab": "Reopen Closed Tab",
+      "reload": "Reload",
+      "devTools": "Developer Tools",
+      "peekLinks": "Open External Links from Pinned Tabs in Peek",
+      "adblock": "Ad Blocker",
+      "defaultBrowser": "Set as Default Browser",
+      "appIcon": "App Icon: {{name}}",
+      "newFolder": "New Folder",
+      "goToSpace": "Go to Space {{name}}",
+      "customizeSite": "Customize {{site}}",
+      "boostActive": "Boost active",
+      "tabsTop": "Tabs on Top",
+      "tabsSide": "Tabs on the Side",
+      "print": "Print page",
+      "savePdf": "Export page as PDF",
+      "savePage": "Save page as…",
+      "viewSource": "View page source",
+      "reader": "Reader mode",
+      "exitReader": "Exit reader mode",
+      "translate": "Translate page to {{language}}",
+      "showOriginal": "Show original page",
+      "capture": "Take screenshot",
+      "newLiveFolder": "New live folder",
+      "newNote": "New note",
+      "newEasel": "New Easel",
+      "installApp": "Install this site as an app",
+      "openInApp": "Open in “{{name}}” app",
+      "launchApp": "Open “{{name}}” app",
+      "devToolsRight": "Developer Tools on the Right",
+      "devToolsBottom": "Developer Tools at the Bottom",
+      "devToolsWindow": "Developer Tools in a Window",
+      "jsConsole": "JavaScript Console",
+      "openOnPhone": "Open on my phone"
+    },
+    "openAlias": "Local name → {{url}}"
+  },
+  "import": {
+    "fromApp": "Import from {{name}}",
+    "bookmarks": "Import {{name}} Bookmarks",
+    "bookmarksElided": "Import {{name}} Bookmarks",
+    "folder": {
+      "otherBookmarks": "Other Bookmarks",
+      "syncedBookmarks": "Synced Bookmarks",
+      "bookmarksMenu": "Bookmarks Menu"
+    },
+    "done": "Import complete",
+    "failed": "The import failed",
+    "truncated": "The import is limited to 2,000 tabs: the rest was ignored.",
+    "truncatedBookmarks": "The import is limited to 20,000 bookmarks: the rest was ignored.",
+    "summary": {
+      "bookmarks_one": "{{count}} bookmark imported into the bookmarks folder “{{folder}}”.",
+      "bookmarks_other": "{{count}} bookmarks imported into the bookmarks folder “{{folder}}”.",
+      "bookmarksBar_one": "{{count}} bookmark imported into the bookmarks bar.",
+      "bookmarksBar_other": "{{count}} bookmarks imported into the bookmarks bar.",
+      "spaces_one": "{{count}} space",
+      "spaces_other": "{{count}} spaces",
+      "pinned_one": "{{count}} pinned tab",
+      "pinned_other": "{{count}} pinned tabs",
+      "favorites_one": "{{count}} favorite",
+      "favorites_other": "{{count}} favorites",
+      "tabs_one": "{{count}} tab imported",
+      "tabs_other": "{{count}} tabs imported",
+      "full": "{{parts}} and {{imported}}.",
+      "history_one": "{{count}} page added to the history.",
+      "history_other": "{{count}} pages added to the history.",
+      "passwords_one": "{{count}} password imported.",
+      "passwords_other": "{{count}} passwords imported.",
+      "extensions_one": "{{count}} extension being installed from the Chrome Web Store.",
+      "extensions_other": "{{count}} extensions being installed from the Chrome Web Store."
+    },
+    "error": {
+      "format": "Unrecognized file format.",
+      "noContent": "Nothing to import.",
+      "noBookmarks": "No bookmarks to import."
+    },
+    "safariDenied": {
+      "message": "Access to Safari bookmarks was denied",
+      "detailPackaged": "macOS protects this folder. Grant Signet Full Disk Access in System Settings › Privacy & Security › Full Disk Access.",
+      "detailDev": "macOS protects this folder. Grant Signet Full Disk Access in System Settings › Privacy & Security › Full Disk Access (in development, it is the “Electron” app).",
+      "openSettings": "Open Settings"
+    },
+    "kind": {
+      "spaces": "Spaces",
+      "bookmarks": "Bookmarks",
+      "passwords": "Passwords",
+      "extensions": "Extensions",
+      "history": "History"
+    },
+    "kindFailed": "{{kind}}: {{error}}",
+    "passwordsExisting_one": "{{count}} password was already saved and was kept as is.",
+    "passwordsExisting_other": "{{count}} passwords were already saved and were kept as is.",
+    "passwordsFailed_one": "{{count}} password could not be decrypted.",
+    "passwordsFailed_other": "{{count}} passwords could not be decrypted.",
+    "passwordsFailedMac": "macOS must allow Signet to read the browser’s key in the Keychain: run the import again and click “Allow”.",
+    "passwordsFailedLinux": "The browser’s key is kept in the system keyring: unlock it and check that the “secret-tool” command (libsecret package) is installed, then run the import again.",
+    "passwordsFailedWindows": "Recent versions of the browser lock some passwords to it: export them as a CSV file from the browser, then import that file in Settings › Passwords."
+  },
+  "internal": {
+    "desc": {
+      "settings": "Open the settings",
+      "extensions": "Manage extensions",
+      "about": "About Signet",
+      "library": "Open the library",
+      "history": "Browsing history",
+      "downloads": "Downloaded files",
+      "urls": "List of all internal addresses",
+      "version": "Versions, system and profile information",
+      "settingsSection": {
+        "general": "Settings: General",
+        "appearance": "Settings: Appearance",
+        "privacy": "Settings: Privacy",
+        "import": "Settings: Import",
+        "boosts": "Settings: Boosts",
+        "routing": "Settings: Routing",
+        "extensions": "Settings: Extensions",
+        "shortcuts": "Settings: Shortcuts",
+        "about": "Settings: About",
+        "passwords": "Settings: Passwords",
+        "mods": "Settings: interface mods",
+        "backup": "Settings: Backup",
+        "apps": "Settings: installed apps",
+        "developer": "Settings: developer"
+      },
+      "librarySection": {
+        "history": "Library: History",
+        "archive": "Library: Archive",
+        "downloads": "Library: Downloads",
+        "spaces": "Library: Spaces"
+      },
+      "engine": {
+        "gpu": "Graphics acceleration status",
+        "media-internals": "Media playback diagnostics",
+        "webrtc-internals": "Real-time communication diagnostics",
+        "process-internals": "Processes and site isolation",
+        "accessibility": "Accessibility tree of the open pages",
+        "serviceworker-internals": "Service workers",
+        "indexeddb-internals": "IndexedDB storage",
+        "quota-internals": "Storage quotas",
+        "histograms": "Engine metrics",
+        "tracing": "Performance traces",
+        "ukm": "Usage metrics"
+      }
+    },
+    "urls": {
+      "title": "Internal addresses",
+      "lead": "The signet:// addresses available in Signet.",
+      "shortcuts": "Shortcuts to screens",
+      "pages": "Information pages",
+      "engine": "Technical pages"
+    },
+    "version": {
+      "title": "Version",
+      "app": "Application",
+      "engine": "Chromium",
+      "os": "System",
+      "uiLanguage": "Interface language",
+      "siteLanguages": "Site languages",
+      "userAgent": "User agent",
+      "profile": "Profile folder",
+      "extensions": "Extensions folder"
+    },
+    "notFound": {
+      "title": "Address not found",
+      "text": "This internal address does not exist."
+    }
+  },
+  "pageError": {
+    "title": "Can't open this page",
+    "retry": "Try again",
+    "code": "Error {{code}}",
+    "reason": {
+      "offline": "Your computer doesn't seem to be connected to the internet.",
+      "dns": "The server address could not be found. Check that it is spelled correctly.",
+      "refused": "The server refused the connection.",
+      "reset": "The connection was interrupted.",
+      "timeout": "The server took too long to respond.",
+      "unreachable": "The server can't be reached right now.",
+      "certificate": "The site's security certificate can't be trusted.",
+      "other": "The page could not be loaded."
+    },
+    "crash": {
+      "title": "This page crashed",
+      "text": "Something went wrong while displaying this page.",
+      "retry": "Reload"
+    }
+  },
+  "passwords": {
+    "touchIdReveal": "show the password for {{site}}",
+    "touchIdExport": "export your passwords",
+    "confirm": {
+      "title": "Your system cannot verify your identity. Continue anyway?",
+      "allow": "Continue",
+      "cancel": "Cancel"
+    },
+    "exportFile": "Signet Passwords.csv",
+    "error": {
+      "encryption": "Encryption isn’t available on this system.",
+      "site": "Invalid site address.",
+      "missing": "This password no longer exists.",
+      "password": "Enter a password.",
+      "duplicate": "A password is already saved for this username on this site."
+    },
+    "prompt": {
+      "save": "Save",
+      "update": "Update",
+      "never": "Never for this site",
+      "notNow": "Not now",
+      "saveTitle": "Save the password for {{site}}?",
+      "updateTitle": "Update the password for {{site}}?",
+      "noUsername": "No username"
+    }
+  },
+  "pageTools": {
+    "savePdfTitle": "Export as PDF",
+    "savePageTitle": "Save page",
+    "formatComplete": "Web page, complete",
+    "formatArchive": "Web archive (single file)",
+    "savePdfFailed": "The PDF couldn't be created.",
+    "savePageFailed": "The page couldn't be saved."
+  },
+  "translate": {
+    "failed": "The page couldn't be translated.",
+    "failedDetail": "Check your internet connection, then try again."
+  },
+  "reader": {
+    "smaller": "Smaller text",
+    "bigger": "Larger text",
+    "serif": "Serif",
+    "sans": "Sans serif",
+    "themeAuto": "Automatic (follows the theme)",
+    "themeLight": "Light",
+    "themeSepia": "Sepia",
+    "themeDark": "Dark",
+    "narrow": "Narrow",
+    "narrowTitle": "Narrow column",
+    "normal": "Medium",
+    "normalTitle": "Medium column",
+    "wide": "Wide",
+    "wideTitle": "Wide column",
+    "close": "Exit",
+    "closeTitle": "Exit reader mode (Esc)",
+    "minutes": "{{n}} min read"
+  },
+  "capture": {
+    "saveTitle": "Save screenshot",
+    "saveFailed": "The screenshot couldn't be saved.",
+    "fileName": "Screenshot {{site}} {{date}} at {{time}}"
+  },
+  "liveFolders": {
+    "error": {
+      "address": "Invalid address.",
+      "network": "Couldn't reach the source. Check the address and your connection.",
+      "http": "The source returned an error ({{status}}).",
+      "notFeed": "No RSS or Atom feed at this address.",
+      "noToken": "Add a GitHub token in Settings › General.",
+      "tokenFormat": "This token doesn't look right.",
+      "tokenInvalid": "GitHub rejected this token.",
+      "encryption": "System encryption isn't available, so the token can't be saved."
+    },
+    "github": {
+      "reviewRequested": "Review requests",
+      "mine": "My pull requests"
+    }
+  },
+  "mods": {
+    "exportTitle": "Export mod",
+    "untitled": "Untitled mod"
+  },
+  "notes": {
+    "menu": {
+      "newTab": "New Tab",
+      "newNote": "New Note",
+      "newEasel": "New Easel"
+    }
+  },
+  "backup": {
+    "exportTitle": "Export backup",
+    "fileName": "Signet backup",
+    "fileType": "Signet backup",
+    "touchIdExport": "export your passwords to a backup",
+    "error": {
+      "nothing": "Check at least one item.",
+      "passwordShort": "The backup password must be at least 6 characters.",
+      "auth": "Authentication declined.",
+      "write": "The file couldn't be written.",
+      "invalid": "This file isn't a readable Signet backup.",
+      "wrongPassword": "Wrong backup password.",
+      "encryption": "System encryption is unavailable, so passwords can't be imported.",
+      "safety": "The safety copy couldn't be made, so nothing was imported.",
+      "import": "The import failed. Your data wasn't changed, or the safety copy lets you go back."
+    },
+    "confirm": {
+      "add": "Add the backup's contents?",
+      "replace": "Replace your data with the backup's?",
+      "detail": "Signet will restart. A safety copy of your current data is made just before.",
+      "ok": "Import and restart"
+    }
+  },
+  "webapps": {
+    "cannotInstall": "This page can't become an app",
+    "cannotInstallDetail": "Only a web page (http or https) open in a tab of the main window can be installed as an app.",
+    "missing": "This app is no longer installed",
+    "missingDetail": "It was uninstalled from Signet: you can move its launcher to the Trash."
+  },
+  "devtools": {
+    "windowTitle": "Developer Tools — {{site}}",
+    "dockRight": "Dock to Right",
+    "dockBottom": "Dock to Bottom",
+    "dockWindow": "Separate Window",
+    "close": "Close Developer Tools"
+  },
+  "develop": {
+    "emptyCache": "Empty Cache and Reload",
+    "clearSiteData": "Clear Site Data and Reload",
+    "noCache": "Disable Cache",
+    "noJs": "Disable JavaScript",
+    "scheme": "Page Theme",
+    "schemeSystem": "Follow System",
+    "schemeLight": "Force Light Theme",
+    "schemeDark": "Force Dark Theme",
+    "reducedMotion": "Reduce Motion",
+    "networkTitle": "Network",
+    "network": {
+      "none": "No Throttling",
+      "fast4g": "Fast 4G",
+      "slow4g": "Slow 4G",
+      "3g": "3G",
+      "offline": "Offline"
+    },
+    "uaTitle": "User Agent",
+    "ua": {
+      "default": "Default (Signet)",
+      "safari-mac": "Safari — Mac",
+      "safari-iphone": "Safari — iPhone",
+      "safari-ipad": "Safari — iPad",
+      "chrome-android": "Chrome — Android",
+      "firefox-mac": "Firefox — Mac"
+    },
+    "reset": "Reset Tab Settings",
+    "palette": {
+      "disableCache": "Disable Cache in This Tab",
+      "enableCache": "Enable Cache in This Tab",
+      "disableJs": "Disable JavaScript in This Tab",
+      "enableJs": "Enable JavaScript in This Tab",
+      "forceDark": "Force Dark Page Theme",
+      "forceLight": "Force Light Page Theme",
+      "followSystem": "Page Theme: Follow System",
+      "motionOff": "Reduce Page Motion",
+      "motionOn": "Restore Page Motion",
+      "network": "Simulate Network: {{name}}",
+      "networkNone": "No Network Throttling",
+      "ua": "User Agent: {{name}}",
+      "uaDefault": "Default User Agent",
+      "responsiveOn": "Enter Responsive Design Mode",
+      "responsiveOff": "Exit Responsive Design Mode"
+    },
+    "responsive": "Responsive Design Mode"
+  },
+  "jsonView": {
+    "tree": "Tree",
+    "raw": "Raw",
+    "pretty": "Pretty",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "search": "Search",
+    "noResults": "No results",
+    "results_one": "{{count}} result",
+    "results_other": "{{count}} results",
+    "keys_one": "{{count}} key",
+    "keys_other": "{{count}} keys",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "more_one": "Show next ({{count}} left)",
+    "more_other": "Show more ({{count}} left)",
+    "copy": "Copy JSON",
+    "copied": "Copied",
+    "copyPath": "Copy path",
+    "copyValue": "Copy value"
+  },
+  "downloads": {
+    "chooseDir": "Downloads Folder",
+    "chooseDirButton": "Choose"
+  },
+  "unpacked": {
+    "pickTitle": "Load Unpacked Extension",
+    "pickButton": "Load",
+    "noManifest": "The folder “{{folder}}” has no manifest.json.",
+    "loadFailed": "The extension in “{{folder}}” could not be loaded."
+  },
+  "updates": {
+    "ok": "OK",
+    "later": "Later",
+    "upToDate": "Signet is up to date",
+    "upToDateDetail": "Version {{version}} is the latest version.",
+    "available": "Signet {{version}} is available",
+    "availableDetail": "You have version {{current}}. Download the new version from its release page, then install it like the first time.",
+    "download": "Download",
+    "downloading": "Signet {{version}} is downloading",
+    "downloadingDetail": "You’ll be asked to restart Signet when it’s ready.",
+    "ready": "Signet {{version}} is ready to install",
+    "readyDetail": "Restart Signet now to finish the update. Otherwise it will be installed the next time you quit.",
+    "restart": "Restart Now",
+    "failed": "Couldn’t check for updates",
+    "failedDetail": "Check your internet connection and try again later.",
+    "devOnly": "Updates are only checked in the installed app",
+    "devOnlyDetail": "This copy of Signet runs from the source code."
+  }
+}

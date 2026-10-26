@@ -1,0 +1,97 @@
+/* Responsive mode (Development menu). */
+
+/* ---------- Responsive mode (Development menu) ---------- */
+
+/* Background of the page area around the device (under the native view, which keeps its rounded corners). */
+.rs-area {
+  position: absolute;
+  border-radius: 0 0 var(--r-card) var(--r-card);
+  background: var(--surface-2);
+  pointer-events: none;
+}
+.rs-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s1);
+  padding: 0 var(--s2);
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+}
+.rs-device,
+.rs-size {
+  height: 26px;
+  border-radius: var(--r-control);
+  border: 0.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.rs-device {
+  max-width: 180px;
+  padding: 0 var(--s2);
+  margin-right: var(--s2);
+}
+.rs-size {
+  width: 62px;
+  padding: 0 6px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+}
+.rs-size::-webkit-inner-spin-button,
+.rs-size::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+.rs-by::before {
+  content: '×';
+  color: var(--text-3);
+}
+.rs-scale {
+  margin-left: var(--s1);
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+/* Size handles: in the margin, visible on hover. */
+.rs-handle {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  user-select: none;
+}
+.rs-handle.right {
+  cursor: ew-resize;
+}
+.rs-handle.bottom {
+  cursor: ns-resize;
+}
+.rs-handle.corner {
+  cursor: nwse-resize;
+}
+.rs-handle span {
+  border-radius: 2px;
+  background: var(--text-3);
+  opacity: 0.35;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+.rs-handle.right span {
+  width: 3px;
+  height: var(--s7);
+}
+.rs-handle.bottom span {
+  width: var(--s7);
+  height: 3px;
+}
+.rs-handle.corner span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.rs-handle:hover span,
+.rs-handle:active span {
+  opacity: 0.9;
+  background: var(--accent);
+}

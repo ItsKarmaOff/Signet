@@ -1,0 +1,14 @@
+out
+out-e2e
+dist
+node_modules
+build
+resources
+package-lock.json
+.expo
+ios
+android
+*.tsbuildinfo
+test-results
+playwright-report
+app/mobile/modules/signet-web/ios/rules

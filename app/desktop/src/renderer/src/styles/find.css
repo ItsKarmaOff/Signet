@@ -1,0 +1,67 @@
+/* Find in page. */
+
+/* ---------- 12. Find in page ---------- */
+
+.find-pill {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  padding: 0 6px 0 var(--s3);
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  backdrop-filter: var(--blur);
+  /* The view is exactly the size of the pill: an outer shadow would be clipped, so the hairline is inner. */
+  box-shadow:
+    inset 0 0 0 0.5px var(--border),
+    var(--edge-light);
+  /* Enter and exit: transitions driven by `closing` (the pill is remounted on each opening, see Find.tsx). */
+  transform-origin: top right;
+  opacity: 1;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--spring);
+}
+.find-pill.closing {
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+@starting-style {
+  .find-pill {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+.find-ico {
+  flex: none;
+  color: var(--text-2);
+  margin-right: var(--s1);
+}
+.find-pill input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  outline: none;
+  font-size: var(--fs-md);
+  user-select: text;
+}
+.find-pill input::placeholder {
+  color: var(--text-2);
+}
+.find-count {
+  flex: none;
+  padding: 0 var(--s1);
+  font-size: var(--fs-sub);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.find-count.none {
+  color: var(--danger);
+}

@@ -1,0 +1,146 @@
+/* Downloads: header, list and progress bars. */
+
+.dl-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--s8);
+  padding: 0 var(--s1) 0 var(--s2);
+}
+.dl-title {
+  font-weight: var(--fw-strong);
+}
+.dl-clear {
+  height: var(--s6);
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    opacity var(--t-fast),
+    transform var(--t-fast) var(--ease-out);
+}
+.dl-clear:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.dl-clear:active:not(:disabled) {
+  transform: var(--press-sm);
+  transition-duration: var(--t-press);
+}
+.dl-clear:disabled {
+  opacity: 0.35;
+}
+.dl-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-half);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.dl-list::-webkit-scrollbar {
+  display: none;
+}
+.dl-empty {
+  padding: var(--s5) 0;
+}
+.dl-row {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: var(--toolbar-h);
+  padding: var(--s1) var(--s1) var(--s1) var(--s2);
+  border-radius: var(--r-row);
+}
+.dl-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  text-align: start;
+  border-radius: var(--r-row);
+}
+button.dl-main {
+  cursor: pointer;
+}
+.dl-row:hover {
+  background: var(--surface-2);
+}
+.dl-row.dead {
+  opacity: 0.6;
+}
+.dl-ico {
+  flex: none;
+  color: var(--text-2);
+}
+.dl-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.dl-text .mid {
+  display: flex;
+  min-width: 0;
+}
+.dl-text .mid .a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre;
+}
+.dl-text .mid .b {
+  flex: none;
+  white-space: pre;
+}
+.dl-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-cap);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.dl-bar {
+  position: relative;
+  display: block;
+  height: 3px;
+  margin-top: var(--s1);
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.dl-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left center;
+  transition: transform var(--t) linear;
+}
+.dl-bar.indeterminate i {
+  width: 35%;
+  animation: slide 1.1s ease-in-out infinite;
+}
+@keyframes dl-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}

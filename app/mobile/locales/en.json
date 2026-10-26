@@ -1,0 +1,10 @@
+{
+  "CFBundleDisplayName": "Signet",
+  "NSFaceIDUsageDescription": "Unlock your private tabs and saved passwords with Face ID.",
+  "NSCameraUsageDescription": "Websites can ask to use the camera, for example to take a photo to upload. Signet also uses it to scan the code shown by your computer.",
+  "NSMicrophoneUsageDescription": "Websites can ask to use the microphone, for example for a video call or a voice message.",
+  "NSPhotoLibraryUsageDescription": "Choose photos and videos to upload to websites.",
+  "NSPhotoLibraryAddUsageDescription": "Save images from websites to your photo library.",
+  "NSLocationWhenInUseUsageDescription": "Websites can ask for your location while you use the app, for example a map or a store finder.",
+  "NSLocalNetworkUsageDescription": "Find your computer on this Wi-Fi network to open the websites you are developing on it."
+}

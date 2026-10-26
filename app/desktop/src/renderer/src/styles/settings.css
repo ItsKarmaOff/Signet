@@ -1,0 +1,513 @@
+/* Settings. */
+
+/* ---------- 15. Settings ---------- */
+
+.settings {
+  display: flex;
+  height: 100%;
+}
+.st-nav {
+  flex: none;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-half);
+  padding: 0 var(--s3) var(--s3);
+  -webkit-app-region: drag;
+}
+.st-nav-top {
+  flex: none;
+  height: 52px; /* room for the traffic lights */
+}
+.st-nav-group {
+  padding: var(--s3) var(--s3) var(--s-half);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.st-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--s7);
+  padding: 0 var(--s3);
+  border-radius: var(--r-control);
+  color: var(--text);
+  text-align: left;
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast) var(--ease-out);
+}
+.st-nav-item:active {
+  transform: var(--press);
+  transition-duration: var(--t-press);
+}
+.st-nav-item svg {
+  flex: none;
+  color: var(--text-2);
+  transition: color var(--t-fast) var(--ease-out);
+}
+.st-nav-item:hover {
+  background: var(--surface-2);
+}
+.st-nav-item.on {
+  background: var(--active);
+  box-shadow: var(--active-shadow);
+}
+.st-nav-item.on svg {
+  color: var(--accent);
+}
+.st-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--win-bg);
+  border-left: 0.5px solid var(--border);
+  timeline-scope: --st-scroll;
+}
+/* Title separator: only appears when the content scrolls underneath. */
+@keyframes st-title-edge {
+  to {
+    border-bottom-color: var(--border);
+  }
+}
+.st-title {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 var(--s7);
+  font-size: var(--fs-title);
+  font-weight: var(--fw-title);
+  letter-spacing: -0.01em;
+  border-bottom: 0.5px solid transparent;
+  animation: st-title-edge linear both;
+  animation-timeline: --st-scroll;
+  animation-range: 0px 24px;
+  -webkit-app-region: drag;
+}
+@media (prefers-contrast: more) {
+  .st-title {
+    border-bottom-color: var(--border);
+    animation: none;
+  }
+}
+.st-title button,
+.st-title .st-btn {
+  font-size: var(--fs);
+  font-weight: var(--fw-body);
+  letter-spacing: 0;
+}
+.st-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-timeline: --st-scroll block;
+  padding: var(--s5) var(--s7) var(--s8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  user-select: none;
+}
+.st-body section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.st-sub {
+  margin: var(--s2) 0 0;
+  font-size: var(--fs-cap);
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.st-group {
+  flex: none;
+  border-radius: var(--r-group);
+  background: var(--win-card);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  overflow: hidden;
+}
+.st-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  min-height: var(--toolbar-h);
+  padding: var(--s2) var(--s4);
+}
+.st-row + .st-row {
+  border-top: 0.5px solid var(--border);
+}
+.st-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-half);
+}
+.st-hint {
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+  line-height: 1.35;
+}
+.st-hint.grow {
+  flex: 1;
+}
+/* Folder path: broken anywhere rather than overflowing. */
+.st-hint.st-path {
+  overflow-wrap: anywhere;
+}
+.st-note {
+  margin: 0;
+  font-size: var(--fs-sub);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.st-check span {
+  flex: 1;
+}
+.st-check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.st-actions {
+  justify-content: flex-end;
+}
+.st-select {
+  flex: none;
+  appearance: none;
+  height: 28px;
+  padding: 0 28px 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-control);
+  font: inherit;
+  color: var(--text);
+  background: var(--ctl)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 3.5 5 6.5 8 3.5' fill='none' stroke='gray' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    no-repeat right 10px center;
+  box-shadow:
+    0 0 0 0.5px var(--ctl-ring),
+    0 1px 1px rgb(0 0 0 / 0.06);
+}
+/* Choice window placed over Settings (choice of data for an import). */
+.st-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-panel);
+  display: grid;
+  place-items: center;
+  padding: var(--s4);
+  background: rgb(0 0 0 / 0.28);
+  animation: st-modal-in var(--t-fast) var(--ease-out);
+}
+.st-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  width: min(420px, 100%);
+  max-height: 100%;
+  overflow: auto;
+  padding: var(--s5);
+  border-radius: var(--r-pop);
+  background: var(--win-bg);
+  box-shadow: var(--shadow-modal);
+}
+.st-modal h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-strong);
+  letter-spacing: -0.01em;
+}
+.st-modal .st-note {
+  margin: 0;
+}
+.st-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--s2);
+  margin-top: var(--s1);
+}
+@keyframes st-modal-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-modal-backdrop {
+    animation-name: st-modal-in;
+  }
+}
+/* Linux and Windows draw a <select>'s list with the element's background: ours is translucent, hence an opaque background. */
+select option {
+  background-color: var(--win-bg);
+  color: var(--text);
+}
+.st-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 28px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-control);
+  white-space: nowrap;
+  background: var(--ctl);
+  box-shadow:
+    0 0 0 0.5px var(--ctl-ring),
+    0 1px 1px rgb(0 0 0 / 0.06);
+  transition:
+    filter var(--t-fast),
+    background var(--t-fast),
+    transform var(--t-press);
+}
+.st-btn:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+.st-btn:active:not(:disabled) {
+  filter: brightness(0.9);
+  transform: var(--press);
+}
+.st-btn:disabled {
+  opacity: 0.4;
+}
+.st-btn.danger {
+  color: var(--danger);
+}
+.st-btn.solid {
+  background: var(--danger);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.st-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  font-weight: var(--fw-medium);
+  color: var(--accent);
+}
+.st-err {
+  font-weight: var(--fw-medium);
+  color: var(--danger);
+}
+.st-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  gap: var(--s1);
+}
+.st-icon {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  padding: var(--s2) var(--s1) var(--s1);
+  border-radius: var(--r-tile);
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+}
+.st-icon span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-icon:hover {
+  background: var(--surface-2);
+}
+.st-icon img {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+}
+/* Current choice: ring around the icon only, the label switches to the text color. */
+.st-icon.on img {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--accent);
+}
+.st-icon.on {
+  color: var(--text);
+  font-weight: var(--fw-label);
+}
+.st-keys {
+  flex: none;
+  padding: var(--s-half) var(--s2);
+  border-radius: 6px;
+  font-size: var(--fs-sub);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: var(--ctl);
+  box-shadow:
+    0 0 0 0.5px var(--ctl-ring),
+    0 1px 0 var(--ctl-ring);
+  white-space: nowrap;
+}
+/* Editable shortcuts: the chip is clickable; while typing, it takes the accent and breathes. */
+.st-keys-edit {
+  min-width: 64px;
+  text-align: center;
+  cursor: default;
+  transition:
+    box-shadow var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-press);
+}
+.st-keys-edit:hover {
+  box-shadow:
+    0 0 0 0.5px var(--ctl-ring),
+    0 1px 0 var(--ctl-ring),
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.st-keys-edit:active {
+  transform: var(--press);
+}
+.st-keys-edit.changed {
+  color: var(--accent);
+}
+.st-keys-edit.none {
+  color: var(--text-3);
+}
+.st-keys-edit.recording {
+  color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+  position: relative;
+}
+/* Breathing halo: only opacity is animated (no looping box-shadow). */
+.st-keys-edit.recording::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  pointer-events: none;
+  opacity: 0;
+  animation: st-keys-pulse 1.2s ease-in-out infinite;
+}
+@keyframes st-keys-pulse {
+  50% {
+    opacity: 1;
+  }
+}
+.st-keys.fixed {
+  opacity: 0.6;
+}
+.st-shortcut-note {
+  min-height: 0;
+  padding-top: 0;
+  border-top: 0 !important;
+}
+.st-shortcuts-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s2);
+}
+.st-shortcuts-head .st-note {
+  flex: 1;
+}
+.st-btn.st-btn-accent {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .st-keys-edit.recording::after {
+    animation: none;
+    opacity: 1;
+  }
+  .favicon.pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+.st-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s1);
+  max-width: 380px;
+  margin: var(--s8) auto 0;
+  text-align: center;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.st-empty p {
+  margin: 0;
+}
+.st-empty svg {
+  margin-bottom: var(--s2);
+  color: var(--text-3);
+}
+.st-empty kbd {
+  padding: 1px 6px;
+  border-radius: 5px;
+  color: var(--text);
+  background: var(--win-card);
+  box-shadow: 0 0 0 0.5px var(--border);
+}
+.st-about {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s2);
+  margin-top: var(--s8);
+  text-align: center;
+}
+.st-about h2 {
+  margin: var(--s2) 0 0;
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-hero);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.st-about a {
+  margin-top: var(--s2);
+  color: var(--accent);
+  text-decoration: none;
+  user-select: text;
+  cursor: pointer;
+}
+.st-about a:hover {
+  text-decoration: underline;
+}
+/* Routing */
+.st-pattern {
+  font: var(--fs-sub) / 1.3 var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.st-target {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-2);
+  font-size: var(--fs-sub);
+}
+.st-target .st-emoji {
+  font-size: 14px;
+}
+.st-add {
+  margin-top: var(--s1);
+}
+.st-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-control);
+  font: inherit;
+  color: var(--text);
+  background: var(--ctl);
+  box-shadow: 0 0 0 0.5px var(--ctl-ring);
+}
+.st-input::placeholder {
+  color: var(--text-3);
+}

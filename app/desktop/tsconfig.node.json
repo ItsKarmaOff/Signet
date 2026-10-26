@@ -1,0 +1,30 @@
+{
+  // Deux dossiers « shared » : `@shared/*` = src/shared, le code commun aux processus de CE bureau (contrat IPC, raccourcis, appareils) ;
+  // `@signet/shared` = packages/shared, le code neutre partagé avec le mobile (inclus ici car composite impose de lister tout fichier compilé).
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    },
+    "resolveJsonModule": true
+  },
+  "include": [
+    "electron.vite.config.ts",
+    "vitest.config.ts",
+    "scripts/emoji-plugin.ts",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
+    "../../packages/shared/src/**/*"
+  ],
+  "exclude": ["../../packages/shared/src/globals.d.ts"]
+}

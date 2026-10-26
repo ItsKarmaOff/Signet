@@ -1,0 +1,68 @@
+/* "Hold ⌘Q to quit" bubble. */
+
+/* ---------- "Hold ⌘Q to quit" bubble ---------- */
+
+.quit-hud {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+.quit-pill {
+  position: relative;
+  width: 264px;
+  padding: 14px 20px 18px;
+  border-radius: var(--r-pop);
+  overflow: hidden;
+  text-align: center;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: var(--text);
+  /* Short shadow: it must fit inside the transparent window (quit.ts HUD_H), or its edge gets cut off. */
+  box-shadow:
+    0 3px 10px rgb(0 0 0 / 0.16),
+    0 0 0 0.5px rgb(0 0 0 / 0.12);
+  animation: quit-in var(--t-hud) var(--ease-out);
+}
+.quit-title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-strong);
+}
+.quit-sub {
+  margin-top: 2px;
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+}
+.quit-gauge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  /* On release, back to zero from the current value; during the press, QuitHud.tsx drives it frame by frame. */
+  transition: transform var(--t) var(--ease-out);
+}
+.quit-gauge.holding {
+  transition: none;
+}
+@keyframes quit-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quit-pill {
+    animation: fade-in var(--t-hud) var(--ease-out);
+  }
+  .quit-gauge {
+    transition: none;
+  }
+}

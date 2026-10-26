@@ -1,0 +1,469 @@
+/* Notes and Easels (routes #note/<id> and #easel/<id>, opened in a tab). Tokens: styles.css. */
+
+html.route-note,
+html.route-easel {
+  background: var(--win-bg);
+}
+html.route-note body,
+html.route-easel body {
+  user-select: text;
+  cursor: auto;
+}
+
+/* ---------- Shared toolbar ---------- */
+.note-tool {
+  flex: none;
+  width: 30px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  transition:
+    background var(--t-press, 80ms),
+    color var(--t-press, 80ms),
+    transform var(--t-press, 80ms);
+}
+.note-tool:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.note-tool:active:not(:disabled) {
+  background: color-mix(in oklch, var(--text) 14%, transparent);
+  transform: var(--press-sm, scale(0.92));
+}
+.note-tool.on {
+  background: color-mix(in oklch, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.note-tool:disabled {
+  opacity: 0.35;
+}
+.note-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--s1);
+  background: var(--border);
+}
+.note-grow {
+  flex: 1;
+}
+.note-warn {
+  color: var(--danger);
+  font-size: var(--fs-sub);
+  padding: 0 var(--s2);
+}
+.note-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-2);
+  font-size: var(--fs-sub);
+}
+.note-confirm button {
+  height: 26px;
+  padding: 0 var(--s3);
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  color: var(--text);
+  transition:
+    background var(--t-press, 80ms),
+    filter var(--t-press, 80ms),
+    transform var(--t-press, 80ms);
+}
+.note-confirm button:active {
+  background: color-mix(in oklch, var(--text) 14%, var(--surface-2));
+  transform: var(--press-sm, scale(0.92));
+}
+.note-confirm button.danger {
+  background: var(--danger);
+  color: #fff;
+}
+.note-confirm button.danger:active {
+  background: var(--danger);
+  filter: brightness(0.85);
+}
+
+/* ---------- Note ---------- */
+.note-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.note-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  height: 44px;
+  padding: 0 var(--s4);
+  color: var(--text-2);
+  opacity: 0.85;
+  transition: opacity var(--t);
+}
+@media (prefers-contrast: more) {
+  .note-bar {
+    border-bottom: 0.5px solid var(--border);
+  }
+}
+.note-bar:hover,
+.note-bar:focus-within {
+  opacity: 1;
+}
+.note-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  color: var(--text-2);
+}
+.note-link input {
+  flex: 1;
+  height: 28px;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.note-scroll {
+  flex: 1;
+  overflow-y: auto;
+  /* Edge fade only when the content passes under the bar (same technique as .scroll). */
+  mask-image: linear-gradient(to bottom, transparent 0, black var(--fade-top), black calc(100% - var(--fade-bottom)), transparent 100%);
+  animation: scroll-edges linear both;
+  animation-timeline: scroll(self block);
+}
+.note-editor {
+  max-width: 44em;
+  min-height: calc(100% - 96px);
+  margin: 0 auto;
+  padding: 48px 32px 96px;
+  outline: none;
+  color: var(--text);
+  font: 400 var(--fs-lg) / 1.65 var(--font);
+  user-select: text;
+  cursor: text;
+  -webkit-user-modify: read-write;
+}
+.note-editor.is-empty::before {
+  content: attr(data-placeholder);
+  position: absolute;
+  color: var(--text-3);
+  pointer-events: none;
+}
+/* First line: the note title. */
+.note-editor > :first-child {
+  margin-top: 0;
+}
+.note-editor > p:first-child,
+.note-editor > h1:first-child {
+  font-size: 2em;
+  font-weight: var(--fw-hero);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  margin-bottom: 0.5em;
+}
+.note-editor h1 {
+  font-size: 1.6em;
+  line-height: 1.25;
+  margin: 1.2em 0 0.4em;
+  font-weight: var(--fw-title);
+  letter-spacing: -0.012em;
+}
+.note-editor h2 {
+  font-size: 1.25em;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  margin: 1.1em 0 0.35em;
+  font-weight: var(--fw-strong);
+}
+.note-editor p,
+.note-editor div {
+  margin: 0 0 0.35em;
+}
+.note-editor ul,
+.note-editor ol {
+  margin: 0.2em 0 0.6em;
+  padding-left: 1.5em;
+}
+.note-editor blockquote {
+  margin: 0.6em 0;
+  padding-left: 1em;
+  border-left: 3px solid color-mix(in oklch, var(--accent) 55%, transparent);
+  color: var(--text-2);
+}
+.note-editor pre {
+  margin: 0.6em 0;
+  padding: 0.8em 1em;
+  border-radius: var(--r-row);
+  background: var(--surface-2);
+  font: var(--fs) / 1.5 var(--font-mono);
+  white-space: pre-wrap;
+}
+.note-editor code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+.note-editor a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.note-editor img {
+  max-width: 100%;
+  border-radius: var(--r-row);
+}
+.note-editor hr {
+  border: 0;
+  border-top: 0.5px solid var(--border);
+  margin: 1.5em 0;
+}
+/* Checklist: the box is drawn in the margin of each item (click = checked / unchecked). */
+.note-editor ul.checklist {
+  list-style: none;
+  padding-left: 0;
+}
+.note-editor ul.checklist > li {
+  position: relative;
+  padding-left: 1.8em;
+}
+.note-editor ul.checklist > li::before {
+  content: '';
+  position: absolute;
+  left: 0.15em;
+  top: 0.32em;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border-radius: 4px;
+  border: 1.5px solid var(--text-3);
+  cursor: pointer;
+}
+.note-editor ul.checklist > li[data-checked='true'] {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.note-editor ul.checklist > li[data-checked='true']::before {
+  border-color: var(--accent);
+  background: var(--accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 100% no-repeat;
+}
+
+/* ---------- Easel ---------- */
+.easel-page {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+.easel-head {
+  position: absolute;
+  top: var(--s3);
+  left: var(--s4);
+  z-index: var(--z-panel);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.easel-title {
+  width: 260px;
+  height: 32px;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--text);
+  font: var(--fw-title) calc(var(--fs-lg) + 1px) / 1 var(--font);
+  letter-spacing: -0.01em;
+  outline: none;
+}
+.easel-title:hover,
+.easel-title:focus {
+  background: var(--surface-2);
+}
+.easel-bar {
+  position: absolute;
+  top: var(--s3);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-panel);
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  padding: var(--s1);
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  box-shadow:
+    var(--shadow-pop),
+    0 0 0 0.5px var(--border);
+  white-space: nowrap;
+}
+.easel-color {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  border-radius: 50%;
+  corner-shape: round;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15);
+  transition: transform var(--t) var(--spring);
+}
+@media (prefers-color-scheme: dark) {
+  .easel-color {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.18);
+  }
+}
+.easel-color:hover {
+  transform: scale(1.15);
+}
+.easel-color:active {
+  transform: var(--press-sm, scale(0.92));
+}
+.easel-color.on {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px var(--text-2);
+}
+.easel-zoom {
+  min-width: 52px;
+  height: 28px;
+  padding: 0 var(--s1);
+  border-radius: var(--r-control);
+  color: var(--text-2);
+  font-size: var(--fs-sub);
+  font-variant-numeric: tabular-nums;
+  transition:
+    background var(--t-press, 80ms),
+    transform var(--t-press, 80ms);
+}
+.easel-zoom:hover {
+  background: var(--surface-2);
+}
+.easel-zoom:active {
+  background: color-mix(in oklch, var(--text) 14%, transparent);
+  transform: var(--press-sm, scale(0.92));
+}
+.easel-port {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+  background-image: radial-gradient(circle, color-mix(in oklch, var(--text) 16%, transparent) 1px, transparent 1.2px);
+  cursor: default;
+}
+.easel-port.tool-pen {
+  cursor: crosshair;
+}
+.easel-port.tool-text {
+  cursor: text;
+}
+.easel-port.panning {
+  cursor: grabbing;
+}
+.easel-board {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+.easel-item {
+  position: absolute;
+  box-sizing: border-box;
+  border-radius: 4px;
+}
+.easel-item.selected {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 3px;
+}
+.easel-image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 4px;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+.easel-stroke svg {
+  display: block;
+  overflow: visible;
+  color: var(--text);
+}
+.easel-draft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.easel-text {
+  min-height: 28px;
+  padding: 4px 6px;
+  color: var(--text);
+  font: 400 var(--fs-lg) / 1.45 var(--font);
+  overflow-wrap: anywhere;
+}
+.easel-text-view {
+  user-select: none;
+}
+.easel-text-edit {
+  min-height: 1.45em;
+  outline: none;
+  cursor: text;
+  user-select: text;
+}
+.easel-text.editing {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: 3px;
+}
+.easel-handle {
+  position: absolute;
+  right: -9px;
+  bottom: -9px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--surface);
+  box-shadow: 0 0 0 1.5px var(--accent);
+  cursor: nwse-resize;
+}
+.easel-text .easel-handle {
+  bottom: auto;
+  top: 50%;
+  margin-top: -6px;
+  cursor: ew-resize;
+}
+.easel-empty {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  max-width: 420px;
+  color: var(--text-3);
+  text-align: center;
+  font-size: var(--fs-lg);
+  line-height: 1.5;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The bar fade stays (opacity only); the movements go away. */
+  .easel-color,
+  .note-tool,
+  .note-confirm button,
+  .easel-zoom {
+    transition-property: background, color, filter, opacity;
+  }
+  .note-tool:active:not(:disabled),
+  .note-confirm button:active,
+  .easel-zoom:active,
+  .easel-color:active,
+  .easel-color:hover {
+    transform: none;
+  }
+}

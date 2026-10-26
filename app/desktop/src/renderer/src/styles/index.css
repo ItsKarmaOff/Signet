@@ -1,0 +1,42 @@
+/* The order of the @imports is significant: it reproduces the order of the rules of the old single stylesheet
+   (styles.css), and the cascade depends on it (at equal specificity, the last rule wins).
+   Do not reorder or move rules from one file to another without checking overrides. */
+
+@import './tokens.css';
+@import './base.css';
+@import './controls.css';
+@import './layout.css';
+@import './toolbar.css';
+@import './sidebar.css';
+@import './downloads.css';
+@import './panel-motion.css';
+@import './downloads-list.css';
+@import './space-form.css';
+@import './palette.css';
+@import './peek.css';
+@import './site-panel.css';
+@import './dynamic-folders.css';
+@import './capture.css';
+@import './mods.css';
+@import './tab-preview.css';
+@import './sidebar-panels.css';
+@import './find.css';
+@import './little.css';
+@import './webapp.css';
+@import './private.css';
+@import './boost.css';
+@import './settings.css';
+@import './library.css';
+@import './reduced-motion.css';
+@import './settings-languages-backup.css';
+@import './extensions.css';
+@import './tabs-top.css';
+@import './pill-popover.css';
+@import './pip.css';
+@import './quit-bubble.css';
+@import './password-prompt.css';
+@import './recovery.css';
+@import './responsive.css';
+@import './dev-local.css';
+@import './devices.css';
+@import './welcome.css';

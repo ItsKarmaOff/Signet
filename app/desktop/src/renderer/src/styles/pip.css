@@ -1,0 +1,260 @@
+/* Mini player (#pip route). */
+
+/* ---------- Mini player (#pip route) ---------- */
+
+/* The drag is driven by main (see Pip.tsx): no system `drag` zone, which would swallow clicks. Hover is set by the view itself (`hover` class, see Pip.tsx). */
+.pip {
+  position: fixed;
+  touch-action: none;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  color: #fff;
+}
+.pip-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transition: opacity var(--t-hud) var(--ease-out);
+}
+.pip-top,
+.pip-center,
+.pip-bottom {
+  position: absolute;
+  opacity: 0;
+  transition: opacity var(--t-hud) var(--ease-out);
+}
+html.hover .pip-scrim,
+html.hover .pip-top,
+html.hover .pip-center,
+html.hover .pip-bottom {
+  opacity: 1;
+}
+.pip button {
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition:
+    transform var(--t-press) var(--ease-out),
+    background var(--t-fast) var(--ease-out);
+}
+.pip button:active {
+  transform: var(--press-sm);
+}
+/* Invisible resize handles, above everything: 14 px corners, 8 px edges. Controls stay more than 14 px from the edges. */
+.pip-grip {
+  position: absolute;
+  touch-action: none;
+  z-index: var(--z-grip);
+}
+.pip-grip-n,
+.pip-grip-s {
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  cursor: ns-resize;
+}
+.pip-grip-e,
+.pip-grip-w {
+  top: 14px;
+  bottom: 14px;
+  width: 8px;
+  cursor: ew-resize;
+}
+.pip-grip-n {
+  top: 0;
+}
+.pip-grip-s {
+  bottom: 0;
+}
+.pip-grip-e {
+  right: 0;
+}
+.pip-grip-w {
+  left: 0;
+}
+.pip-grip-ne,
+.pip-grip-nw,
+.pip-grip-se,
+.pip-grip-sw {
+  width: 14px;
+  height: 14px;
+}
+.pip-grip-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.pip-grip-sw {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.pip-grip-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.pip-grip-se {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+.pip-top {
+  inset: 16px 16px auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+.pip-pill {
+  height: 30px;
+  border-radius: 10px;
+  background: rgb(28 28 30 / 0.62);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.pip-pill:hover {
+  background: rgb(60 60 64 / 0.74);
+}
+/* Reduced transparency or increased contrast: opaque pills, no blur, crisp hairline. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .pip-pill {
+    background: rgb(44 44 46);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .pip-pill:hover {
+    background: rgb(72 72 74);
+  }
+  .pip-scrim {
+    background: rgb(0 0 0 / 0.6);
+  }
+}
+@media (prefers-contrast: more) {
+  .pip-pill {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.6);
+  }
+}
+.pip-square {
+  width: 30px;
+}
+.pip-close {
+  grid-auto-flow: column;
+  gap: 5px;
+  padding: 0 11px 0 9px;
+  font-size: var(--fs);
+  font-weight: var(--fw-strong);
+}
+.pip-site {
+  min-width: 0;
+  text-align: center;
+  font-size: var(--fs);
+  font-weight: var(--fw-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.5);
+}
+.pip-center {
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 11%, 40px);
+  pointer-events: none;
+}
+.pip-center button {
+  pointer-events: auto;
+}
+.pip-play {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+}
+.pip-skip {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+.pip-skip span {
+  position: absolute;
+  font-size: 10px;
+  font-weight: var(--fw-hero);
+  line-height: 1;
+  margin-top: 1px;
+}
+.pip-skip:hover,
+.pip-play:hover {
+  background: rgb(255 255 255 / 0.14);
+}
+.pip-bottom {
+  inset: auto 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pip-bar {
+  flex: 1;
+  touch-action: none;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+.pip-bar.live {
+  visibility: hidden;
+}
+.pip-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.35);
+  overflow: hidden;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+/* 8 px / 5 px: the track grows by transform (no relayout). */
+.pip-bar:hover .pip-track {
+  transform: scaleY(1.6);
+}
+.pip-fill {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  transform-origin: left;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pip-scrim,
+  .pip-top,
+  .pip-center,
+  .pip-bottom,
+  .pip-track {
+    transition: none;
+  }
+  /* The HUD keeps its fade (opacity); only movements are cut. */
+  .pip-scrim,
+  .pip-top,
+  .pip-center,
+  .pip-bottom {
+    transition-duration: var(--t-fast);
+  }
+  .pip button {
+    transition: background var(--t-fast);
+  }
+}
+.pip-mute {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  opacity: 0.8;
+}
+.pip-mute:hover {
+  opacity: 1;
+  background: rgb(255 255 255 / 0.16);
+}

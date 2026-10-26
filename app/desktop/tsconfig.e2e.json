@@ -1,0 +1,20 @@
+{
+  // `@shared/*` = src/shared (code partagé entre les processus du bureau) ; `@signet/shared` = packages/shared (neutre, partagé avec le mobile).
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noEmit": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    },
+    "resolveJsonModule": true
+  },
+  "include": ["tests/e2e/**/*", "playwright.config.ts", "src/main/*.d.ts"]
+}

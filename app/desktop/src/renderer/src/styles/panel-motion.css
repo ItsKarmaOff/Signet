@@ -1,0 +1,56 @@
+/* Shared enter and exit of floating panels (downloads, space form, popovers). */
+
+/*
+ * Glass surfaces materialize (scale + opacity, from their anchor) and leave by the same path.
+ * These are transitions, not keyframes: @starting-style gives the entry state, the `closing` class the exit
+ * state, and a reversal midway restarts from the current value instead of jumping.
+ * Enter = --t (spring), exit = --t-fast (the transition used is that of the destination state).
+ */
+.ex .dl-panel,
+.ex .space-form,
+.ov .pop-slot {
+  opacity: 1;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--spring);
+}
+.ex.closing .dl-panel,
+.ex.closing .space-form,
+.ov.closing .pop-slot {
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+@starting-style {
+  .ex .dl-panel,
+  .ex .space-form,
+  .ov .pop-slot {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}
+/* The space form is born above the bottom bar (origin at the bottom): it rises from it. */
+.ex.closing .space-form {
+  transform: scale(0.96) translateY(4px);
+}
+@starting-style {
+  .ex .space-form {
+    transform: scale(0.96) translateY(4px);
+  }
+}
+/* Glass on glass: these panels float over the translucent sidebar, more opaque background. */
+.ex .dl-panel,
+.ex .space-form {
+  background: var(--glass-view);
+}
+/* A submenu fades with its parent (it lives in .pop-layer, outside .pop-slot). */
+.ov .pop-submenu {
+  opacity: 1;
+  transition: opacity var(--t) var(--ease-out);
+}
+.ov.closing .pop-submenu {
+  opacity: 0;
+  transition-duration: var(--t-fast);
+}

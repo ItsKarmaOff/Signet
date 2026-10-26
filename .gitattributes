@@ -1,0 +1,5 @@
+# Fins de ligne LF partout (Prettier les exige ; sans ça, Windows récupère du CRLF).
+* text=auto eol=lf
+*.icns binary
+*.ico binary
+*.png binary

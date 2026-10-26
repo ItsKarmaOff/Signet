@@ -1,0 +1,43 @@
+/* Peek. */
+
+/* ---------- 10. Peek ---------- */
+
+.peek-card {
+  position: absolute;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-peek);
+}
+.peek-bar {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--s7);
+}
+.peek-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--on-accent);
+  font-weight: var(--fw-label);
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+}
+.round {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--s7);
+  height: var(--s7);
+  border-radius: 50%;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow:
+    0 1px 6px rgb(0 0 0 / 0.25),
+    0 0 0 0.5px var(--border);
+}
+.round:hover {
+  background: color-mix(in oklch, var(--surface), var(--text) 6%);
+}

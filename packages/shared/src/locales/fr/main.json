@@ -1,0 +1,794 @@
+{
+  "defaults": {
+    "folder": "Nouveau dossier",
+    "folderFallback": "Dossier",
+    "space": "Personnel",
+    "spaceNumbered": "Espace {{number}}",
+    "bookmarkFolder": "Nouveau dossier"
+  },
+  "appIcon": {
+    "aurore": "Aurore",
+    "ocean": "Océan",
+    "corail": "Corail",
+    "menthe": "Menthe",
+    "nuit": "Nuit",
+    "papier": "Papier",
+    "graphite": "Graphite",
+    "or": "Or"
+  },
+  "window": {
+    "settings": "Réglages",
+    "library": "Bibliothèque",
+    "private": "Navigation privée",
+    "boost": "Boost · {{site}}",
+    "welcome": "Bienvenue"
+  },
+  "dialog": {
+    "cancel": "Annuler",
+    "ok": "OK",
+    "deleteFolder": {
+      "message": "Supprimer le dossier « {{name}} » et ses onglets ?",
+      "detail": "Les onglets qu'il contient seront fermés.",
+      "confirm": "Supprimer"
+    },
+    "deleteSpace": {
+      "message": "Supprimer l'espace « {{name}} » ?",
+      "detail": "Cela supprime {{summary}}. Vous pourrez annuler juste après.",
+      "detailEmpty": "Vous pourrez annuler juste après.",
+      "isolatedNote": "Cet espace a un profil isolé : ses cookies et connexions seront effacés définitivement une fois le délai d'annulation passé.",
+      "tabs_one": "{{count}} onglet",
+      "tabs_other": "{{count}} onglets",
+      "folders_one": "{{count}} dossier",
+      "folders_other": "{{count}} dossiers",
+      "bookmarks_one": "{{count}} signet",
+      "bookmarks_other": "{{count}} signets",
+      "confirm": "Supprimer"
+    },
+    "clearSpaceData": {
+      "message": "Effacer les données de l'espace « {{name}} » ?",
+      "detail": "Cookies, stockage local et cache de cet espace seront supprimés ; vous serez déconnecté de ses comptes.",
+      "confirm": "Effacer"
+    },
+    "isolateProfile": {
+      "message": "Isoler le profil de l'espace « {{name}} » ?",
+      "detail": "Les onglets de cet espace vont se recharger. Les comptes connectés ne seront pas partagés avec les autres espaces.",
+      "confirm": "Continuer"
+    },
+    "shareProfile": {
+      "message": "Partager le profil de l'espace « {{name}} » ?",
+      "detail": "Les onglets de cet espace vont se recharger. Ils retrouveront les comptes connectés des autres espaces partagés.",
+      "confirm": "Continuer"
+    },
+    "permission": {
+      "detail": "Vous pourrez changer ce choix dans le panneau du site.",
+      "allow": "Autoriser",
+      "deny": "Bloquer",
+      "later": "Pas maintenant",
+      "media": "{{origin}} demande l'accès à la caméra et au micro",
+      "camera": "{{origin}} demande l'accès à la caméra",
+      "microphone": "{{origin}} demande l'accès au micro",
+      "geolocation": "{{origin}} demande l'accès à votre position",
+      "notifications": "{{origin}} demande l'autorisation d'envoyer des notifications",
+      "clipboard-read": "{{origin}} demande l'accès au presse-papiers",
+      "midi": "{{origin}} demande l'accès aux appareils MIDI",
+      "display-capture": "{{origin}} demande l'accès au partage d'écran"
+    },
+    "display": {
+      "message": "Choisir ce qu'il faut partager avec {{origin}}",
+      "screen": "Écran {{n}}",
+      "cancel": "Annuler"
+    },
+    "external": {
+      "message": "Ouvrir un lien avec une application externe (« {{scheme}} ») ?",
+      "detail": "{{url}}",
+      "open": "Ouvrir"
+    },
+    "extension": {
+      "message": "Ajouter « {{name}} » ?",
+      "detail": "Cette extension pourra :\n{{permissions}}",
+      "detailNone": "Cette extension ne demande aucune permission particulière.",
+      "more_one": "…et {{count}} autre",
+      "more_other": "…et {{count}} autres",
+      "perm": {
+        "allSites": "Lire et modifier toutes vos données sur tous les sites web",
+        "hosts": "Lire et modifier vos données sur {{hosts}}",
+        "hostsMore": "Lire et modifier vos données sur {{hosts}} et {{count}} autres sites",
+        "tabs": "Lire votre activité de navigation (onglets ouverts et leurs adresses)",
+        "history": "Lire et modifier votre historique de navigation",
+        "topSites": "Lire les sites que vous visitez le plus",
+        "bookmarks": "Lire et modifier vos signets",
+        "cookies": "Lire et modifier vos cookies",
+        "webRequest": "Observer et bloquer les requêtes réseau",
+        "declarativeNetRequest": "Bloquer ou modifier le contenu des pages",
+        "downloads": "Gérer vos téléchargements",
+        "clipboardRead": "Lire ce que vous copiez",
+        "clipboardWrite": "Écrire dans le presse-papiers",
+        "notifications": "Afficher des notifications",
+        "nativeMessaging": "Communiquer avec des programmes de votre ordinateur",
+        "geolocation": "Connaître votre position",
+        "management": "Gérer vos autres extensions",
+        "proxy": "Contrôler la façon dont le navigateur se connecte à Internet",
+        "debugger": "Déboguer les pages et lire tout leur contenu",
+        "privacy": "Modifier vos réglages de confidentialité",
+        "identity": "Connaître votre identité et vous connecter",
+        "desktopCapture": "Capturer le contenu de votre écran ou de vos onglets",
+        "pageCapture": "Enregistrer des pages en fichiers",
+        "browsingData": "Effacer vos données de navigation"
+      },
+      "add": "Ajouter"
+    },
+    "removeExtension": {
+      "confirm": "Retirer",
+      "detail": "L’extension et ses données seront retirées de tous vos espaces.",
+      "message": "Retirer « {{name}} » ?"
+    },
+    "passwordExtension": {
+      "failed": "Impossible d’installer {{name}}. Réessayez depuis le Chrome Web Store."
+    }
+  },
+  "sitePanel": {
+    "media": "Caméra et micro",
+    "geolocation": "Position",
+    "notifications": "Notifications",
+    "clipboard-read": "Presse-papiers",
+    "midi": "Appareils MIDI",
+    "display-capture": "Partage d'écran"
+  },
+  "menu": {
+    "settings": "Réglages…",
+    "app": {
+      "about": "À propos de Signet",
+      "hide": "Masquer Signet",
+      "hideOthers": "Masquer les autres",
+      "showAll": "Tout afficher",
+      "quit": "Quitter Signet"
+    },
+    "file": {
+      "title": "Fichier",
+      "newTab": "Nouvel onglet",
+      "newLittleSignet": "Nouvelle fenêtre Little Signet",
+      "newPrivateWindow": "Nouvelle fenêtre privée",
+      "reopenTab": "Rouvrir l'onglet fermé",
+      "closeTab": "Fermer l'onglet",
+      "closeWindow": "Fermer la fenêtre",
+      "savePage": "Enregistrer la page sous…",
+      "exportPdf": "Exporter en PDF…",
+      "print": "Imprimer…",
+      "capture": "Capture d'écran…",
+      "newNote": "Nouvelle note",
+      "newEasel": "Nouvel Easel",
+      "installApp": "Installer ce site comme app…"
+    },
+    "edit": {
+      "title": "Édition",
+      "undo": "Annuler",
+      "redo": "Rétablir",
+      "cut": "Couper",
+      "copy": "Copier",
+      "paste": "Coller",
+      "pasteMatchStyle": "Coller en conservant le style",
+      "selectAll": "Tout sélectionner",
+      "find": "Rechercher…",
+      "findNext": "Occurrence suivante",
+      "findPrevious": "Occurrence précédente"
+    },
+    "view": {
+      "title": "Affichage",
+      "toggleSidebar": "Afficher la barre latérale",
+      "compact": "Mode compact",
+      "reload": "Recharger",
+      "hardReload": "Forcer le rechargement",
+      "zoomIn": "Zoom avant",
+      "zoomOut": "Zoom arrière",
+      "actualSize": "Taille réelle",
+      "customizeSite": "Personnaliser ce site…",
+      "fullScreen": "Plein écran",
+      "devTools": "Outils de développement",
+      "tabsTop": "Onglets en haut",
+      "showBookmarksBar": "Afficher la barre de signets",
+      "hideBookmarksBar": "Masquer la barre de signets",
+      "reader": "Mode lecture",
+      "translate": "Traduire la page",
+      "viewSource": "Afficher le code source",
+      "mods": "Mods de l'interface",
+      "reloadInterface": "Recharger l'interface",
+      "jsConsole": "Console JavaScript"
+    },
+    "navigate": {
+      "title": "Navigation",
+      "back": "Précédent",
+      "forward": "Suivant",
+      "openAddress": "Ouvrir l'adresse",
+      "library": "Bibliothèque",
+      "copyUrl": "Copier l'URL",
+      "togglePin": "Épingler / Désépingler l'onglet",
+      "splitView": "Vue partagée",
+      "nextTab": "Onglet suivant",
+      "previousTab": "Onglet précédent",
+      "nextSpace": "Espace suivant",
+      "previousSpace": "Espace précédent",
+      "space": "Espace {{number}}",
+      "tab": "Onglet {{number}}",
+      "lastTab": "Dernier onglet",
+      "toggleBookmark": "Ajouter / retirer des signets"
+    },
+    "window": {
+      "title": "Fenêtre",
+      "minimize": "Placer dans le Dock",
+      "zoom": "Agrandir",
+      "bringAllToFront": "Tout ramener au premier plan"
+    },
+    "page": {
+      "openInNewTab": "Ouvrir dans un nouvel onglet",
+      "openInPeek": "Ouvrir dans Peek",
+      "openInSplit": "Ouvrir en vue partagée",
+      "openInPrivate": "Ouvrir dans une fenêtre privée",
+      "copyLink": "Copier le lien",
+      "openImageInNewTab": "Ouvrir l'image dans un nouvel onglet",
+      "copyImage": "Copier l'image",
+      "saveImage": "Enregistrer l'image",
+      "search": "Rechercher « {{text}} »",
+      "back": "Précédent",
+      "forward": "Suivant",
+      "reload": "Recharger",
+      "pip": "Image dans l’image",
+      "customizeSite": "Personnaliser ce site…",
+      "inspect": "Inspecter",
+      "noSuggestions": "Aucune suggestion",
+      "addToDictionary": "Ajouter au dictionnaire",
+      "savePage": "Enregistrer sous…",
+      "print": "Imprimer…",
+      "translate": "Traduire en {{language}}",
+      "showOriginal": "Afficher la page d'origine",
+      "reader": "Afficher en mode lecture",
+      "exitReader": "Quitter le mode lecture",
+      "viewSource": "Afficher le code source",
+      "capture": "Capture d'écran…",
+      "installApp": "Installer comme app…",
+      "openInApp": "Ouvrir dans l'app « {{name}} »"
+    },
+    "tab": {
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "addFavorite": "Ajouter aux favoris",
+      "removeFavorite": "Retirer des favoris",
+      "splitWithActive": "Vue partagée avec l'onglet actif",
+      "removeFromSplit": "Retirer de la vue partagée",
+      "leaveGroup": "Retirer du groupe",
+      "layout": "Disposition",
+      "layoutColumns": "Côte à côte",
+      "layoutRows": "Empilée",
+      "layoutGrid": "Grille",
+      "equalize": "Égaliser les panneaux",
+      "duplicate": "Dupliquer",
+      "copyUrl": "Copier l'URL",
+      "moveUp": "Monter",
+      "moveDown": "Descendre",
+      "moveToSpace": "Déplacer vers l'espace",
+      "alwaysOpenIn": "Toujours ouvrir {{site}} dans",
+      "stopRouting": "Ne plus aiguiller ce site",
+      "addToFolder": "Ajouter à un dossier",
+      "newFolder": "Nouveau dossier",
+      "rename": "Renommer…",
+      "chooseIcon": "Choisir une icône…",
+      "resetNameAndIcon": "Rétablir le nom et l’icône",
+      "close": "Fermer",
+      "unload": "Décharger",
+      "addBookmark": "Ajouter aux signets",
+      "removeBookmark": "Retirer des signets",
+      "installApp": "Installer comme app…",
+      "openInApp": "Ouvrir dans l'app « {{name}} »",
+      "openOnPhone": "Ouvrir sur mon téléphone"
+    },
+    "group": {
+      "rename": "Renommer",
+      "collapse": "Replier",
+      "expand": "Déplier",
+      "pin": "Épingler le groupe",
+      "ungroup": "Dissocier le groupe",
+      "close": "Fermer le groupe"
+    },
+    "folder": {
+      "rename": "Renommer",
+      "newInside": "Nouveau dossier à l'intérieur",
+      "color": "Couleur",
+      "colorNone": "Aucune",
+      "unpin": "Désépingler",
+      "delete": "Supprimer le dossier",
+      "deleteWithTabs": "Supprimer le dossier et ses onglets",
+      "hue": {
+        "red": "Rouge",
+        "orange": "Orange",
+        "yellow": "Jaune",
+        "green": "Vert",
+        "turquoise": "Turquoise",
+        "blue": "Bleu",
+        "purple": "Violet",
+        "pink": "Rose"
+      },
+      "refresh": "Actualiser",
+      "editSource": "Modifier la source…",
+      "newFolder": "Nouveau dossier",
+      "newLiveFolder": "Nouveau dossier dynamique…"
+    },
+    "space": {
+      "edit": "Modifier l'espace…",
+      "moveLeft": "Déplacer à gauche",
+      "moveRight": "Déplacer à droite",
+      "isolatedProfile": "Profil isolé",
+      "clearData": "Effacer les données de l'espace…",
+      "delete": "Supprimer l'espace…",
+      "newLiveFolder": "Nouveau dossier dynamique…"
+    },
+    "extension": {
+      "hide": "Désépingler de la barre d’outils",
+      "manage": "Gérer les extensions…",
+      "options": "Options",
+      "remove": "Retirer de Signet…",
+      "pin": "Épingler dans la barre d’outils",
+      "all": "Extensions",
+      "pinned": "Épinglées dans la barre d’outils",
+      "none": "Aucune extension avec un bouton"
+    },
+    "bookmark": {
+      "open": "Ouvrir",
+      "openInNewTab": "Ouvrir dans un nouvel onglet",
+      "openAll": "Tout ouvrir dans de nouveaux onglets",
+      "rename": "Renommer…",
+      "delete": "Supprimer le signet",
+      "deleteFolder": "Supprimer le dossier",
+      "newFolder": "Nouveau dossier"
+    },
+    "develop": {
+      "title": "Développement"
+    },
+    "help": {
+      "title": "Aide",
+      "checkUpdates": "Rechercher des mises à jour…",
+      "releaseNotes": "Notes de version",
+      "reportIssue": "Signaler un problème…",
+      "github": "Signet sur GitHub"
+    }
+  },
+  "palette": {
+    "favorites": "Favoris",
+    "goToTab": "Aller à l'onglet · {{space}}",
+    "openAddress": "Ouvrir cette adresse",
+    "searchWith": "Rechercher « {{query}} » sur {{engine}}",
+    "archived": "Archivé · {{url}}",
+    "subtitle": {
+      "on": "Activé",
+      "off": "Désactivé",
+      "current": "Actuelle",
+      "packagedOnly": "Ne fonctionne que dans l'app empaquetée"
+    },
+    "action": {
+      "settings": "Réglages",
+      "library": "Bibliothèque",
+      "newSpace": "Nouvel espace",
+      "splitView": "Vue partagée",
+      "unsplit": "Quitter la vue partagée",
+      "splitColumns": "Vue partagée : côte à côte",
+      "splitRows": "Vue partagée : empilée",
+      "splitGrid": "Vue partagée : grille",
+      "splitEqualize": "Égaliser les panneaux",
+      "toggleSidebar": "Afficher / masquer la barre latérale",
+      "compact": "Mode compact",
+      "pin": "Épingler l'onglet",
+      "unpin": "Désépingler l'onglet",
+      "addFavorite": "Ajouter aux favoris",
+      "removeFavorite": "Retirer des favoris",
+      "copyUrl": "Copier l'URL",
+      "newLittleSignet": "Nouvelle fenêtre Little Signet",
+      "newPrivateWindow": "Nouvelle fenêtre privée",
+      "pip": "Image dans l’image",
+      "archiveToday": "Archiver les onglets du jour",
+      "closeTab": "Fermer l'onglet",
+      "reopenTab": "Rouvrir l'onglet fermé",
+      "reload": "Recharger",
+      "devTools": "Outils de développement",
+      "peekLinks": "Ouvrir les liens externes des épinglés dans Peek",
+      "adblock": "Bloqueur de pubs",
+      "defaultBrowser": "Définir comme navigateur par défaut",
+      "appIcon": "Icône de l'app : {{name}}",
+      "newFolder": "Nouveau dossier",
+      "goToSpace": "Aller à l'espace {{name}}",
+      "customizeSite": "Personnaliser {{site}}",
+      "boostActive": "Boost actif",
+      "tabsTop": "Onglets en haut",
+      "tabsSide": "Onglets sur le côté",
+      "print": "Imprimer la page",
+      "savePdf": "Exporter la page en PDF",
+      "savePage": "Enregistrer la page sous…",
+      "viewSource": "Afficher le code source",
+      "reader": "Mode lecture",
+      "exitReader": "Quitter le mode lecture",
+      "translate": "Traduire la page en {{language}}",
+      "showOriginal": "Afficher la page d'origine",
+      "capture": "Capture d'écran",
+      "newLiveFolder": "Nouveau dossier dynamique",
+      "newNote": "Nouvelle note",
+      "newEasel": "Nouvel Easel",
+      "installApp": "Installer ce site comme app",
+      "openInApp": "Ouvrir dans l'app « {{name}} »",
+      "launchApp": "Ouvrir l'app « {{name}} »",
+      "devToolsRight": "Outils de développement à droite",
+      "devToolsBottom": "Outils de développement en bas",
+      "devToolsWindow": "Outils de développement dans une fenêtre",
+      "jsConsole": "Console JavaScript",
+      "openOnPhone": "Ouvrir sur mon téléphone"
+    },
+    "openAlias": "Nom local → {{url}}"
+  },
+  "import": {
+    "fromApp": "Importer depuis {{name}}",
+    "bookmarks": "Importer les favoris de {{name}}",
+    "bookmarksElided": "Importer les favoris d'{{name}}",
+    "folder": {
+      "otherBookmarks": "Autres favoris",
+      "syncedBookmarks": "Favoris synchronisés",
+      "bookmarksMenu": "Menu des favoris"
+    },
+    "done": "Import terminé",
+    "failed": "L’import a échoué",
+    "truncated": "L’import est limité à 2 000 onglets : le reste a été ignoré.",
+    "truncatedBookmarks": "L’import est limité à 20 000 signets : le reste a été ignoré.",
+    "summary": {
+      "bookmarks_one": "{{count}} signet importé dans le dossier de signets « {{folder}} ».",
+      "bookmarks_other": "{{count}} signets importés dans le dossier de signets « {{folder}} ».",
+      "bookmarksBar_one": "{{count}} signet importé dans la barre de signets.",
+      "bookmarksBar_other": "{{count}} signets importés dans la barre de signets.",
+      "spaces_one": "{{count}} espace",
+      "spaces_other": "{{count}} espaces",
+      "pinned_one": "{{count}} onglet épinglé",
+      "pinned_other": "{{count}} onglets épinglés",
+      "favorites_one": "{{count}} favori",
+      "favorites_other": "{{count}} favoris",
+      "tabs_one": "{{count}} onglet importé",
+      "tabs_other": "{{count}} onglets importés",
+      "full": "{{parts}} et {{imported}}.",
+      "history_one": "{{count}} page ajoutée à l’historique.",
+      "history_other": "{{count}} pages ajoutées à l’historique.",
+      "passwords_one": "{{count}} mot de passe importé.",
+      "passwords_other": "{{count}} mots de passe importés.",
+      "extensions_one": "{{count}} extension en cours d’installation depuis le Chrome Web Store.",
+      "extensions_other": "{{count}} extensions en cours d’installation depuis le Chrome Web Store."
+    },
+    "error": {
+      "format": "Format de fichier non reconnu.",
+      "noContent": "Aucun contenu à importer.",
+      "noBookmarks": "Aucun favori à importer."
+    },
+    "safariDenied": {
+      "message": "Accès refusé aux favoris de Safari",
+      "detailPackaged": "macOS protège ce dossier. Accordez l’accès complet au disque à Signet dans Réglages Système › Confidentialité et sécurité › Accès complet au disque.",
+      "detailDev": "macOS protège ce dossier. Accordez l’accès complet au disque à Signet dans Réglages Système › Confidentialité et sécurité › Accès complet au disque (en développement, c’est l’app « Electron »).",
+      "openSettings": "Ouvrir les réglages"
+    },
+    "kind": {
+      "spaces": "Espaces",
+      "bookmarks": "Favoris",
+      "passwords": "Mots de passe",
+      "extensions": "Extensions",
+      "history": "Historique"
+    },
+    "kindFailed": "{{kind}} : {{error}}",
+    "passwordsExisting_one": "{{count}} mot de passe était déjà enregistré et a été gardé tel quel.",
+    "passwordsExisting_other": "{{count}} mots de passe étaient déjà enregistrés et ont été gardés tels quels.",
+    "passwordsFailed_one": "{{count}} mot de passe n’a pas pu être déchiffré.",
+    "passwordsFailed_other": "{{count}} mots de passe n’ont pas pu être déchiffrés.",
+    "passwordsFailedMac": "macOS doit autoriser Signet à lire la clé du navigateur dans le Trousseau : relancez l’import et cliquez sur « Autoriser ».",
+    "passwordsFailedLinux": "La clé du navigateur est gardée dans le trousseau du système : déverrouillez-le et vérifiez que la commande « secret-tool » (paquet libsecret) est installée, puis relancez l’import.",
+    "passwordsFailedWindows": "Les versions récentes du navigateur verrouillent certains mots de passe : exportez-les en CSV depuis le navigateur, puis importez ce fichier dans Réglages › Mots de passe."
+  },
+  "internal": {
+    "desc": {
+      "settings": "Ouvrir les réglages",
+      "extensions": "Gérer les extensions",
+      "about": "À propos de Signet",
+      "library": "Ouvrir la bibliothèque",
+      "history": "Historique de navigation",
+      "downloads": "Fichiers téléchargés",
+      "urls": "Liste de toutes les adresses internes",
+      "version": "Versions, système et informations du profil",
+      "settingsSection": {
+        "general": "Réglages : Général",
+        "appearance": "Réglages : Apparence",
+        "privacy": "Réglages : Confidentialité",
+        "import": "Réglages : Importation",
+        "boosts": "Réglages : Boosts",
+        "routing": "Réglages : Aiguillage",
+        "extensions": "Réglages : Extensions",
+        "shortcuts": "Réglages : Raccourcis",
+        "about": "Réglages : À propos",
+        "passwords": "Réglages : Mots de passe",
+        "mods": "Réglages : mods de l'interface",
+        "backup": "Réglages : Sauvegarde",
+        "apps": "Réglages : apps installées",
+        "developer": "Réglages : développement"
+      },
+      "librarySection": {
+        "history": "Bibliothèque : Historique",
+        "archive": "Bibliothèque : Archives",
+        "downloads": "Bibliothèque : Téléchargements",
+        "spaces": "Bibliothèque : Espaces"
+      },
+      "engine": {
+        "gpu": "État de l'accélération graphique",
+        "media-internals": "Diagnostic de la lecture multimédia",
+        "webrtc-internals": "Diagnostic des communications en temps réel",
+        "process-internals": "Processus et isolation des sites",
+        "accessibility": "Arbre d'accessibilité des pages ouvertes",
+        "serviceworker-internals": "Service workers",
+        "indexeddb-internals": "Stockage IndexedDB",
+        "quota-internals": "Quotas de stockage",
+        "histograms": "Métriques du moteur",
+        "tracing": "Traces de performance",
+        "ukm": "Métriques d'usage"
+      }
+    },
+    "urls": {
+      "title": "Adresses internes",
+      "lead": "Les adresses signet:// disponibles dans Signet.",
+      "shortcuts": "Raccourcis vers les écrans",
+      "pages": "Pages d'information",
+      "engine": "Pages techniques"
+    },
+    "version": {
+      "title": "Version",
+      "app": "Application",
+      "engine": "Chromium",
+      "os": "Système",
+      "uiLanguage": "Langue de l'interface",
+      "siteLanguages": "Langues des sites",
+      "userAgent": "Agent utilisateur",
+      "profile": "Dossier du profil",
+      "extensions": "Dossier des extensions"
+    },
+    "notFound": {
+      "title": "Adresse introuvable",
+      "text": "Cette adresse interne n'existe pas."
+    }
+  },
+  "pageError": {
+    "title": "Impossible d’ouvrir cette page",
+    "retry": "Réessayer",
+    "code": "Erreur {{code}}",
+    "reason": {
+      "offline": "Votre ordinateur ne semble pas connecté à Internet.",
+      "dns": "L’adresse du serveur est introuvable. Vérifiez qu’elle est bien orthographiée.",
+      "refused": "Le serveur a refusé la connexion.",
+      "reset": "La connexion a été interrompue.",
+      "timeout": "Le serveur met trop de temps à répondre.",
+      "unreachable": "Le serveur est inaccessible pour le moment.",
+      "certificate": "Le certificat de sécurité du site n’est pas fiable.",
+      "other": "La page n’a pas pu être chargée."
+    },
+    "crash": {
+      "title": "Cette page a planté",
+      "text": "Un problème est survenu pendant l’affichage de cette page.",
+      "retry": "Recharger"
+    }
+  },
+  "passwords": {
+    "touchIdReveal": "afficher le mot de passe de {{site}}",
+    "touchIdExport": "exporter vos mots de passe",
+    "confirm": {
+      "title": "Votre système ne peut pas vérifier votre identité. Continuer quand même ?",
+      "allow": "Continuer",
+      "cancel": "Annuler"
+    },
+    "exportFile": "Mots de passe Signet.csv",
+    "error": {
+      "encryption": "Le chiffrement n’est pas disponible sur ce système.",
+      "site": "Adresse du site invalide.",
+      "missing": "Ce mot de passe n’existe plus.",
+      "password": "Saisissez un mot de passe.",
+      "duplicate": "Un mot de passe est déjà enregistré pour cet identifiant sur ce site."
+    },
+    "prompt": {
+      "save": "Enregistrer",
+      "update": "Mettre à jour",
+      "never": "Jamais pour ce site",
+      "notNow": "Pas maintenant",
+      "saveTitle": "Enregistrer le mot de passe de {{site}} ?",
+      "updateTitle": "Mettre à jour le mot de passe de {{site}} ?",
+      "noUsername": "Sans identifiant"
+    }
+  },
+  "pageTools": {
+    "savePdfTitle": "Exporter en PDF",
+    "savePageTitle": "Enregistrer la page",
+    "formatComplete": "Page web complète",
+    "formatArchive": "Archive web (un seul fichier)",
+    "savePdfFailed": "Le PDF n'a pas pu être créé.",
+    "savePageFailed": "La page n'a pas pu être enregistrée."
+  },
+  "translate": {
+    "failed": "La page n'a pas pu être traduite.",
+    "failedDetail": "Vérifiez votre connexion à Internet, puis réessayez."
+  },
+  "reader": {
+    "smaller": "Texte plus petit",
+    "bigger": "Texte plus grand",
+    "serif": "Serif",
+    "sans": "Sans serif",
+    "themeAuto": "Automatique (suit le thème)",
+    "themeLight": "Clair",
+    "themeSepia": "Sépia",
+    "themeDark": "Sombre",
+    "narrow": "Étroit",
+    "narrowTitle": "Colonne étroite",
+    "normal": "Moyen",
+    "normalTitle": "Colonne moyenne",
+    "wide": "Large",
+    "wideTitle": "Colonne large",
+    "close": "Quitter",
+    "closeTitle": "Quitter le mode lecture (Échap)",
+    "minutes": "{{n}} min de lecture"
+  },
+  "capture": {
+    "saveTitle": "Enregistrer la capture",
+    "saveFailed": "La capture n'a pas pu être enregistrée.",
+    "fileName": "Capture {{site}} {{date}} à {{time}}"
+  },
+  "liveFolders": {
+    "error": {
+      "address": "Adresse invalide.",
+      "network": "Source injoignable. Vérifiez l'adresse et votre connexion.",
+      "http": "La source a répondu par une erreur ({{status}}).",
+      "notFeed": "Aucun flux RSS ou Atom à cette adresse.",
+      "noToken": "Ajoutez un jeton GitHub dans Réglages › Général.",
+      "tokenFormat": "Ce jeton n'a pas le bon format.",
+      "tokenInvalid": "GitHub a refusé ce jeton.",
+      "encryption": "Le chiffrement du système n'est pas disponible : le jeton ne peut pas être enregistré."
+    },
+    "github": {
+      "reviewRequested": "Relectures demandées",
+      "mine": "Mes demandes de fusion"
+    }
+  },
+  "mods": {
+    "exportTitle": "Exporter le mod",
+    "untitled": "Mod sans nom"
+  },
+  "notes": {
+    "menu": {
+      "newTab": "Nouvel onglet",
+      "newNote": "Nouvelle note",
+      "newEasel": "Nouvel Easel"
+    }
+  },
+  "backup": {
+    "exportTitle": "Exporter la sauvegarde",
+    "fileName": "Sauvegarde Signet",
+    "fileType": "Sauvegarde Signet",
+    "touchIdExport": "exporter vos mots de passe dans une sauvegarde",
+    "error": {
+      "nothing": "Cochez au moins un élément.",
+      "passwordShort": "Le mot de passe de la sauvegarde doit faire 6 caractères au moins.",
+      "auth": "Authentification refusée.",
+      "write": "Le fichier n'a pas pu être écrit.",
+      "invalid": "Ce fichier n'est pas une sauvegarde Signet lisible.",
+      "wrongPassword": "Mot de passe de la sauvegarde incorrect.",
+      "encryption": "Le chiffrement du système est indisponible : les mots de passe ne peuvent pas être importés.",
+      "safety": "La copie de sécurité n'a pas pu être faite : rien n'a été importé.",
+      "import": "L'import a échoué. Vos données n'ont pas été modifiées, ou la copie de sécurité permet de revenir en arrière."
+    },
+    "confirm": {
+      "add": "Ajouter le contenu de la sauvegarde ?",
+      "replace": "Remplacer vos données par celles de la sauvegarde ?",
+      "detail": "Signet va redémarrer. Une copie de sécurité de vos données actuelles est faite juste avant.",
+      "ok": "Importer et redémarrer"
+    }
+  },
+  "webapps": {
+    "cannotInstall": "Cette page ne peut pas devenir une app",
+    "cannotInstallDetail": "Seule une page web (http ou https) ouverte dans un onglet de la fenêtre principale peut être installée comme app.",
+    "missing": "Cette app n'est plus installée",
+    "missingDetail": "Elle a été désinstallée de Signet : vous pouvez mettre son lanceur à la corbeille."
+  },
+  "devtools": {
+    "windowTitle": "Outils de développement — {{site}}",
+    "dockRight": "À droite",
+    "dockBottom": "En bas",
+    "dockWindow": "Dans une fenêtre à part",
+    "close": "Fermer les outils"
+  },
+  "develop": {
+    "emptyCache": "Vider le cache et recharger",
+    "clearSiteData": "Effacer les données du site et recharger",
+    "noCache": "Désactiver le cache",
+    "noJs": "Désactiver JavaScript",
+    "scheme": "Thème de la page",
+    "schemeSystem": "Suivre le système",
+    "schemeLight": "Forcer le thème clair",
+    "schemeDark": "Forcer le thème sombre",
+    "reducedMotion": "Réduire les animations",
+    "networkTitle": "Connexion",
+    "network": {
+      "none": "Sans limitation",
+      "fast4g": "4G rapide",
+      "slow4g": "4G lente",
+      "3g": "3G",
+      "offline": "Hors ligne"
+    },
+    "uaTitle": "Agent utilisateur",
+    "ua": {
+      "default": "Par défaut (Signet)",
+      "safari-mac": "Safari — Mac",
+      "safari-iphone": "Safari — iPhone",
+      "safari-ipad": "Safari — iPad",
+      "chrome-android": "Chrome — Android",
+      "firefox-mac": "Firefox — Mac"
+    },
+    "reset": "Réinitialiser les réglages de l’onglet",
+    "palette": {
+      "disableCache": "Désactiver le cache de l’onglet",
+      "enableCache": "Réactiver le cache de l’onglet",
+      "disableJs": "Désactiver JavaScript dans l’onglet",
+      "enableJs": "Réactiver JavaScript dans l’onglet",
+      "forceDark": "Forcer le thème sombre de la page",
+      "forceLight": "Forcer le thème clair de la page",
+      "followSystem": "Thème de la page : suivre le système",
+      "motionOff": "Réduire les animations de la page",
+      "motionOn": "Rétablir les animations de la page",
+      "network": "Simuler une connexion : {{name}}",
+      "networkNone": "Connexion sans limitation",
+      "ua": "Agent utilisateur : {{name}}",
+      "uaDefault": "Agent utilisateur par défaut",
+      "responsiveOn": "Passer en mode responsive",
+      "responsiveOff": "Quitter le mode responsive"
+    },
+    "responsive": "Mode responsive"
+  },
+  "jsonView": {
+    "tree": "Arbre",
+    "raw": "Brut",
+    "pretty": "Formaté",
+    "expandAll": "Tout déplier",
+    "collapseAll": "Tout replier",
+    "search": "Rechercher",
+    "noResults": "Aucun résultat",
+    "results_one": "{{count}} résultat",
+    "results_other": "{{count}} résultats",
+    "keys_one": "{{count}} clé",
+    "keys_other": "{{count}} clés",
+    "items_one": "{{count}} élément",
+    "items_other": "{{count}} éléments",
+    "more_one": "Afficher le suivant ({{count}} restant)",
+    "more_other": "Afficher les suivants ({{count}} restants)",
+    "copy": "Copier le JSON",
+    "copied": "Copié",
+    "copyPath": "Copier le chemin",
+    "copyValue": "Copier la valeur"
+  },
+  "downloads": {
+    "chooseDir": "Dossier des téléchargements",
+    "chooseDirButton": "Choisir"
+  },
+  "unpacked": {
+    "pickTitle": "Charger une extension non empaquetée",
+    "pickButton": "Charger",
+    "noManifest": "Le dossier « {{folder}} » ne contient pas de manifest.json.",
+    "loadFailed": "L’extension du dossier « {{folder}} » n’a pas pu être chargée."
+  },
+  "updates": {
+    "ok": "OK",
+    "later": "Plus tard",
+    "upToDate": "Signet est à jour",
+    "upToDateDetail": "La version {{version}} est la plus récente.",
+    "available": "Signet {{version}} est disponible",
+    "availableDetail": "Vous avez la version {{current}}. Téléchargez la nouvelle version depuis sa page de publication, puis installez-la comme la première fois.",
+    "download": "Télécharger",
+    "downloading": "Signet {{version}} est en cours de téléchargement",
+    "downloadingDetail": "Signet vous proposera de redémarrer quand elle sera prête.",
+    "ready": "Signet {{version}} est prête à être installée",
+    "readyDetail": "Redémarrez Signet maintenant pour terminer la mise à jour. Sinon, elle sera installée la prochaine fois que vous quitterez.",
+    "restart": "Redémarrer maintenant",
+    "failed": "Impossible de rechercher des mises à jour",
+    "failedDetail": "Vérifiez votre connexion internet et réessayez plus tard.",
+    "devOnly": "Les mises à jour ne sont recherchées que dans l’app installée",
+    "devOnlyDetail": "Cette copie de Signet tourne depuis le code source."
+  }
+}

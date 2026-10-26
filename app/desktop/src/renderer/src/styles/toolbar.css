@@ -1,0 +1,367 @@
+/* Toolbar, built-in developer tools, bookmarks, floating bar. */
+
+/* ---------- 5. Toolbar ---------- */
+
+.pane-shadow {
+  /* Bar content: site color (variables set by the renderer), theme tokens by default. */
+  --bar-bg: var(--surface);
+  --bar-fg: var(--text);
+  --bar-fg-2: var(--text-2);
+  --bar-hover: var(--surface-2);
+}
+/* Bar background: overflows 12 px below it so the web view's rounded top corners rest on it. */
+.pane-fill {
+  position: absolute;
+  inset: 0 0 auto 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--bar-bg);
+  transition: background var(--t) var(--ease-out);
+}
+.pane-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  pointer-events: auto;
+  -webkit-app-region: drag;
+}
+
+/* Built-in developer tools: a card next to the page, header on the surface, native view below. */
+.devtools-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 var(--s2) 0 var(--s3);
+  color: var(--text-2);
+  font-size: var(--fs-sub);
+  font-weight: var(--fw-strong);
+  pointer-events: auto;
+}
+/* On the right, the header is at the top of the window: it can be moved by grabbing it, like the panel bar. */
+.devtools-card.right .devtools-bar {
+  -webkit-app-region: drag;
+}
+.devtools-bar button {
+  -webkit-app-region: no-drag;
+}
+.devtools-title {
+  flex: 1;
+  min-width: 0;
+  margin-left: var(--s2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.devtools-bar button.icon.on,
+.rs-bar button.icon.on,
+.toolbar button.icon.devtools-btn.on,
+.toolbar button.icon.develop-btn.on {
+  color: var(--accent);
+}
+.devtools-card.dim .devtools-bar {
+  opacity: 0.7;
+}
+/* Detached tools window: the header serves as the title bar (traffic lights on the left, it is moved by grabbing it). */
+html.route-devtools {
+  background: var(--surface);
+}
+.devtools-window .devtools-bar {
+  padding-left: 78px;
+  -webkit-app-region: drag;
+}
+
+/* Bookmarks bar: under the address bar, on the same background (site color). */
+.pane-bookmarks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+.pane-bookmarks.dim > .bm-bar {
+  opacity: 0.7;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+.pane-bookmarks.dim:hover > .bm-bar {
+  opacity: 1;
+}
+.bm-bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  padding: 0 var(--s2) var(--s1);
+  color: var(--bar-fg-2);
+}
+.bm-items {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+.bm-item {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 180px;
+  height: 24px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  font-size: var(--fs-sub);
+  color: var(--bar-fg-2);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-fast) var(--ease-out);
+}
+.bm-item:hover {
+  background: var(--bar-hover);
+  color: var(--bar-fg);
+}
+.bm-item:active {
+  transform: var(--press-sm);
+  transition-duration: var(--t-press);
+}
+.bm-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bm-item > svg,
+.bm-item > .favicon {
+  flex: none;
+}
+.bm-caret {
+  flex: none;
+  opacity: 0.7;
+}
+.bm-item.drop-into {
+  background: var(--bar-hover);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.bm-item.drop-before::before,
+.bm-item.drop-after::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.bm-item.drop-before::before {
+  left: -2px;
+}
+.bm-item.drop-after::after {
+  right: -2px;
+}
+.bm-hint {
+  padding: 0 var(--s2);
+  font-size: var(--fs-cap);
+  color: var(--bar-fg-2);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bm-bar .bm-more {
+  flex: none;
+  width: 26px;
+  height: 24px;
+  color: var(--bar-fg-2);
+}
+.bm-bar .bm-more:hover {
+  background: var(--bar-hover);
+}
+.toolbar button.icon.star-btn.on {
+  color: var(--accent);
+}
+
+.toolbar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  padding: 0 var(--s2) 0 var(--s1);
+  color: var(--bar-fg);
+  -webkit-app-region: drag;
+}
+.toolbar.leading {
+  padding-left: 78px;
+}
+.toolbar.dim > * {
+  opacity: 0.7;
+  transition: opacity var(--t-fast) var(--ease-out);
+}
+.toolbar.dim:hover > * {
+  opacity: 1;
+}
+.toolbar button.icon {
+  color: var(--bar-fg-2);
+}
+.toolbar button.icon:hover:not(:disabled) {
+  background: var(--bar-hover);
+  color: var(--bar-fg);
+}
+.toolbar.floating {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  border-radius: var(--r-pop);
+  background: var(--bar-bg);
+}
+
+/* Floating toolbar (compact mode): fills its view; fade-in + 6 px translation, mirrored exit.
+   Transitions (not keyframes): a pointer return midway through the exit restarts from the current value. */
+.float-toolbar {
+  position: fixed;
+  inset: 0;
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--ease-out);
+}
+.float-toolbar.on {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t-slow) var(--spring);
+}
+.float-toolbar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-pop);
+  box-shadow:
+    inset 0 0 0 0.5px var(--border),
+    var(--edge-light);
+  pointer-events: none;
+}
+
+.address-line {
+  flex: 1;
+  /* The address field always keeps room: it is the extension buttons that give way. */
+  min-width: min(180px, 40%);
+  display: flex;
+  align-items: center;
+  height: var(--s7);
+}
+.address-line button.icon {
+  width: var(--s6);
+  height: var(--s6);
+}
+.address {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--s1);
+  padding: 0 var(--s1);
+  border-radius: var(--r-control);
+  white-space: nowrap;
+  text-align: left;
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast) var(--ease-out);
+}
+.address-line:not(:has(.site-btn)) .address {
+  padding-left: var(--s2);
+}
+.address:hover {
+  background: var(--bar-hover);
+}
+.address:active {
+  transform: var(--press);
+  transition-duration: var(--t-press);
+}
+.address .domain {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bar-fg);
+}
+/* Developer mode: port of a local page, in secondary color. */
+.address .port {
+  color: var(--bar-fg-2);
+}
+/* Console counter (developer mode, local page): solid pills, legible on all site colors. */
+.console-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 2px;
+  border-radius: 11px;
+  -webkit-app-region: no-drag;
+}
+.console-badge > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 6px 0 5px;
+  border-radius: 9px;
+  font-size: var(--fs-cap);
+  font-weight: var(--fw-title);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.console-badge .err {
+  background: hsl(2 72% 50%);
+  color: rgb(255 255 255);
+}
+.console-badge .warn {
+  background: hsl(40 96% 52%);
+  color: rgb(40 28 0);
+}
+.console-badge:hover > span {
+  filter: brightness(1.08);
+}
+.console-badge:active > span {
+  transform: var(--press-sm);
+  filter: brightness(0.95);
+}
+.address .page {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--bar-fg-2);
+}
+.toolbar button.icon.boost-btn.on {
+  color: var(--accent);
+}
+/* Reading and translation: accent when active; the translation in progress breathes gently. Key: password to save. */
+.toolbar button.icon.key-btn.on,
+.toolbar button.icon.reader-btn.on,
+.toolbar button.icon.translate-btn.on {
+  color: var(--accent);
+}
+.toolbar button.icon.translate-btn.working {
+  color: var(--accent);
+  animation: translate-pulse 1.1s ease-in-out infinite;
+}
+@keyframes translate-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toolbar button.icon.translate-btn.working {
+    animation: none;
+  }
+}

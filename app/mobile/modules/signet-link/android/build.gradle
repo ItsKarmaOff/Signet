@@ -1,0 +1,16 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.signet.link'
+version = '1.0.0'
+
+android {
+  namespace "dev.signet.link"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+

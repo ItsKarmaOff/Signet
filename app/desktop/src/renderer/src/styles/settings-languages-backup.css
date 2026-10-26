@@ -1,0 +1,125 @@
+/* Settings › Site languages and Backup. */
+
+/* Settings › Site languages */
+/* Backup (Settings › Backup) */
+.st-backup-lead {
+  margin-bottom: var(--s4);
+}
+.st-backup-pw {
+  display: flex;
+  gap: var(--s2);
+}
+.st-backup-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s2);
+  margin: calc(-1 * var(--s2)) 0 var(--s5);
+}
+.st-backup-actions .st-ok,
+.st-backup-actions .st-err {
+  margin-right: auto;
+}
+.st-backup-mode {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s1);
+}
+.st-backup-mode label {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  padding: var(--s2);
+  border-radius: var(--r-row);
+  transition: background var(--t-fast);
+}
+.st-backup-mode label.on {
+  background: var(--surface-2);
+}
+.st-backup-mode input {
+  margin: 3px 0 0;
+  accent-color: var(--accent);
+}
+.st-backup-mode label > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.st-backup-mode strong {
+  font-weight: var(--fw-medium);
+}
+.st-backup-icon {
+  margin-right: var(--s1);
+  vertical-align: -2px;
+  color: var(--text-2);
+}
+
+.st-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+.st-langs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  width: 100%;
+  margin-top: var(--s2);
+}
+.lang-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lang-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  height: 30px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  background: var(--ctl);
+  cursor: grab;
+}
+.lang-item.dragging {
+  opacity: 0.4;
+}
+.lang-item.over {
+  box-shadow: 0 -2px 0 var(--accent);
+}
+.lang-rank,
+.lang-code {
+  color: var(--text-2);
+  font-size: var(--fs-sub);
+}
+.lang-rank {
+  width: 16px;
+  text-align: center;
+}
+.lang-name {
+  flex: 1;
+}
+.lang-btn {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: var(--text-2);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
+}
+.lang-btn:hover:not(:disabled) {
+  background: var(--ctl-ring);
+}
+.lang-btn:disabled {
+  opacity: 0.3;
+}
+.lang-actions {
+  display: flex;
+  gap: var(--s2);
+  justify-content: space-between;
+}

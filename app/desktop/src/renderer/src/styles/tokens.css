@@ -1,0 +1,314 @@
+/* Tokens: :root variables, themes, contrast, transparency, appearance settings. */
+
+/* ==========================================================================
+   Signet : feuille de style unique.
+   Sections: tokens, base, shared controls, main window, toolbar,
+   sidebar, downloads, space form, command bar, Peek,
+   site panel, find, Little Signet, private window, Boost, Settings, Library, accessibility.
+   ========================================================================== */
+
+/* ---------- 1. Tokens ---------- */
+
+/* The space hue is animatable: changing space slides the colors (240 ms). */
+@property --h {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 250;
+}
+/* Space gradient: 2nd and 3rd hues, gradient strength (1 = solid) and grain, animatable like --h. A solid space has
+   --h2 = --h3 = --h: the same gradient, of a single color, which allows switching between the two smoothly. */
+@property --h2 {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 250;
+}
+@property --h3 {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 250;
+}
+@property --gk {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+@property --grain {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+/* Scroll edges: fade zones animated by the scroll position. */
+@property --fade-top {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --fade-bottom {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+/* Gesture translation between spaces: not inherited, so set and read on the same track without recomputing descendants' style. */
+@property --swipe-x {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+:root {
+  /* Stacking scale: use instead of raw values. */
+  --z-base: 0;
+  --z-raised: 1; /* above its direct neighbors (rows, sticky headers) */
+  --z-above: 2; /* indicators placed over the content */
+  --z-edge: 3; /* edge hover zones, dividers */
+  --z-panel: 5; /* floating panels */
+  --z-toast: 6;
+  --z-grip: 10; /* handles, above everything in their view */
+  --z-flight: 20; /* in-flight animations */
+  --h: 250;
+  --h2: var(--h);
+  --h3: var(--h2);
+  color-scheme: light dark;
+  transition:
+    --h var(--t-theme) var(--ease-out),
+    --h2 var(--t-theme) var(--ease-out),
+    --h3 var(--t-theme) var(--ease-out),
+    --gk var(--t-theme) var(--ease-out),
+    --grain var(--t-theme) var(--ease-out);
+
+  /* Typography */
+  --font: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-emoji: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --fs-cap: 11px;
+  --fs-sub: 12px;
+  --fs: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-title: 20px;
+  --fs-hero: 28px;
+
+  /* Spacing (4 px grid; 2 px = half-step for tight lists) */
+  --s-half: 2px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 24px;
+  --s7: 28px;
+  --s8: 32px;
+  --gap: 8px;
+  --toolbar-h: 44px;
+  --row-h: 32px;
+
+  /* Radii: each nested level removes the spacing that separates it from its parent */
+  --r-window: 16px;
+  --r-card: calc(var(--r-window) - var(--gap) / 2);
+  --r-pop: 14px;
+  --r-group: 12px;
+  --r-tile: 10px;
+  --r-row: 8px;
+  --r-row-in: calc(var(--r-tile) - var(--s1));
+  --r-control: 7px;
+  --r-icon: 4px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --spring: linear(0, 0.17 4%, 0.48 10%, 0.72 17%, 0.87 25%, 0.95 34%, 0.985 45%, 1);
+  --t-fast: 120ms;
+  --t: 200ms;
+  --t-slow: 320ms;
+  --t-press: 80ms; /* immediate press on pointerdown */
+  --t-theme: 240ms; /* space hue change */
+  --t-hud: 150ms; /* fades of information layers (HUD, quit, space change) */
+
+  /* Weights, by role */
+  --fw-body: 450;
+  --fw-medium: 500;
+  --fw-label: 550;
+  --fw-strong: 600;
+  --fw-title: 650;
+  --fw-hero: 700;
+  --press: scale(0.985);
+  --press-sm: scale(0.92); /* small controls (28 px): 0.985 is invisible there */
+
+  /* Base colors (neutrals), then tinted by the space hue */
+  /* Space hue equalized in OKLCH (same lightness for all hues: in HSL, yellow, green and cyan are much
+     lighter than blue and purple). Base backgrounds are a slightly cool gray: blue and purple blend into it, so we
+     strengthen them (up to ×1.7 around 295°, no effect beyond ±90°). */
+  --tint-boost: calc(1 + 0.7 * max(0, cos((h - 295) * 1deg)));
+  --tint-color: oklch(from hsl(var(--h) 70% 55%) 0.62 calc(0.13 * var(--tint-boost)) h);
+  --tint-color2: oklch(from hsl(var(--h2) 70% 55%) 0.62 calc(0.13 * var(--tint-boost)) h);
+  --tint-color3: oklch(from hsl(var(--h3) 70% 55%) 0.62 calc(0.13 * var(--tint-boost)) h);
+  /* Background tint dose (sidebar), multiplied by the Appearance setting (--tint-k) */
+  --tint-dose: 7%;
+  --tint-k: 1;
+  --bg-base: rgb(236 236 239 / 0.72);
+  --surface-base: rgb(255 255 255);
+  --surface-2-base: rgb(0 0 0 / 0.05);
+  --border-base: rgb(0 0 0 / 0.09);
+  --text: rgb(29 29 31);
+  --text-2: rgb(92 92 98);
+  --text-3: rgb(108 108 115);
+  --text-tab: color-mix(in srgb, var(--text) 85%, transparent);
+  --on-accent: rgb(255 255 255);
+  /* Accent equalized in OKLCH (fixed lightness: white on top stays legible for all hues) */
+  --accent: oklch(from hsl(var(--h) 70% 55%) 0.55 0.16 h);
+  --danger: hsl(2 70% 46%);
+  --active-base: rgb(255 255 255);
+  --active-shadow: 0 1px 2px rgb(0 0 0 / 0.08), 0 0 0 0.5px rgb(0 0 0 / 0.07);
+  --glass-alpha: 78%;
+  --glass-view-alpha: 94%;
+  --edge-light: inset 0 0.5px 0 rgb(255 255 255 / 0.6);
+  --scrim: rgb(0 0 0 / 0.18);
+  --scrim-peek: rgb(0 0 0 / 0.45);
+  --win-bg: rgb(255 255 255);
+  --win-card: rgb(0 0 0 / 0.03);
+  --ctl: rgb(255 255 255);
+  --ctl-ring: rgb(0 0 0 / 0.14);
+
+  /* Shadows: the web card floats, floating layers are higher */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.06), 0 3px 8px rgb(0 0 0 / 0.1);
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.16);
+  --shadow-peek: 0 24px 70px rgb(0 0 0 / 0.5);
+  --shadow-knob: 0 1px 3px rgb(0 0 0 / 0.3);
+
+  /* Tinted neutrals: 2 to 4 % of the space hue */
+  --bg: color-mix(in oklch, var(--bg-base), var(--tint-color) calc(var(--tint-dose) * var(--tint-k)));
+  --surface: color-mix(in oklch, var(--surface-base), var(--tint-color) calc(2% * var(--tint-k)));
+  --surface-2: color-mix(in oklch, var(--surface-2-base) 70%, oklch(from var(--tint-color) calc(l - 0.08) c h / calc(0.05 * var(--tint-k))));
+  --border: color-mix(in oklch, var(--border-base) 80%, oklch(from var(--tint-color) calc(l - 0.08) c h / calc(0.1 * var(--tint-k))));
+  --active: color-mix(in oklch, var(--active-base), var(--tint-color) calc(2% * var(--tint-k)));
+  --sel: oklch(from var(--tint-color) l c h / 0.14);
+  --glass: color-mix(in oklch, var(--surface) var(--glass-alpha), transparent);
+  --glass-view: color-mix(in oklch, var(--surface) var(--glass-view-alpha), transparent);
+  --blur: blur(24px) saturate(160%);
+  /* Large modal surface (command bar): more material, higher */
+  --blur-lg: blur(40px) saturate(170%);
+  --shadow-modal: 0 24px 64px rgb(0 0 0 / 0.32), 0 4px 12px rgb(0 0 0 / 0.18);
+  --bar-fg-2-alpha: 0.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-base: rgb(44 43 48 / 0.72);
+    --surface-base: rgb(31 31 35);
+    --surface-2-base: rgb(255 255 255 / 0.06);
+    --border-base: rgb(255 255 255 / 0.09);
+    --text: rgb(236 236 240);
+    --text-2: rgb(165 164 173);
+    --text-3: rgb(144 143 152);
+    --accent: oklch(from hsl(var(--h) 75% 68%) 0.72 0.14 h);
+    --on-accent: rgb(18 18 22);
+    --danger: hsl(2 80% 68%);
+    --active-base: rgb(0 0 0 / 0.38);
+    --active-shadow: none;
+    --glass-alpha: 82%;
+    --edge-light: inset 0 0.5px 0 rgb(255 255 255 / 0.12);
+    --tint-color: oklch(from hsl(var(--h) 70% 55%) 0.7 calc(0.12 * var(--tint-boost)) h);
+    --tint-color2: oklch(from hsl(var(--h2) 70% 55%) 0.7 calc(0.12 * var(--tint-boost)) h);
+    --tint-color3: oklch(from hsl(var(--h3) 70% 55%) 0.7 calc(0.12 * var(--tint-boost)) h);
+    --tint-dose: 8%;
+    --sel: oklch(from var(--tint-color) l c h / 0.18);
+    --win-bg: rgb(35 35 39);
+    --win-card: rgb(255 255 255 / 0.05);
+    --ctl: rgb(255 255 255 / 0.1);
+    --ctl-ring: rgb(255 255 255 / 0.16);
+    --scrim: rgb(0 0 0 / 0.36);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.1), 0 3px 8px rgb(0 0 0 / 0.18);
+    --shadow-modal: 0 24px 64px rgb(0 0 0 / 0.5), 0 4px 12px rgb(0 0 0 / 0.3);
+  }
+}
+
+/* Increased contrast: crisper hairlines, stronger secondary text. */
+@media (prefers-contrast: more) {
+  :root {
+    --border-base: rgb(0 0 0 / 0.2);
+    --text-2: rgb(70 70 76);
+    --text-3: rgb(96 96 103);
+    --accent: oklch(from hsl(var(--h) 70% 55%) 0.48 0.16 h);
+    --bg-base: rgb(236 236 239);
+    --glass: var(--surface);
+    --glass-view: var(--surface);
+    --blur: none;
+    --blur-lg: none;
+    --edge-light: none;
+    --bar-fg-2-alpha: 0.75;
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root {
+    --bg-base: rgb(44 43 48);
+    --border-base: rgb(255 255 255 / 0.2);
+    --text-2: rgb(200 199 207);
+    --text-3: rgb(165 164 173);
+    --accent: oklch(from hsl(var(--h) 75% 68%) 0.78 0.14 h);
+  }
+}
+
+/* Reduced transparency: opaque floating layers, no blur. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --bg-base: rgb(236 236 239);
+    --glass: var(--surface);
+    --glass-view: var(--surface);
+    --blur: none;
+    --blur-lg: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root {
+    --bg-base: rgb(44 43 48);
+  }
+}
+
+/* Appearance settings: attributes set on <html> by main.tsx (`appearance` channel). */
+html[data-tint='subtle'] {
+  --tint-k: 0.5;
+}
+html[data-tint='strong'] {
+  --tint-k: 2;
+}
+html[data-density='compact'] {
+  --row-h: 28px;
+}
+html[data-density='roomy'] {
+  --row-h: 36px;
+}
+html[data-text='small'] {
+  --fs-cap: 10px;
+  --fs-sub: 11px;
+  --fs: 12px;
+  --fs-md: 13px;
+  --fs-lg: 15px;
+  --fs-title: 18px;
+  --fs-hero: 25px;
+}
+html[data-text='large'] {
+  --fs-cap: 12px;
+  --fs-sub: 13px;
+  --fs: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-title: 22px;
+  --fs-hero: 31px;
+}
+/* Transparency off: opaque backgrounds, no blur (the window's vibrancy is hidden by the background). */
+html[data-glass='off'] {
+  --bg-base: rgb(236 236 239);
+  --glass: var(--surface);
+  --glass-view: var(--surface);
+  --blur: none;
+  --blur-lg: none;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-glass='off'] {
+    --bg-base: rgb(44 43 48);
+  }
+}
+html[data-glass='off'].route-settings,
+html[data-glass='off'].route-welcome,
+html[data-glass='off'].route-library {
+  background: var(--bg);
+}

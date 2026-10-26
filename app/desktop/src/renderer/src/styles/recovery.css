@@ -1,0 +1,33 @@
+/* UI safeguard (Recovery.tsx). */
+
+/* UI safeguard (Recovery.tsx): in place of a view left empty after repeated errors. */
+.ui-recovery {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  padding: var(--s6);
+  text-align: center;
+  color: var(--text-2);
+  -webkit-app-region: drag;
+}
+.ui-recovery p {
+  margin: 0;
+  max-width: 360px;
+}
+.ui-recovery-btn {
+  height: 30px;
+  padding: 0 var(--s4);
+  border-radius: var(--r-control);
+  background: var(--accent);
+  color: var(--on-accent);
+  -webkit-app-region: no-drag;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.ui-recovery-btn:active {
+  transform: var(--press);
+  transition-duration: var(--t-press);
+}

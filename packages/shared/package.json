@@ -1,0 +1,24 @@
+{
+  "name": "@signet/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Platform-neutral TypeScript shared by the desktop (Electron) and mobile (React Native) apps.",
+  "exports": {
+    "./types": "./src/types/index.ts",
+    "./locales/*": "./src/locales/*",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "i18next": "^26.5.7",
+    "tldts": "^7.4.17"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

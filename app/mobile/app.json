@@ -1,0 +1,181 @@
+{
+  "expo": {
+    "name": "Signet",
+    "slug": "signet",
+    "scheme": "signet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "dev.signet.mobile",
+      "appleTeamId": "RP2Y2LZL3C",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": ["en", "fr"],
+        "UIFileSharingEnabled": true,
+        "LSSupportsOpeningDocumentsInPlace": true,
+        "NSCameraUsageDescription": "Websites can ask to use the camera, for example to take a photo to upload. Signet also uses it to scan the code shown by your computer.",
+        "NSMicrophoneUsageDescription": "Websites can ask to use the microphone, for example for a video call or a voice message.",
+        "NSPhotoLibraryUsageDescription": "Choose photos and videos to upload to websites.",
+        "NSPhotoLibraryAddUsageDescription": "Save images from websites to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "Websites can ask for your location while you use the app, for example a map or a store finder.",
+        "NSLocalNetworkUsageDescription": "Find your computer on this Wi-Fi network to open the websites you are developing on it.",
+        "NSBonjourServices": ["_signet._tcp"]
+      }
+    },
+    "android": {
+      "package": "dev.signet.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#1f2a4b",
+        "foregroundImage": "./assets/android/aurore-foreground.png",
+        "backgroundImage": "./assets/android/aurore-background.png",
+        "monochromeImage": "./assets/android/aurore-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.VIBRATE",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [{ "scheme": "http" }, { "scheme": "https" }]
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-localization", { "supportedLocales": { "android": ["en", "fr"] } }],
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-image",
+      "expo-sharing",
+      [
+        "expo-alternate-app-icons",
+        [
+          {
+            "name": "Ocean",
+            "ios": "./assets/app-icons/ocean.png",
+            "android": {
+              "foregroundImage": "./assets/android/ocean-foreground.png",
+              "backgroundImage": "./assets/android/ocean-background.png",
+              "monochromeImage": "./assets/android/ocean-monochrome.png",
+              "backgroundColor": "#0891b2"
+            }
+          },
+          {
+            "name": "Corail",
+            "ios": "./assets/app-icons/corail.png",
+            "android": {
+              "foregroundImage": "./assets/android/corail-foreground.png",
+              "backgroundImage": "./assets/android/corail-background.png",
+              "monochromeImage": "./assets/android/corail-monochrome.png",
+              "backgroundColor": "#f43f5e"
+            }
+          },
+          {
+            "name": "Menthe",
+            "ios": "./assets/app-icons/menthe.png",
+            "android": {
+              "foregroundImage": "./assets/android/menthe-foreground.png",
+              "backgroundImage": "./assets/android/menthe-background.png",
+              "monochromeImage": "./assets/android/menthe-monochrome.png",
+              "backgroundColor": "#10b981"
+            }
+          },
+          {
+            "name": "Nuit",
+            "ios": "./assets/app-icons/nuit.png",
+            "android": {
+              "foregroundImage": "./assets/android/nuit-foreground.png",
+              "backgroundImage": "./assets/android/nuit-background.png",
+              "monochromeImage": "./assets/android/nuit-monochrome.png",
+              "backgroundColor": "#1e1b4b"
+            }
+          },
+          {
+            "name": "Papier",
+            "ios": "./assets/app-icons/papier.png",
+            "android": {
+              "foregroundImage": "./assets/android/papier-foreground.png",
+              "backgroundImage": "./assets/android/papier-background.png",
+              "monochromeImage": "./assets/android/papier-monochrome.png",
+              "backgroundColor": "#f8f7fb"
+            }
+          },
+          {
+            "name": "Graphite",
+            "ios": "./assets/app-icons/graphite.png",
+            "android": {
+              "foregroundImage": "./assets/android/graphite-foreground.png",
+              "backgroundImage": "./assets/android/graphite-background.png",
+              "monochromeImage": "./assets/android/graphite-monochrome.png",
+              "backgroundColor": "#27272a"
+            }
+          },
+          {
+            "name": "Or",
+            "ios": "./assets/app-icons/or.png",
+            "android": {
+              "foregroundImage": "./assets/android/or-foreground.png",
+              "backgroundImage": "./assets/android/or-background.png",
+              "monochromeImage": "./assets/android/or-monochrome.png",
+              "backgroundColor": "#292524"
+            }
+          }
+        ]
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Unlock your private tabs and saved passwords with Face ID."
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Websites can ask to use the camera, for example to take a photo to upload. Signet also uses it to scan the code shown by your computer.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      "./plugin-android-lint.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "locales": {
+      "en": "./locales/en.json",
+      "fr": "./locales/fr.json"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  // Deux dossiers « shared » : `@shared/*` = src/shared, le code commun aux processus de CE bureau (contrat IPC, raccourcis, appareils) ;
+  // `@signet/shared` = packages/shared, le code neutre partagé avec le mobile (inclus ici car composite impose de lister tout fichier compilé).
+  "compilerOptions": {
+    "composite": true,
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    },
+    "resolveJsonModule": true
+  },
+  "include": ["src/renderer/src/**/*", "src/shared/**/*", "../../packages/shared/src/**/*"],
+  "exclude": ["../../packages/shared/src/globals.d.ts"]
+}

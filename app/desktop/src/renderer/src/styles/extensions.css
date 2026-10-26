@@ -1,0 +1,98 @@
+/* Extensions. */
+
+/* ---------- Extensions ---------- */
+
+/* Extension action buttons in a panel's bar (reorderable by drag and drop). */
+.ext-actions {
+  display: flex;
+  gap: 2px;
+  /* Too many pinned extensions for the width: the row is cut off (all remain in the Extensions button). */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: clip;
+  overflow-clip-margin: 4px;
+  margin-right: var(--s-half);
+  -webkit-app-region: no-drag;
+}
+.ext-btn,
+.ext-list {
+  flex: none;
+}
+.ext-btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--bar-fg);
+  cursor: default;
+  touch-action: none;
+  transition:
+    transform var(--t-fast) var(--ease-out),
+    background var(--t-fast);
+}
+.ext-btn:hover {
+  background: var(--bar-hover);
+}
+.ext-btn img {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  user-select: none;
+}
+.ext-btn.held {
+  transition: background var(--t-fast);
+  z-index: var(--z-raised);
+  background: var(--bar-hover);
+}
+.ext-actions.dragging .ext-btn:not(.dragged) {
+  pointer-events: none;
+}
+.ext-letter {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  background: #757575;
+  color: #fff;
+  font-size: var(--fs-cap);
+  text-transform: uppercase;
+}
+.ext-badge {
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  max-width: 100%;
+  height: 12px;
+  padding: 0 2px;
+  box-sizing: border-box;
+  border-radius: 2px;
+  box-shadow: 0 0 1px 1px var(--bar-bg);
+  color: #fff;
+  font-size: 10px;
+  line-height: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The background keeps fading; only the movement (drag and drop) is cut. */
+  .ext-btn {
+    transition: background var(--t-fast);
+  }
+}
+.st-ext-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.st-check-all {
+  font-weight: var(--fw-strong);
+}

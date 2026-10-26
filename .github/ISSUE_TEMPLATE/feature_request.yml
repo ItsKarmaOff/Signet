@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea or an improvement
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. You can write in English or French.
+        Start with the problem you want solved: it helps find the best solution, which may not be the first one that comes to mind.
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      options:
+        - Desktop
+        - Mobile
+        - Both
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: The solution you'd like
+      description: How it could work. Mockups or examples from other browsers are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      description: Other ways you considered, or how you work around it today.
+  - type: checkboxes
+    id: contribute
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this myself.

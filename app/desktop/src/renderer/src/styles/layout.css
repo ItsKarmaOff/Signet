@@ -1,0 +1,157 @@
+/* Main window: web card, hover strips, shared view, drop zones. */
+
+/* ---------- 4. Main window ---------- */
+
+.app {
+  position: fixed;
+  inset: 0;
+}
+
+.drag-strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: var(--gap);
+  -webkit-app-region: drag;
+}
+.drag-strip.short {
+  left: var(--gap);
+}
+/* Hover strip on the left edge (sidebar hidden): no drag zone, otherwise no mouse events. */
+.rim-hover {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--gap);
+  z-index: var(--z-edge);
+}
+.rim-hover.right {
+  inset: 0 0 0 auto;
+}
+/* Compact mode: hover strip on the top edge. */
+.top-hover {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 6px;
+  z-index: var(--z-edge);
+}
+
+/* The web card floats: the shadow is drawn here, exactly under the native view. */
+.pane-shadow {
+  position: absolute;
+  border-radius: var(--r-card);
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 0.5px var(--border);
+  background: var(--surface);
+  pointer-events: none;
+}
+
+/* Empty state: a card in place of the web card. */
+.empty {
+  position: absolute;
+  top: var(--gap);
+  right: var(--gap);
+  bottom: var(--gap);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s4);
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 0.5px var(--border);
+  color: var(--text-2);
+  -webkit-app-region: drag;
+}
+/* Overlay open on top: on macOS, the window's drag zones swallow clicks even under the views placed above them. */
+.app.covered,
+.app.covered * {
+  -webkit-app-region: no-drag !important;
+}
+.empty.compact {
+  top: 6px;
+  right: 6px;
+  bottom: 6px;
+}
+.empty svg {
+  color: var(--text-3);
+}
+.empty p {
+  margin: 0;
+}
+
+/* Focus ring of the shared view */
+.focus-ring {
+  position: absolute;
+  border: 2px solid var(--accent);
+  border-radius: calc(var(--r-card) + 3px);
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  /* No transition by default: the ring must follow the web views without lag (divider, window). */
+}
+.focus-ring.glide {
+  /* Only when focus changes panel. */
+  transition:
+    transform var(--t) var(--ease-out),
+    width var(--t) var(--ease-out),
+    height var(--t) var(--ease-out);
+}
+
+/* Resizable dividers of the shared view */
+.split-divider {
+  position: absolute;
+  z-index: var(--z-edge);
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  user-select: none;
+}
+.split-divider.vertical {
+  cursor: col-resize;
+}
+.split-divider.horizontal {
+  cursor: row-resize;
+}
+.divider-handle {
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease-out);
+  pointer-events: none;
+}
+.split-divider.vertical .divider-handle {
+  width: 3px;
+  height: var(--s7);
+}
+.split-divider.horizontal .divider-handle {
+  width: var(--s7);
+  height: 3px;
+}
+.split-divider:hover .divider-handle {
+  opacity: 0.45;
+}
+.split-divider.active .divider-handle {
+  opacity: 1;
+}
+
+/* Drop zones: the overlay only covers the web card. */
+.dropzones {
+  position: fixed;
+  inset: 0;
+}
+.drop-preview {
+  position: absolute;
+  border-radius: var(--r-card);
+  background: color-mix(in oklch, var(--accent) 18%, transparent);
+  border: 2px solid var(--accent);
+  pointer-events: none;
+  top: 0;
+  left: 0;
+  /* Position and size slide together, with the same curve. */
+  transition:
+    transform var(--t) var(--ease-out),
+    width var(--t) var(--ease-out),
+    height var(--t) var(--ease-out);
+}

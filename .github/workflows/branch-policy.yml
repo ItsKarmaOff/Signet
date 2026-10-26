@@ -1,0 +1,43 @@
+# Branch names and pull request targets (docs/git/branch-policy.md):
+#   <type>/<description> -> dev (or another work branch), and only dev of this repository -> main.
+# The "branch name" check is required by the main and dev rulesets (.github/rulesets/).
+name: Branch policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  branch-name:
+    name: branch name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the branch name and the target
+        env:
+          HEAD: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          work='^(feat|fix|docs|style|refactor|perf|test|build|ci|security|chore)/[a-z0-9._-]+$'
+
+          if [[ $BASE == main ]]; then
+            if [[ $HEAD == dev && $HEAD_REPO == "$GITHUB_REPOSITORY" ]]; then
+              echo "dev into main: OK"
+              exit 0
+            fi
+            echo "::error::main only receives dev ($HEAD_REPO:$HEAD cannot go into main). Target dev instead."
+            exit 1
+          fi
+
+          if [[ $BASE == dev || $BASE =~ $work ]]; then
+            if [[ $HEAD =~ $work || ($BASE == dev && $HEAD == dependabot/*) ]]; then
+              echo "$HEAD into $BASE: OK"
+              exit 0
+            fi
+            echo "::error::Branch name '$HEAD' doesn't follow <type>/<short-description> (e.g. feat/tab-groups, fix/peek-scroll)."
+            echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, security, chore. Lowercase, hyphens. See docs/git/branch-policy.md."
+            exit 1
+          fi
+
+          echo "::error::Pull requests go into dev (or another work branch), not into '$BASE'."
+          exit 1

@@ -1,0 +1,138 @@
+/* Command bar (palette). */
+
+/* ---------- 9. Command bar ---------- */
+
+.palette-root,
+.peek {
+  position: fixed;
+  inset: 0;
+}
+.veil {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+}
+.veil.dark {
+  background: var(--scrim-peek);
+}
+
+.palette {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  width: 640px;
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  backdrop-filter: var(--blur-lg);
+  box-shadow:
+    var(--shadow-modal),
+    var(--edge-light),
+    0 0 0 0.5px var(--border);
+  overflow: hidden;
+  transform-origin: 50% 0;
+  /* Enter/exit: transitions (see "Glass surfaces" above), states in the .ov section. */
+  opacity: 1;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--spring);
+}
+.palette-input {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 52px;
+  padding: 0 var(--s5);
+}
+.palette-input input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: none;
+  outline: none;
+  font-size: var(--fs-lg);
+  user-select: text;
+}
+.palette-input input::placeholder {
+  color: var(--text-2);
+}
+.mode-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  flex: none;
+  height: 24px;
+  padding: 0 var(--s2);
+  border-radius: var(--r-control);
+  font-size: var(--fs-cap);
+  letter-spacing: 0.01em;
+  color: var(--text-2);
+  background: var(--surface-2);
+}
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 440px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.results li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: var(--toolbar-h);
+  padding: 0 var(--s3);
+  border-radius: var(--r-row);
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.results li:active {
+  transform: var(--press);
+  transition-duration: var(--t-press);
+}
+.results li.sel {
+  background: var(--surface-2);
+}
+.results li.sel::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--s3);
+  bottom: var(--s3);
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.results .ico {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  color: var(--text-2);
+}
+.result-image {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: none;
+}
+.results .text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.results .t,
+.results .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.results .sub {
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+}

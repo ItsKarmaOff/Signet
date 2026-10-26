@@ -1,0 +1,159 @@
+/* Accessibility: reduced motion. */
+
+/* ---------- 17. Accessibility: reduced motion ---------- */
+
+/* 120 ms fades instead of translations, scales and arcs; no pill animation. */
+@media (prefers-reduced-motion: reduce) {
+  .row:active,
+  .tile:active,
+  .space-dot:active,
+  .media-card:active,
+  .lib-row:active,
+  .lib-space:active,
+  .dl-row.done:active,
+  button.icon:not(:disabled):active,
+  button.primary:not(:disabled):active,
+  .chip:active,
+  .st-icon:active,
+  .seg-ctl button:active,
+  .round:active,
+  .st-btn:active,
+  .site-clear:active,
+  .tchip:active,
+  .tseg:active,
+  .ts-space:active,
+  .foot-btn:not(:disabled):active,
+  .lang-btn:not(:disabled):active,
+  .zap-btn:not(:disabled):active,
+  .ext-btn:active img,
+  .tchip.sq:active,
+  .address:active,
+  .st-nav-item:active,
+  .theme-seg button:active,
+  .ep-tabs button:active,
+  .ep-cell:active,
+  .dl-clear:active,
+  .space-form .actions button:active,
+  .divider .clean:active,
+  .swatches button:active,
+  .lib-del:active,
+  .lib-x:active,
+  .results li:active,
+  .ui-recovery-btn:active,
+  .console-badge:active > span,
+  .bm-item:active,
+  .toast-action:active,
+  .tglabel:active,
+  .site-btn-s:active,
+  .lib-restore:active,
+  .wa-install-pick:active,
+  .st-keys-edit:active,
+  .pip button:active,
+  .capture-seg button:active,
+  .capture-btn:active:not(:disabled) {
+    transform: none;
+  }
+  .dl-bar.indeterminate i {
+    width: 100%;
+    animation: dl-pulse 1.2s ease-in-out infinite;
+  }
+  .dl-btn .ring.spin {
+    animation: dl-pulse 1.2s ease-in-out infinite;
+    transform: rotate(-90deg);
+  }
+  .float-toolbar {
+    transform: none;
+  }
+  .media-card,
+  .media-chip,
+  .emoji-picker,
+  .find-pill,
+  .dl-btn .dot {
+    animation: fade-in var(--t-fast) var(--ease-out);
+  }
+  /* Glass surface enter and exit: simple fade, no scale or movement. */
+  .ex .dl-panel,
+  .ex .space-form,
+  .ov .pop-slot,
+  .ov .palette,
+  .ov .site-panel {
+    transition: opacity var(--t-fast) var(--ease-out);
+  }
+  .ex.closing .dl-panel,
+  .ex.closing .space-form,
+  .ov.closing .pop-slot,
+  .ov.closing .site-panel {
+    transform: none;
+    transition: opacity var(--t-fast) var(--ease-out);
+  }
+  .ov.closing .palette {
+    transform: translateX(-50%);
+    transition: opacity var(--t-fast) var(--ease-out);
+  }
+  .peek.closing .peek-card,
+  .peek.closing .peek-bar,
+  .find-pill.closing {
+    transform: none;
+    transition: opacity var(--t-fast) var(--ease-out);
+  }
+  @starting-style {
+    .ex .dl-panel,
+    .ex .space-form,
+    .ov .pop-slot,
+    .ov .site-panel {
+      transform: none;
+    }
+    .ov .palette {
+      transform: translateX(-50%);
+    }
+    .peek .peek-card,
+    .peek .peek-bar,
+    .find-pill {
+      transform: none;
+    }
+  }
+  .float-sidebar {
+    transform: none;
+  }
+  .active-pill {
+    transition: opacity var(--t-fast);
+  }
+  .row.fresh {
+    animation: fade-in var(--t-fast) var(--ease-out);
+  }
+  .folder-row .chevron,
+  .drop-preview,
+  .focus-ring {
+    transition-duration: var(--t-fast);
+  }
+  /* Folder: instant opening (no height animation), the content fades in. */
+  .folder-body {
+    transition: none;
+  }
+  .folder-body-inner {
+    opacity: 1;
+    transition: opacity var(--t-fast) var(--ease-out);
+  }
+  .folder-body:not(.open) .folder-body-inner {
+    opacity: 0;
+    transition:
+      opacity var(--t-fast) var(--ease-out),
+      visibility 0s var(--t-fast);
+  }
+  /* Download: no flight or bounce, a simple flash (the flight's animationend is still emitted). */
+  .dl-flight {
+    animation: dl-flash var(--t) var(--ease-out) forwards;
+    offset-distance: 100%;
+  }
+  .dl-btn.bounce {
+    animation: dl-blink var(--t-slow) var(--ease-out);
+  }
+  .space-page.cur {
+    animation: space-fade var(--t-hud) var(--ease-out);
+  }
+  .switch .knob,
+  .space-dot .em,
+  .swatches button {
+    transition-duration: var(--t-fast);
+  }
+}

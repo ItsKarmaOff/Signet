@@ -1,0 +1,10 @@
+{
+  "CFBundleDisplayName": "Signet",
+  "NSFaceIDUsageDescription": "Déverrouillez vos onglets privés et vos mots de passe avec Face ID.",
+  "NSCameraUsageDescription": "Les sites peuvent demander l'appareil photo, par exemple pour prendre une photo à envoyer. Signet s'en sert aussi pour scanner le code affiché par votre ordinateur.",
+  "NSMicrophoneUsageDescription": "Les sites peuvent demander le micro, par exemple pour un appel vidéo ou un message vocal.",
+  "NSPhotoLibraryUsageDescription": "Choisir des photos et des vidéos à envoyer sur les sites.",
+  "NSPhotoLibraryAddUsageDescription": "Enregistrer des images des sites dans votre photothèque.",
+  "NSLocationWhenInUseUsageDescription": "Les sites peuvent demander votre position pendant que vous utilisez l'app, par exemple une carte ou un plan d'accès.",
+  "NSLocalNetworkUsageDescription": "Trouver votre ordinateur sur ce réseau Wi-Fi pour ouvrir les sites que vous y développez."
+}

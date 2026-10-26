@@ -1,0 +1,102 @@
+/* Site panel. */
+
+/* ---------- 11. Site panel ---------- */
+
+.site-layer {
+  position: fixed;
+  inset: 0;
+}
+.site-panel {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  backdrop-filter: var(--blur);
+  box-shadow:
+    var(--shadow-pop),
+    var(--edge-light),
+    0 0 0 0.5px var(--border);
+  opacity: 1;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--spring);
+}
+
+/*
+ * Overlay enter and exit (palette, site panel, popover): transitions driven by state.
+ * Main keeps the view in place for --t-fast after closing; `closing` brings each surface back to its hidden state.
+ */
+.ov {
+  display: contents;
+}
+.ov .veil {
+  opacity: 1;
+  transition: opacity var(--t) var(--ease-out);
+}
+/* No pointer-events: none here: a click during the exit must reach Overlay.tsx, which removes the view. */
+.ov.closing .veil {
+  opacity: 0;
+  transition-duration: var(--t-fast);
+}
+.ov.closing .palette {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px) scale(0.96);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+.ov.closing .site-panel {
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+/* Peek: veil fading, card and bar growing from the center of the card (the web view does the same on the main side). */
+.peek .veil,
+.peek .peek-card,
+.peek .peek-bar {
+  opacity: 1;
+  transition:
+    opacity var(--t) var(--ease-out),
+    transform var(--t) var(--spring);
+}
+.peek.closing .veil,
+.peek.closing .peek-card,
+.peek.closing .peek-bar {
+  opacity: 0;
+  transition-duration: var(--t-fast);
+}
+.peek.closing .peek-card,
+.peek.closing .peek-bar {
+  transform: scale(var(--peek-s, 0.95));
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+@starting-style {
+  .peek .veil,
+  .peek .peek-card,
+  .peek .peek-bar {
+    opacity: 0;
+  }
+  .peek .peek-card,
+  .peek .peek-bar {
+    transform: scale(var(--peek-s, 0.95));
+  }
+}
+@starting-style {
+  .ov .veil {
+    opacity: 0;
+  }
+  .ov .palette {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px) scale(0.96);
+  }
+  .ov .site-panel {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+}

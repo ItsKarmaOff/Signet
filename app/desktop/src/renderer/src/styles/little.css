@@ -1,0 +1,60 @@
+/* Little Signet. */
+
+/* ---------- 13. Little Signet ---------- */
+
+.little-card {
+  position: fixed;
+  inset: var(--gap) var(--gap) var(--gap);
+}
+.little-fill {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: calc(var(--toolbar-h) + 8px);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--bar-bg);
+  transition: background var(--t) var(--ease-out);
+}
+.little-bar {
+  position: fixed;
+  inset: var(--gap) var(--gap) auto;
+  height: calc(var(--toolbar-h) - 4px);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--s-half);
+  padding: 0 var(--s3) 0 70px;
+  color: var(--bar-fg);
+  -webkit-app-region: drag;
+}
+.little-bar button.icon {
+  color: var(--bar-fg-2);
+}
+.little-bar button.icon:hover:not(:disabled) {
+  background: var(--bar-hover);
+  color: var(--bar-fg);
+}
+.little-strip {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--gap);
+  -webkit-app-region: drag;
+}
+.little-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  padding: 0 var(--s3);
+}
+.little-title .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--fw-label);
+}
+.little-title .d {
+  flex: none;
+  color: var(--bar-fg-2);
+}

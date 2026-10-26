@@ -1,0 +1,25 @@
+/* Settings › Mods: buttons and mod editor. */
+
+/* Settings › Mods: Import / New mod buttons pushed to the right of the title. */
+.mod-spacer {
+  flex: 1;
+}
+/* Mod editor (Settings › Mods): name, CSS in monospace font, actions. */
+.mod-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  margin-bottom: var(--s4);
+}
+.mod-editor .st-input {
+  width: 100%;
+}
+.mod-css {
+  min-height: 220px;
+  resize: vertical;
+}
+.mod-editor .st-actions {
+  padding: 0;
+  border: 0;
+}

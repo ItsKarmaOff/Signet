@@ -1,0 +1,54 @@
+# Commit messages and pull request title (docs/git/commit-policy.md, docs/git/pr-policy.md):
+#   <type>(<scope>): <description>, lowercase start, no trailing period.
+# The "commit messages" check is required by the main and dev rulesets (.github/rulesets/).
+name: Commit policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  commit-messages:
+    name: commit messages
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Check the commit messages and the title
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          types='feat|fix|docs|style|refactor|perf|test|build|ci|merge|revert|security|chore'
+          # Type, optional scope, optional ! (breaking), then a description starting lowercase,
+          # without a trailing period (dots inside are fine: chore(release): 0.2.0-rc.1).
+          pattern="^($types)(\([a-z0-9._-]+\))?!?: [a-z0-9].*[^.]$"
+          failed=0
+
+          # Commits of the pull request, from its head (HEAD is the merge commit GitHub builds).
+          # Merge commits follow the merge format of the PR policy, not this one.
+          while IFS= read -r subject; do
+            if [[ -n $subject && ! $subject =~ $pattern ]]; then
+              echo "::error::Commit message: '$subject'"
+              failed=1
+            fi
+          done <<<"$(git log --no-merges --format=%s "origin/$BASE..$HEAD_SHA")"
+
+          if [[ ! $TITLE =~ $pattern ]]; then
+            echo "::error::Pull request title: '$TITLE'"
+            failed=1
+          fi
+
+          if ((failed)); then
+            echo
+            echo "Expected: <type>(<scope>): <short description>"
+            echo "  - in English, imperative mood (add, fix, update), lowercase start, no trailing period"
+            echo "  - types: ${types//|/, }"
+            echo "  - e.g. feat(tabs): add tab groups, fix(mobile): keep the keyboard open"
+            echo "See docs/git/commit-policy.md. Fix commits with git rebase -i, then force-push your branch."
+            exit 1
+          fi
+          echo "Commit messages and title follow the policy."

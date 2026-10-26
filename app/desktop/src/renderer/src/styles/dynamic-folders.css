@@ -1,0 +1,105 @@
+/* Live folders. */
+
+/* ---------- Live folders ---------- */
+/* Source icon; a small arrow spins during the update, a badge signals a failure. */
+.live-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+.live-icon .live-spin,
+.live-icon .live-alert {
+  position: absolute;
+  right: -4px;
+  bottom: -3px;
+  padding: 1px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+.live-icon .live-spin {
+  color: var(--accent);
+  animation: live-spin 900ms linear infinite;
+}
+.live-icon .live-alert {
+  color: var(--danger);
+}
+@keyframes live-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Item not opened yet. */
+.live-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin: 0 var(--s1);
+  border-radius: 50%;
+  background: var(--accent);
+}
+.live-form .live-title {
+  font-weight: var(--fw-strong);
+}
+.live-form .theme-seg button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.live-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.live-choice {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.live-choice input {
+  flex: none;
+  height: auto;
+  accent-color: var(--accent);
+}
+.live-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--fs-sub);
+}
+.link-btn {
+  color: var(--accent);
+  font: inherit;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+.link-btn:active {
+  opacity: 0.6;
+}
+.live-token-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+.live-token-row .st-input {
+  flex: 1;
+  min-width: 0;
+}
+.live-token-row .grow {
+  flex: 1;
+}
+.st-link {
+  color: var(--accent);
+  font-size: var(--fs-sub);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.st-link:hover {
+  text-decoration: underline;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-icon .live-spin {
+    animation-duration: 2.4s;
+  }
+}

@@ -1,0 +1,23 @@
+node_modules/
+out/
+dist/
+.DS_Store
+*.log
+*.tsbuildinfo
+out-e2e/
+.expo/
+expo-env.d.ts
+app/mobile/ios/
+app/mobile/android/
+test-results/
+playwright-report/
+coverage/
+
+# Secrets and personal files: never committed (signing keys, certificates, environment, Signet backups).
+.env*
+*.keystore
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.signetbackup

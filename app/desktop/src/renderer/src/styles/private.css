@@ -1,0 +1,138 @@
+/* Private window. */
+
+/* ---------- 13 bis. Private window ---------- */
+
+/* Fixed purple tint and stronger background: the private window is recognizable at a glance. */
+html.route-private {
+  --h: 285;
+  --bg: color-mix(in oklch, var(--bg-base), var(--tint-color) 16%);
+  background: var(--bg);
+}
+.priv-strip {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: 0 var(--s3) 0 78px;
+  -webkit-app-region: drag;
+}
+.priv-tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.priv-tabs::-webkit-scrollbar {
+  display: none;
+}
+.priv-tabs .tchip.day.active .mini.close {
+  width: var(--s5);
+  opacity: 1;
+  pointer-events: auto;
+}
+.priv-sound {
+  flex: none;
+  color: var(--text-2);
+}
+.priv-plus {
+  -webkit-app-region: no-drag;
+}
+.priv-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  height: 22px;
+  padding: 0 var(--s2);
+  border-radius: 11px;
+  background: var(--sel);
+  color: var(--accent);
+  font-size: var(--fs-sub);
+  font-weight: var(--fw-label);
+}
+.priv-card {
+  position: fixed;
+  inset: 44px var(--gap) var(--gap);
+}
+/* Sidebar: tabs only (no spaces, favorites or pinned: nothing is kept). */
+.priv-side .sb-head .priv-badge {
+  -webkit-app-region: no-drag;
+}
+.priv-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-half);
+  padding-bottom: var(--gap);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.priv-list .row {
+  -webkit-app-region: no-drag;
+}
+/* Same colors as the main bar's animated pill, without the spring (short list). */
+.priv-list .row.active {
+  background: var(--active);
+  box-shadow: var(--active-shadow);
+}
+.priv-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 40px;
+  pointer-events: auto;
+}
+.priv-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--s2);
+  border: 0;
+  border-radius: var(--r-control);
+  outline: none;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklch, var(--accent) 55%, transparent);
+  color: var(--bar-fg);
+  user-select: text;
+  -webkit-app-region: no-drag;
+}
+.priv-input::placeholder {
+  color: var(--text-3);
+}
+.priv-empty {
+  position: absolute;
+  inset: 40px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s3);
+  padding: var(--s8);
+  text-align: center;
+  color: var(--text-2);
+}
+.priv-empty h1 {
+  margin: 0;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-title);
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+.priv-empty p {
+  margin: 0;
+  max-width: 460px;
+  line-height: 1.5;
+}
+.priv-empty .note {
+  font-size: var(--fs-sub);
+  color: var(--text-3);
+}
+.priv-empty-icon {
+  color: var(--accent);
+}

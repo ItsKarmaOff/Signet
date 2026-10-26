@@ -1,0 +1,28 @@
+/* Settings › Development: unpacked extension, local names. */
+
+/* Unpacked extension: the folder fits on one line, truncated at the start (the end is the meaningful part). */
+.st-hint.st-ext-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  text-align: left;
+}
+/* Unpacked extension that could not be loaded: its error, under its name. */
+.st-hint.st-ext-error {
+  color: var(--danger);
+  white-space: pre-wrap;
+}
+
+/* Local names (Settings › Development) */
+.st-alias-name {
+  font-family: var(--font-mono);
+}
+.st-alias-add .st-input {
+  flex: 1;
+  min-width: 0;
+}
+.st-alias-arrow::before {
+  content: '→';
+  color: var(--text-3);
+}

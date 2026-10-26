@@ -1,0 +1,44 @@
+{
+  "name": "signet",
+  "private": true,
+  "version": "0.1.0",
+  "license": "GPL-3.0-or-later",
+  "workspaces": [
+    "app/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @signet/desktop",
+    "build": "npm run build -w @signet/desktop",
+    "start": "npm run start -w @signet/desktop",
+    "typecheck": "npm run typecheck -w @signet/desktop -w @signet/shared -w @signet/mobile",
+    "test": "npm run test -w @signet/shared -w @signet/desktop",
+    "test:e2e": "npm run test:e2e -w @signet/desktop",
+    "dist": "npm run dist -w @signet/desktop",
+    "dist:linux": "npm run dist:linux -w @signet/desktop",
+    "dist:win": "npm run dist:win -w @signet/desktop",
+    "mobile": "npm run start -w @signet/mobile",
+    "mobile:ios": "npm run ios -w @signet/mobile",
+    "mobile:android": "npm run android -w @signet/mobile",
+    "icons": "npm run icons -w @signet/desktop",
+    "i18n:check": "npm run i18n:check -w @signet/desktop",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "mobile:device": "npm run ios:device -w @signet/mobile",
+    "release": "bash scripts/release.sh"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.0"
+  },
+  "overrides": {
+    "adm-zip": "^0.6.1"
+  }
+}

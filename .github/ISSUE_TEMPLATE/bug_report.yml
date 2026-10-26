@@ -1,0 +1,74 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. You can write in English or French.
+        For a security issue, don't open a public issue: follow [SECURITY.md](https://github.com/ItsKarmaOff/Signet/blob/main/SECURITY.md).
+  - type: dropdown
+    id: app
+    attributes:
+      label: App
+      options:
+        - Desktop
+        - Mobile
+        - Both
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system and version. For mobile, the phone model too.
+      placeholder: macOS 26.1 / Ubuntu 24.04 / Windows 11 / iPhone 16, iOS 26
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Signet version
+      description: The build you installed, or the commit if you run from source (`git rev-parse --short HEAD`).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a new space
+        2. Drag a tab into a folder
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+      description: Screenshots or a short video help a lot for visual bugs.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        If a window stays blank, attach `logs/interface.log` from Signet's data folder
+        (`~/Library/Application Support/Signet/` on macOS, `~/.config/Signet/` on Linux, `%APPDATA%\Signet\` on Windows).
+        Check it for personal data first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and this one isn't reported yet.
+          required: true
+        - label: The bug still happens when starting with `--safe-mode` (no mods).

@@ -1,0 +1,105 @@
+/* Tab preview on hover. */
+
+/* ---------- Tab preview on hover (`#preview` view, transparent margin for the shadow, except on the tab bar side) ---------- */
+.tab-preview {
+  position: fixed;
+  inset: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--r-pop);
+  background: var(--glass-view);
+  box-shadow:
+    var(--shadow-pop),
+    0 0 0 0.5px var(--border);
+  color: var(--text);
+  opacity: 0;
+  transition:
+    opacity var(--t-fast) var(--ease-out),
+    transform var(--t-fast) var(--ease-out);
+}
+.tab-preview.from-right {
+  left: 0;
+  transform: translateX(-6px);
+}
+.tab-preview.from-left {
+  right: 0;
+  transform: translateX(6px);
+}
+.tab-preview.from-below {
+  top: 0;
+  transform: translateY(-6px);
+}
+.tab-preview.on {
+  opacity: 1;
+  transform: none;
+}
+.tp-thumb {
+  flex: none;
+  height: 158px;
+  background: var(--surface-2);
+  border-bottom: 0.5px solid var(--border);
+}
+.tp-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+.tp-text {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--s2) var(--s3);
+}
+.tp-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: var(--fw-label);
+}
+.tp-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tp-favicon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.tp-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-width: 0;
+  font-size: var(--fs-sub);
+  color: var(--text-2);
+}
+.tp-domain {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tp-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: var(--fs-cap);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-preview,
+  .tab-preview.from-right,
+  .tab-preview.from-left,
+  .tab-preview.from-below {
+    transform: none;
+  }
+}

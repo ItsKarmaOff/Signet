@@ -1,0 +1,216 @@
+# Signet packages for macOS (.dmg), Linux (AppImage) and Windows (installer), each built on its own system,
+# plus the Android mobile app (test APK).
+# Run by hand (Actions tab › Build › Run workflow): the files are in the run's artifacts.
+# On a `v…` tag (pushed by scripts/release.sh): the tag must match the package versions, and once every build
+# passes, the files are published in a GitHub release.
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: --mac dmg zip --arm64 --x64
+          - os: ubuntu-latest
+            target: --linux AppImage deb rpm --x64 --arm64
+          - os: windows-latest
+            target: --win nsis --x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      # On a release tag, stop early if the tag does not match the package versions.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/check-version.mjs ${{ github.ref_name }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npx electron-vite build
+        working-directory: app/desktop
+      # rpm packages are assembled by rpmbuild, missing from the Ubuntu runner.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q rpm
+      # No paid certificate: the Mac app gets an ad-hoc signature (electron-builder.mjs), Windows is unsigned.
+      - run: npx electron-builder --config electron-builder.mjs ${{ matrix.target }} --publish never
+        working-directory: app/desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Signet-${{ runner.os }}
+          path: |
+            app/desktop/dist/*.dmg
+            app/desktop/dist/*.AppImage
+            app/desktop/dist/*.deb
+            app/desktop/dist/*.rpm
+            app/desktop/dist/*.exe
+            app/desktop/dist/*.zip
+            app/desktop/dist/*.blockmap
+            app/desktop/dist/latest*.yml
+          if-no-files-found: error
+
+  # Android APK (install by hand, "unknown sources"), ARM 64-bit only. Signed with the release key kept in the
+  # ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD secrets (see app/mobile/README.md): every version must be signed
+  # with the same key, or Android refuses to install it over the previous one. Required for a release; without it
+  # (manual run), the APK is signed with Expo's debug key and is only good for testing.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      # On a release tag, stop early if the tag does not match the package versions.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/check-version.mjs ${{ github.ref_name }}
+      # A release without the release key: stop now rather than after the build.
+      - if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z $KEYSTORE || -z $PASSWORD ]]; then
+            echo "::error::A release needs the Android release key: secrets ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD (see app/mobile/README.md)."
+            exit 1
+          fi
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: npm ci
+      - run: npx expo prebuild --platform android --no-install
+        working-directory: app/mobile
+        env:
+          CI: 1
+      - name: Build the APK
+        working-directory: app/mobile/android
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          signing=()
+          if [[ -n $KEYSTORE && -n $PASSWORD ]]; then
+            echo "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+            # Replaces the debug signature that Expo's prebuild puts on the release build.
+            signing=(
+              "-Pandroid.injected.signing.store.file=$RUNNER_TEMP/release.keystore"
+              "-Pandroid.injected.signing.store.password=$PASSWORD"
+              "-Pandroid.injected.signing.key.alias=signet"
+              "-Pandroid.injected.signing.key.password=$PASSWORD"
+            )
+          else
+            echo "::warning::No Android release key: the APK is signed with Expo's debug key (testing only)."
+          fi
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a "${signing[@]}"
+          # Certificate actually used, in the log (its SHA-256 must stay the same from one version to the next).
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs app/build/outputs/apk/release/*.apk | grep -E 'DN|SHA-256' || true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Signet-Android
+          path: app/mobile/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+  # On a `v…` tag push only, once every build has passed: GitHub release with all the packages.
+  # A version with a suffix (1.0.0-beta.1) is published as a prerelease.
+  # Only a repository admin can publish: the tags themselves are protected by .github/rulesets/release-tags.json.
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The person who started this run (the tag push, or a re-run) must be an admin of the repository.
+      - name: Check the release is started by an admin
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTOR: ${{ github.triggering_actor }}
+        run: |
+          permission=$(gh api "repos/$GITHUB_REPOSITORY/collaborators/$ACTOR/permission" --jq .permission)
+          if [[ $permission != admin ]]; then
+            echo "::error::Only a repository admin can publish a release ($ACTOR has $permission access)."
+            exit 1
+          fi
+      # Releases are made from main (scripts/release.sh checks it too): the tagged commit must be in main's history.
+      - name: Check the tag is on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq .status)
+          if [[ $status != identical && $status != behind ]]; then
+            echo "::error::$GITHUB_REF_NAME is not on main ($status): releases are made from main."
+            exit 1
+          fi
+      # The repository with its whole history and tags, for the release notes (scripts/release-notes.sh). In its own
+      # folder: the packages are downloaded to packages/, which the repository also has.
+      - uses: actions/checkout@v7
+        with:
+          path: repo
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          path: packages
+          merge-multiple: true
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          # Gradle names the APK app-release.apk: give it a name like the other packages.
+          for apk in packages/*.apk; do mv "$apk" "packages/Signet-$version-android-arm64.apk"; done
+
+          # Release notes: what changed since the previous release (from the commit messages), then which file
+          # for which system, with a direct link.
+          # Every file named here must exist: a renamed package stops the release instead of leaving a dead link.
+          rows=(
+            "macOS|Apple Silicon (M1, M2…)|Signet-$version-arm64.dmg"
+            "macOS|Intel|Signet-$version-x64.dmg"
+            "Windows 11|Intel / AMD 64-bit|Signet-$version-x64-setup.exe"
+            "Linux, any distribution|Intel / AMD 64-bit|Signet-$version-x86_64.AppImage"
+            "Linux, any distribution|ARM 64-bit|Signet-$version-arm64.AppImage"
+            "Debian, Ubuntu, Mint|Intel / AMD 64-bit|Signet-$version-amd64.deb"
+            "Debian, Ubuntu, Mint|ARM 64-bit|Signet-$version-arm64.deb"
+            "Fedora, openSUSE|Intel / AMD 64-bit|Signet-$version-x86_64.rpm"
+            "Fedora, openSUSE|ARM 64-bit|Signet-$version-aarch64.rpm"
+            "Android|ARM 64-bit|Signet-$version-android-arm64.apk"
+          )
+          for row in "${rows[@]}"; do
+            file=${row##*|}
+            [[ -f packages/$file ]] || { echo "::error::Missing package: $file"; exit 1; }
+          done
+          base="https://github.com/$GH_REPO/releases/download/$TAG"
+          {
+            echo "## What's new"
+            echo
+            bash repo/scripts/release-notes.sh "$TAG"
+            echo
+            echo "## Downloads"
+            echo
+            echo "| System | Processor | File |"
+            echo "| --- | --- | --- |"
+            for row in "${rows[@]}"; do
+              IFS='|' read -r system cpu file <<<"$row"
+              echo "| $system | $cpu | [\`$file\`]($base/$file) |"
+            done
+            echo
+            echo "The \`.zip\`, \`.yml\` and \`.blockmap\` files are used by Signet to update itself: you don't need them."
+            echo "The apps aren't signed with a paid certificate yet: see [Install](https://github.com/$GH_REPO#install) for the first launch on each system."
+          } >notes.md
+
+          flags=()
+          if [[ $version == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$TAG" packages/* --verify-tag --title "Signet $version" --notes-file notes.md "${flags[@]}"

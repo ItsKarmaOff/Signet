@@ -1,0 +1,229 @@
+/* Boost (editing window). */
+
+/* ---------- 14. Boost (editing window) ---------- */
+
+.boost {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.boost-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 48px;
+  padding: 0 var(--s4) 0 78px;
+  -webkit-app-region: drag;
+}
+.boost-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+}
+.boost-title .b {
+  font-weight: var(--fw-title);
+  font-size: var(--fs-md);
+}
+.boost-title .s {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.boost-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s1) var(--s4) var(--s3);
+  overflow-y: auto;
+  transition: opacity var(--t) var(--ease-out);
+}
+.boost-body.off {
+  opacity: 0.55;
+}
+.boost-body section {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.boost-body section.grow {
+  flex: 1 0 140px;
+}
+.boost-body h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: var(--fs-cap);
+  font-weight: var(--fw-strong);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.boost-body .saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: var(--fw-medium);
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0;
+  transition: opacity var(--t) var(--ease-out);
+}
+.boost-body .saved.show {
+  opacity: 1;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
+  height: 28px;
+  padding: 0 var(--s3);
+  border-radius: 14px;
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+}
+.chip:hover {
+  background: color-mix(in oklch, var(--surface-2), var(--text) 4%);
+}
+.chip.on {
+  background: var(--sel);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.boost-css {
+  flex: 1;
+  min-height: 120px;
+  resize: none;
+  padding: var(--s3);
+  border: 0;
+  border-radius: var(--r-tile);
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  font: var(--fs-sub) / 1.5 var(--font-mono);
+  tab-size: 2;
+  user-select: text;
+  cursor: text;
+  transition: box-shadow var(--t-fast) var(--ease-out);
+}
+.boost-css:focus {
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+.zap-btn {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--s2);
+  height: var(--s8);
+  padding: 0 var(--s3);
+  border-radius: var(--r-control);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-fast);
+}
+.zap-btn:disabled {
+  opacity: 0.4;
+}
+.zap-btn.on {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: none;
+}
+.boost .hint {
+  margin: 0;
+}
+.zapped {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-half);
+  max-height: 128px;
+  overflow-y: auto;
+}
+.zapped li {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  padding: var(--s-half) var(--s1) var(--s-half) var(--s2);
+  border-radius: var(--r-row);
+}
+.zapped li:hover {
+  background: var(--surface-2);
+}
+.zapped code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: var(--fs-sub) var(--font-mono);
+  user-select: text;
+}
+.zapped button.icon.sm {
+  opacity: 0;
+}
+.zapped li:hover button.icon.sm,
+.zapped li:focus-within button.icon.sm,
+.zapped button.icon.sm:focus-visible {
+  opacity: 1;
+}
+.boost-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--s2);
+  min-height: 48px;
+  padding: var(--s2) var(--s4);
+}
+.boost-foot > span {
+  flex: 1;
+  color: var(--text-2);
+}
+.foot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s2);
+  height: var(--s7);
+  padding: 0 var(--s3);
+  border-radius: var(--r-control);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-fast);
+}
+.foot-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.foot-btn:disabled {
+  opacity: 0.35;
+}
+.foot-btn.danger {
+  color: var(--danger);
+}
+.foot-btn.danger.solid {
+  background: var(--danger);
+  color: var(--on-accent);
+}
+.foot-btn.danger.solid:hover {
+  background: var(--danger);
+  filter: brightness(1.08);
+}

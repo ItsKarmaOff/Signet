@@ -1,0 +1,197 @@
+/* First-launch introduction (#welcome). Reuses the Settings controls (.st-*). */
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  user-select: none;
+}
+.wl-drag {
+  flex: none;
+  height: 44px; /* room for the traffic lights */
+  -webkit-app-region: drag;
+}
+.wl-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--s4) var(--s8) 0;
+  text-align: center;
+  animation: wl-in var(--t-slow, 280ms) var(--ease-out) both;
+}
+.wl-main h1 {
+  margin: 0;
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-hero);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.wl-text {
+  max-width: 420px;
+  margin: var(--s3) 0 var(--s6);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.wl-body {
+  width: 100%;
+  max-width: 460px;
+  text-align: left;
+}
+.wl-body .st-note {
+  margin: var(--s3) 0 0;
+  text-align: center;
+}
+.wl-hint {
+  text-align: center;
+}
+.wl-seg {
+  flex: none;
+}
+.wl-seg button {
+  padding: 0 var(--s3);
+  white-space: nowrap;
+}
+
+/* Search engines: single-choice grid of pills. */
+.wl-engines {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s2);
+}
+.wl-engine {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  height: 48px;
+  padding: 0 var(--s4);
+  border-radius: var(--r-group);
+  text-align: left;
+  background: var(--win-card);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+  transition:
+    background var(--t-fast),
+    box-shadow var(--t-fast),
+    transform var(--t-press);
+}
+.wl-engine > span:not(.wl-mono) {
+  flex: 1;
+}
+.wl-engine:hover {
+  background: var(--surface-2);
+}
+.wl-engine:active {
+  transform: var(--press);
+}
+.wl-engine.on {
+  background: var(--active);
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+  font-weight: var(--fw-label);
+}
+.wl-engine svg {
+  flex: none;
+  color: var(--accent);
+}
+.wl-mono {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: var(--fs-sub);
+  font-weight: var(--fw-strong);
+  color: var(--accent);
+  background: var(--surface-2);
+}
+.wl-mono img {
+  border-radius: 4px;
+}
+
+/* Footer: skip, step dots, back and next. */
+.wl-foot {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: var(--s4) var(--s6) var(--s5);
+}
+.wl-link {
+  justify-self: start;
+  padding: var(--s1) var(--s2);
+  border-radius: var(--r-control);
+  color: var(--text-2);
+}
+.wl-link:hover {
+  color: var(--text);
+}
+.wl-dots {
+  display: flex;
+  gap: var(--s2);
+}
+.wl-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  transition:
+    background var(--t) var(--ease-out),
+    transform var(--t) var(--ease-out);
+}
+.wl-dot.past {
+  background: var(--text-2);
+}
+.wl-dot.on {
+  background: var(--accent);
+  transform: scale(1.3);
+}
+.wl-actions {
+  justify-self: end;
+  display: flex;
+  gap: var(--s2);
+}
+.wl-primary {
+  height: 28px;
+  padding: 0 var(--s4);
+  border-radius: var(--r-control);
+  font-weight: var(--fw-label);
+  white-space: nowrap;
+  color: var(--on-accent);
+  background: var(--accent);
+  transition:
+    filter var(--t-fast),
+    transform var(--t-press);
+}
+.wl-primary:hover {
+  filter: brightness(1.06);
+}
+.wl-primary:active {
+  filter: brightness(0.92);
+  transform: var(--press);
+}
+
+@keyframes wl-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes wl-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wl-main {
+    animation-name: wl-fade;
+  }
+  .wl-dot.on {
+    transform: none;
+  }
+}
+
+/* Settings › About: button to replay the introduction. */
+.st-about .st-btn {
+  margin-top: var(--s3);
+}
