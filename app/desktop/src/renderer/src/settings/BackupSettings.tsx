@@ -92,7 +92,7 @@ export function BackupSettings() {
   useEffect(refresh, [signet])
 
   const date = (ms: number) =>
-    ms ? new Date(ms).toLocaleString(i18n.language, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+    ms ? new Date(ms).toLocaleString(i18n.language, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
 
   const withPasswords = picked.has('passwords')
   const pwError =

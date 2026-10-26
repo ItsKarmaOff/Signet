@@ -172,7 +172,7 @@ export function languageName(code: string, locale: string): string {
 /** Open in a new tab: ⌘click on Mac, Ctrl+click elsewhere, or middle click. */
 export const wantsNewTab = (e: { metaKey: boolean; ctrlKey: boolean; button: number }) => (IS_MAC ? e.metaKey : e.ctrlKey) || e.button === 1
 
-/** Relative luminance (0–1) of a `#rrggbb` color, or null if it is unreadable. */
+/** Relative luminance (0-1) of a `#rrggbb` color, or null if it is unreadable. */
 export function luminance(hex: string): number | null {
   const m = /^#([0-9a-f]{6})/i.exec(hex)
   if (!m) return null

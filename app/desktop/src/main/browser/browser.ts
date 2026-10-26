@@ -63,7 +63,7 @@ import { Views } from './views'
 import { MainWindow } from './window'
 
 /**
- * Composition root: creates the browser's parts and links them. It holds no logic — see `model/`
+ * Composition root: creates the browser's parts and links them. It holds no logic; see `model/`
  * (state rules), `views.ts` (pages), `layout.ts` + `broadcast.ts` (window and broadcast), `overlay.ts` + `peek.ts`
  * (overlays), and the `*-actions.ts` (user gestures).
  *

@@ -13,7 +13,7 @@ export interface MobileSpace {
   name: string
   /** Un emoji. */
   icon: string
-  /** Teinte 0–359 (voir `mobile/color.ts`). */
+  /** Teinte 0-359 (voir `mobile/color.ts`). */
   hue: number
   theme?: SpaceTheme
   favorites: string[]

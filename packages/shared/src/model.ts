@@ -9,7 +9,7 @@ export function newSpace(draft: { name: string; icon: string; hue: number; theme
 const cleanHue = (h: unknown): number | null => (typeof h === 'number' && Number.isFinite(h) ? ((Math.round(h) % 360) + 360) % 360 : null)
 
 /**
- * Space draft coming from the UI, validated: non-empty name and emoji, hue 0–359, gradient of 2 or 3 hues
+ * Space draft coming from the UI, validated: non-empty name and emoji, hue 0-359, gradient of 2 or 3 hues
  * (otherwise solid color). With a gradient, `hue` is its first hue. `defaultName`: (translated) name of an unnamed space.
  */
 export function cleanSpaceDraft(draft: SpaceDraft, defaultName: string): { name: string; icon: string; hue: number; theme?: SpaceTheme } {

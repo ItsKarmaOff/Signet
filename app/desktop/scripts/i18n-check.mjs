@@ -115,7 +115,7 @@ for (const file of files) {
 }
 
 if (problems.length) {
-  console.error(`i18n:check — ${problems.length} problem(s)\n` + problems.map((p) => `  - ${p}`).join('\n'))
+  console.error(`i18n:check: ${problems.length} problem(s)\n` + problems.map((p) => `  - ${p}`).join('\n'))
   process.exit(1)
 }
-console.log('i18n:check — OK (catalogs aligned, no hard-coded text in src/renderer/src, app/mobile/src or app/mobile/app)')
+console.log('i18n:check: OK (catalogs aligned, no hard-coded text in src/renderer/src, app/mobile/src or app/mobile/app)')

@@ -13,7 +13,7 @@ export function applyMainOptions(b: Browser): void {
     if (other) {
       b.media.debug = {
         tabId: other.id,
-        title: 'Nuits blanches — Épisode 12',
+        title: 'Nuits blanches - Épisode 12',
         artist: 'Radio Exemple',
         site: 'example.fm',
         playing: true,

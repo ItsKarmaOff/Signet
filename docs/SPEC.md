@@ -1,4 +1,4 @@
-# Signet — spécification v1
+# Signet : spécification v1
 
 Navigateur macOS en Electron, organisé autour d'une barre latérale verticale.
 L'interface est en **français**.
@@ -33,12 +33,12 @@ packages/shared/src/urls.ts          toUrl(), searchUrl() ; site.ts : siteOf()
 
 ## Modèle
 
-- **Onglets** : `tabs: Record<id, TabInfo>`. Un onglet vit dans exactement un endroit : favoris (global), `pinned` ou `today` d'un espace, ou « détaché » (Peek, Little Signet — jamais persisté).
+- **Onglets** : `tabs: Record<id, TabInfo>`. Un onglet vit dans exactement un endroit : favoris (global), `pinned` ou `today` d'un espace, ou « détaché » (Peek, Little Signet, jamais persisté).
 - **Favoris** : liste globale d'ids d'onglets, partagée par tous les espaces. Ils ont un `pinnedUrl`. Un favori ne peut pas faire partie d'une vue partagée.
 - **Espaces** : nom, emoji, teinte, `pinned: Item[]`, `today: Item[]`, `activeTabId`. Au moins un espace existe toujours. État initial : un espace « Personnel », 🏠, dégradé teintes 250 puis 0 (violet → rouge), grain 0,5, vide.
 - **Vue partagée** : `Item` de type `split` contenant 2 ou 3 `tabIds`. Les onglets d'une vue partagée n'apparaissent pas ailleurs. Quand il ne reste qu'un onglet, la vue partagée redevient un `Item` tab.
 - **Onglets épinglés** : `pinnedUrl` = URL au moment de l'épinglage. « Fermer » un épinglé = le décharger (détruire la vue, `loaded=false`) et remettre `url = pinnedUrl`. Il reste dans la liste : sa ligne ne se replie donc jamais (pas d'animation `.leaving`) et le bouton ✕ s'appelle « Décharger ». **Sélection optimiste** : au clic sur un onglet ou un espace (barre latérale, rangée d'onglets), l'interface affiche aussitôt la sélection (`optimistic.ts`) ; elle tombe à la première mise à jour reçue après la réponse du main, ou 400 ms après la réponse si le main a refusé. Choisir un espace depuis le popover de la barre d'onglets du haut (processus de l'overlay) est aussi optimiste : à la réception de `space:switch`, le main envoie aussitôt `space:pending` (id) à la fenêtre principale, avant le cycle différé layout/état ; `optimistic.ts` l'adopte, il tombe à la prochaine mise à jour ou après 1 s si le main a refusé.
-- **Largeur de la barre latérale, élastique** : pendant le glissement de la poignée, la largeur brute au-delà de 180–420 est affichée via `rubberband(dépassement, 160, 0.55)`. L'IPC `sidebar:width(w, live)` avec `live=true` relâche la borne à 100–500 (±80) côté main (largeur transitoire `liveSidebarWidth`, dans le layout et l'état poussé, jamais persistée). Au relâchement, `spring()` (≈0,3 s, critique, vitesse de lâcher) ramène à la valeur bornée, image par image, puis une dernière valeur non `live` est envoyée et persistée. Une nouvelle prise interrompt le ressort. Réduire les animations : borne dure, sans ressort.
+- **Largeur de la barre latérale, élastique** : pendant le glissement de la poignée, la largeur brute au-delà de 180-420 est affichée via `rubberband(dépassement, 160, 0.55)`. L'IPC `sidebar:width(w, live)` avec `live=true` relâche la borne à 100-500 (±80) côté main (largeur transitoire `liveSidebarWidth`, dans le layout et l'état poussé, jamais persistée). Au relâchement, `spring()` (≈0,3 s, critique, vitesse de lâcher) ramène à la valeur bornée, image par image, puis une dernière valeur non `live` est envoyée et persistée. Une nouvelle prise interrompt le ressort. Réduire les animations : borne dure, sans ressort.
 - **Onglets du jour** : archivés automatiquement après `settings.archiveAfterHours` (12 par défaut) sans activation, sauf l'onglet actif. Vérification toutes les 5 minutes. Archiver = détruire la vue, retirer l'onglet, l'ajouter à `archive` (url, titre, favicon, date ; 500 max). Les archives sont cherchables dans la barre de commande.
 - **Onglets fermés récemment** : pile de 20 pour ⇧⌘T (mémoire seulement, jamais écrite sur disque). Chaque entrée garde l'URL, le titre, l'icône, le nom/l'icône personnalisés, `pinnedUrl`, la place d'origine (`spaceId`, zone, `folderId`, rang) et l'historique de navigation (`TabHistory`, restauré par `navigationHistory.restore`). ⇧⌘T rouvre l'onglet **à sa place** : même espace, même zone, même dossier, même rang (bornés à la liste actuelle). Espace disparu → espace courant (un épinglé redevient onglet du jour, en tête) ; dossier disparu → fin des épinglés de l'espace. Alimentent la pile : ⌘W sur un onglet du jour, « Supprimer le dossier et ses onglets », « Supprimer l'espace » (le premier onglet de la liste en haut de la pile ; 20 au plus).
 - **Archivage groupé annulable** : « Archiver » (bouton du séparateur ou action `clear-today` de la barre de commande) archive tous les onglets du jour de l'espace courant, puis le main pousse `today:archived` `{id, count}` à la barre latérale, qui affiche l'annonce « N onglets archivés · Annuler » (5 s, pause au survol/focus, ✕ ou Échap pour la fermer sans annuler). `today:undo(id)` (`undoClearToday`) remet les onglets (mêmes ids, historiques) sous les onglets ouverts depuis, retire leurs entrées de l'archive et rend l'onglet actif d'avant si l'utilisateur n'en a pas choisi un autre. Un seul niveau : un nouvel archivage remplace le précédent. L'archivage automatique (délai d'inactivité) n'est pas annulable. Quand aucune barre latérale n'est affichée (onglets en haut, mode compact, barre masquée), le main n'envoie pas l'événement à la fenêtre : il crée une petite `WebContentsView` transparente (route `#toast`, 384×72, centrée en bas de la carte web, sous l'overlay, au-dessus des pages) qui rend la même annonce (mêmes entrée/sortie), et la retire quand l'annonce a fini sa sortie (`toast:done`). Elle ne couvre que sa propre zone, suit le redimensionnement de la fenêtre (recalculée à chaque layout) et l'annulation y fonctionne.
@@ -48,7 +48,7 @@ packages/shared/src/urls.ts          toUrl(), searchUrl() ; site.ts : siteOf()
 
 ### Persistance (`store.ts`)
 
-`app.getPath('userData')/state.json`, écrit avec un délai de 500 ms après chaque changement et de façon synchrone à `before-quit`. Contenu : onglets (id, url, title, favicon, pinnedUrl, lastActive, muted), favoris, espaces, activeSpaceId, sidebarVisible, sidebarWidth (240 par défaut, borné 180–420), archive, settings, bounds de la fenêtre. Champ `version: 1`. Lecture tolérante : fichier absent ou corrompu → état initial.
+`app.getPath('userData')/state.json`, écrit avec un délai de 500 ms après chaque changement et de façon synchrone à `before-quit`. Contenu : onglets (id, url, title, favicon, pinnedUrl, lastActive, muted), favoris, espaces, activeSpaceId, sidebarVisible, sidebarWidth (240 par défaut, borné 180-420), archive, settings, bounds de la fenêtre. Champ `version: 1`. Lecture tolérante : fichier absent ou corrompu → état initial.
 Les onglets détachés (Peek, Little Signet) ne sont jamais écrits.
 
 ### Historique (`history.ts`)
@@ -188,7 +188,7 @@ Les accélérateurs du menu d'application marchent quel que soit le panneau qui 
 - **Fichier** : Nouvel onglet ⌘T, Nouvelle fenêtre Little Signet ⌥⌘N, Nouvelle fenêtre privée ⇧⌘N, Rouvrir l'onglet fermé ⇧⌘T, Fermer l'onglet ⌘W (dans Little Signet : fermer la fenêtre), Fermer la fenêtre ⇧⌘W
 - **Édition** : rôles undo, redo, cut, copy, paste, pasteAndMatchStyle, selectAll
 - **Affichage** : Afficher/masquer la barre latérale ⌘S, Recharger ⌘R, Forcer le rechargement ⇧⌘R, Zoom avant ⌘+ (et ⌘=), Zoom arrière ⌘-, Taille réelle ⌘0 (sur l'onglet actif, `setZoomLevel`), Plein écran (rôle), Outils de développement ⌥⌘I
-- **Navigation** : Précédent ⌘[, Suivant ⌘], Ouvrir l'adresse ⌘L, Copier l'URL ⇧⌘C, Épingler/Désépingler ⌥⌘P, Signet ⌘D, Vue partagée ⌃⇧=, Onglet suivant ⌃Tab ou ⇧⌘], Onglet précédent ⌃⇧Tab ou ⇧⌘[ (parcourt favoris, épinglés puis onglets du jour de l'espace actif), Onglet 1 à 8 ⌘1…⌘8 et Dernier onglet ⌘9 (`gotoTabNumber` : ordre de la barre latérale de haut en bas — favoris, épinglés, jour ; les onglets d'un dossier fermé ne comptent pas, ni aucun dossier avec les onglets en haut), Espace suivant ⌥⌘→, Espace précédent ⌥⌘←, Espace 1 à 9 ⌃1…⌃9
+- **Navigation** : Précédent ⌘[, Suivant ⌘], Ouvrir l'adresse ⌘L, Copier l'URL ⇧⌘C, Épingler/Désépingler ⌥⌘P, Signet ⌘D, Vue partagée ⌃⇧=, Onglet suivant ⌃Tab ou ⇧⌘], Onglet précédent ⌃⇧Tab ou ⇧⌘[ (parcourt favoris, épinglés puis onglets du jour de l'espace actif), Onglet 1 à 8 ⌘1…⌘8 et Dernier onglet ⌘9 (`gotoTabNumber` : ordre de la barre latérale de haut en bas, soit favoris, épinglés, jour ; les onglets d'un dossier fermé ne comptent pas, ni aucun dossier avec les onglets en haut), Espace suivant ⌥⌘→, Espace précédent ⌥⌘←, Espace 1 à 9 ⌃1…⌃9
 - **Fenêtre** : rôle windowMenu
 
 ## Démarrage (`index.ts`)
@@ -380,7 +380,7 @@ Interface `#settings` : colonne de navigation à gauche (200 px, en `drag` en ha
 
 - **Général** : « Archiver les onglets du jour après » (sélecteur : 6 h, 12 h, 24 h, 3 jours, 7 jours, jamais = 0 → le main n'archive plus si 0) ; interrupteur « Ouvrir dans Peek les liens externes des onglets épinglés » ; « Navigateur par défaut » : état + bouton « Définir par défaut » (désactivé avec une note « Disponible dans l'app installée » si `packaged` est faux).
 - **Apparence** : grille des icônes de l'app (aperçus 64 px, nom dessous, la sélection a un anneau de la teinte) ; note discrète « L'icône du Dock change tout de suite ; celle du Finder reste Aurore. »
-- **Confidentialité** : interrupteur « Bloquer les pubs et les traqueurs » ; bloc « Effacer les données » avec cases à cocher (Historique — n entrées, Onglets archivés — n, Liste des téléchargements — n, Cache, Cookies et données des sites) et un bouton « Effacer… » qui demande confirmation en place. Côté main : historique vidé et sauvegardé, archive vidée, liste des téléchargements vidée sauf ceux en cours, `session.defaultSession.clearCache()`, `clearStorageData()` pour les cookies et données des sites.
+- **Confidentialité** : interrupteur « Bloquer les pubs et les traqueurs » ; bloc « Effacer les données » avec cases à cocher (Historique : n entrées, Onglets archivés : n, Liste des téléchargements : n, Cache, Cookies et données des sites) et un bouton « Effacer… » qui demande confirmation en place. Côté main : historique vidé et sauvegardé, archive vidée, liste des téléchargements vidée sauf ceux en cours, `session.defaultSession.clearCache()`, `clearStorageData()` pour les cookies et données des sites.
 - **Import** : une ligne par source avec son nom, « Importer » si `available`, sinon « Introuvable sur ce Mac » en gris ; une note sur l'accès complet au disque que certaines sources demandent. Ce sont les seuls libellés de cette fenêtre qui nomment d'autres navigateurs (ils viennent de `importSources`, pas du code de l'interface).
 - **Boosts** : liste des Boosts (site, actif ou non, nombre d'éléments masqués, date), interrupteur par ligne (`saveBoost(site, { enabled })`), bouton « Modifier » (`openBoost`), bouton supprimer (`deleteBoost`, confirmation en place). État vide : explication et raccourci ⌥⌘B.
 - **Raccourcis** : tableau en lecture seule de tous les raccourcis, groupés (Onglets, Navigation, Espaces, Barre latérale, Vue partagée, Recherche, Fenêtres). La liste vient d'un tableau constant dans l'interface, à garder synchronisé avec menu.ts.
@@ -388,7 +388,7 @@ Interface `#settings` : colonne de navigation à gauche (200 px, en `drag` en ha
 
 Style cohérent avec le reste (mode sombre, lucide-react, survols doux), contrôles natifs-like : interrupteurs arrondis, sélecteurs, boutons secondaires.
 
-## v4 — refonte visuelle sobre
+## v4 : refonte visuelle sobre
 
 Remplace le style « dégradé coloré » par une interface neutre et calme. La règle d'or : la couleur est un accent, jamais un fond. Supprimer **tous** les dégradés de teinte (barre latérale, fenêtre principale, Little Signet, barre flottante, Boost, Réglages, overlay). Les règles de cette section priment sur les descriptions visuelles des sections précédentes ; le comportement, lui, ne change pas.
 
@@ -433,7 +433,7 @@ Jetons CSS uniques dans `:root`, redéfinis en sombre (`prefers-color-scheme: da
 
 Étendre `SIGNET_CAPTURE` (dossier `app/desktop/src/main/dev/` : `capture.ts`, `seed.ts`, `probes.ts`) pour capturer la fenêtre principale **avec un état d'exemple** : si `SIGNET_SEED=1`, avant d'ouvrir la fenêtre, remplacer l'état en mémoire (jamais sur le profil normal : seulement si `--user-data-dir` est passé) par 2 espaces, 4 favoris, des épinglés dont un dossier teinté bleu ouvert de 3 onglets et un dossier rouge de 1 onglet, 5 onglets du jour dont un actif, sur des sites publics simples (wikipedia.org, example.com, github.com, news.ycombinator.com, lemonde.fr, w3.org). Captures en clair et en sombre (`nativeTheme.themeSource`).
 
-## v5 — compact, médias, vue partagée avancée, espaces avancés, bibliothèque
+## v5 : compact, médias, vue partagée avancée, espaces avancés, bibliothèque
 
 Quatre lots développés en parallèle par quatre personnes. Le contrat (`app/desktop/src/shared/types/`) est déjà étendu pour tous ; chaque lot n'implémente que ses méthodes de `SignetApi` dans le preload et `index.ts`. Migration du store sans changer `version` : `settings.compactMode` → `false`, `settings.autoPip` → `true`, `settings.routes` → `[]`, `sitePermissions` → `{}`, `Snapshot.toolbarFloating` → `false`, `dividers` → `[]`, `media` → `null`, `boostedSites` → calculé. `pruneItems` (tree.ts) doit conserver `layout`, `sizes` des vues partagées et `customTitle`, `customIcon` des onglets.
 Canaux : nom de la méthode en kebab-case préfixé du domaine (`compact:toggle`, `toolbar:hover`, `media:toggle`, `media:skip`, `drag:begin`, `drag:end`, `drag:drop`, `split:layout`, `split:sizes`, `space:profile`, `route:add`, `route:remove`, `library:open`, `history:query`, `history:delete`, `archive:list`, `archive:restore`, `archive:delete`, `tab:rename`, `tab:icon`, `site:panel`, `site:permission`, `site:clear`) ; événements poussés `library:section`, `tab:rename-request`, `tab:icon-request`.
@@ -446,7 +446,7 @@ Répartition des fichiers (pour limiter les conflits) :
 - Lot D : app/desktop/src/main/windows/library.ts, app/desktop/src/main/browser/sitepanel.ts, app/desktop/src/renderer/src/windows/Library.tsx, app/desktop/src/renderer/src/windows/SitePanel.tsx, route `#library`.
   Fichiers partagés (à l'époque : browser.ts, tabs.ts, index.ts, preload, store.ts, palette.ts, menu.ts, Sidebar.tsx, TabRow.tsx, App.tsx, Toolbar.tsx, Settings.tsx, styles.css ; aujourd'hui le gros de browser.ts est réparti dans `main/browser/`) : uniquement des Edit ciblés.
 
-### Lot A — Mode compact, médias, image dans l'image
+### Lot A : Mode compact, médias, image dans l'image
 
 **Mode compact** (`settings.compactMode`). Bascule : menu Affichage « Mode compact » ⌥⌘S, action de la barre de commande `compact`, interrupteur dans Réglages › Général. ⌘S en mode compact quitte le mode compact et affiche la barre latérale.
 
@@ -464,17 +464,17 @@ Répartition des fichiers (pour limiter les conflits) :
 
 **Image dans l'image automatique** (`settings.autoPip`, interrupteur dans Réglages › Général). Quand un onglet quitte l'affichage alors qu'une de ses vidéos joue : AVANT de retirer sa vue, `executeJavaScript` avec geste utilisateur qui appelle `requestPictureInPicture()` sur la vidéo qui joue (si aucune n'est déjà en PiP). Quand l'onglet revient à l'affichage : `document.exitPictureInPicture()` si sa vidéo est en PiP. Erreurs ignorées.
 
-### Lot B — Vue partagée avancée
+### Lot B : Vue partagée avancée
 
 - Jusqu'à **4** onglets par vue partagée (au lieu de 3). Dispositions : `columns` (côte à côte), `rows` (empilée), `grid` (deux rangées : `ceil(n/2)` en haut, le reste en bas ; seulement pour n ≥ 3, sinon équivaut à `columns`).
-- Rectangles (split.ts, fonction pure testable) : à partir de la zone de contenu, de `layout`, `sizes` et `GAP = 8`. Taille minimale d'un panneau : 200 px (clamp, en redistribuant). `Snapshot.dividers` : en `columns`, `n - 1` séparateurs verticaux (bande de 8 px entre deux panneaux, `index` = frontière entre la part `index` et `index + 1`) ; en `rows`, horizontaux ; en `grid`, un seul séparateur horizontal entre les rangées (`index` 0) — les colonnes d'une rangée restent égales.
+- Rectangles (split.ts, fonction pure testable) : à partir de la zone de contenu, de `layout`, `sizes` et `GAP = 8`. Taille minimale d'un panneau : 200 px (clamp, en redistribuant). `Snapshot.dividers` : en `columns`, `n - 1` séparateurs verticaux (bande de 8 px entre deux panneaux, `index` = frontière entre la part `index` et `index + 1`) ; en `rows`, horizontaux ; en `grid`, un seul séparateur horizontal entre les rangées (`index` 0) ; les colonnes d'une rangée restent égales.
 - Interface `Dividers` (fenêtre principale, sous les vues) : chaque séparateur est une zone de prise de 8 px (`cursor: col-resize` / `row-resize`) ; au survol, une poignée de 3×28 px arrondie apparaît au centre ; pendant le glisser, elle prend l'accent. Glisser = suivi 1:1 du pointeur (Pointer Events + `setPointerCapture`, en respectant le décalage de prise), `setSplitSizes` envoyé au plus une fois par frame (`requestAnimationFrame`). Double-clic = parts égales.
 - **Glisser un onglet sur la page** : au `dragstart` d'une ligne d'onglet de la barre latérale (onglet seul, pas de dossier ni de vue partagée entière ; un favori ne peut faire que `center`), l'interface appelle `beginTabDrag(tabId)`. Le main ouvre l'overlay en mode `dropzones` (`area` = rectangle de la carte web). `DropZones` reçoit les événements de glisser HTML5 (même type MIME que la barre latérale) : bandes de 25 % sur chaque bord → `left` / `right` / `top` / `bottom`, centre → `center`. Pendant le survol, un aperçu translucide (`--accent` à 18 %, liseré accent, rayon 10) montre la place que prendra l'onglet, et il glisse vers la nouvelle zone avec une transition de 140 ms. Dépôt → `dropOnContent(tabId, zone)`. `dragend` dans la barre latérale ou Échap → `endTabDrag()` ferme l'overlay.
 - Sémantique du dépôt : `center` → active l'onglet. Bords : l'onglet rejoint la vue partagée de l'onglet affiché (en la créant au besoin), inséré avant (left/top) ou après (right/bottom) le panneau qui a le focus. `left`/`right` → disposition `columns` (si elle était `rows` et que n ≥ 3 après ajout → `grid`) ; `top`/`bottom` → `rows` (si elle était `columns` et n ≥ 3 → `grid`). Les parts sont remises à égalité. Si la vue partagée a déjà 4 onglets → comme `center`. Si l'onglet affiché est un favori → comme `center`.
 - Changer de disposition : menu contextuel d'une vue partagée dans la barre latérale « Disposition ▸ Côte à côte / Empilée / Grille » (Grille seulement si n ≥ 3), actions de la barre de commande `split-columns`, `split-rows`, `split-grid`, `split-equalize` « Égaliser les panneaux ». La ligne de vue partagée de la barre latérale affiche une petite icône de disposition (`Columns2` / `Rows2` / `Grid2x2`).
 - La barre de recherche dans la page et Peek suivent les nouveaux rectangles.
 
-### Lot C — Espaces avancés
+### Lot C : Espaces avancés
 
 **Profils** (`Space.profile`).
 
@@ -495,7 +495,7 @@ Répartition des fichiers (pour limiter les conflits) :
 - La mise en avant des emojis d'espace en bas (fond et opacité) suit la progression du geste.
 - BrowserWindow `swipe` (geste à trois doigts, s'il est activé dans macOS) → espace précédent / suivant.
 
-### Lot D — Bibliothèque, renommer les onglets, panneau du site
+### Lot D : Bibliothèque, renommer les onglets, panneau du site
 
 **Bibliothèque** : fenêtre unique `#library` (comme Réglages : 920×660, navigation à gauche en vibrancy, contenu à droite). Ouverture : ⌘Y, action `library` « Bibliothèque », bouton `Library` dans la barre du bas de la barre latérale (à côté de l'engrenage), `openLibrary(section)` (pousse `library:section` si déjà ouverte).
 
@@ -520,7 +520,7 @@ Tirés des recommandations d'Apple pour des interfaces fluides :
 - `prefers-reduced-motion` : fondus courts à la place des translations.
 - Formule élastique : `rubberband(d, dim, c = 0.55) = (d * dim * c) / (dim + c * |d|)`.
 
-## v6 — finition du design
+## v6 : finition du design
 
 But : passer d'une interface « propre » à une interface soignée, calme et vivante. La v4 a posé la sobriété (aucun dégradé) ; cette passe travaille la géométrie, la matière, la typographie et le mouvement. Elle s'applique à tout : fenêtre principale, barres flottantes, barre de commande, Peek, panneau du site, zones de dépôt, Little Signet, Boost, Réglages, Bibliothèque. Le comportement ne change pas.
 
@@ -564,7 +564,7 @@ But : passer d'une interface « propre » à une interface soignée, calme et vi
 - États vides soignés (Bibliothèque, Boosts, téléchargements, recherche sans résultat) : une icône `--text-3` de 28 px, une phrase, une action si utile.
 - Aucune couleur codée en dur hors des jetons ; aucune valeur d'espacement hors de la grille de 4 px sans raison.
 
-## v7 — barre d'outils fondue dans le site
+## v7 : barre d'outils fondue dans le site
 
 La barre d'outils n'est plus une bande au-dessus de la page, sur le fond de la fenêtre : elle fait partie de la **carte** de chaque panneau et prend **la couleur du haut du site**, si bien que la barre et la page ne forment qu'une seule surface. Contrat : `TabInfo.themeColor`, `Pane.card`, `LittleState.themeColor`.
 
@@ -580,7 +580,7 @@ La barre d'outils n'est plus une bande au-dessus de la page, sur le fond de la f
 
 - Fond = `themeColor` de l'onglet du panneau (transition de couleur de 200 ms, sans animation si `prefers-reduced-motion`) ; à défaut, `--surface`. Coins hauts de la carte arrondis à 12, avec la même ombre de carte qu'avant (l'ombre entoure toute la carte, barre comprise).
 - Couleur du contenu calculée par contraste : le blanc contraste mieux que le noir sur `themeColor` (rapports WCAG) → texte et icônes clairs (`rgb(255 255 255 / .92)`, secondaire `/ .55`) ; sinon foncés (`rgb(0 0 0 / .85)`, secondaire `/ .5`). Survol des boutons : la couleur du contenu à 10 %.
-- Contenu, de gauche à droite : Précédent, Suivant, Recharger ; puis, sans pilule ni fond, le cadenas (ou l'icône d'info) suivi de « **domaine** / titre » (titre en couleur secondaire, tronqué) — clic sur le cadenas → panneau du site, clic sur le texte → modifier l'adresse ; à droite la fusée Boost (accent si actif).
+- Contenu, de gauche à droite : Précédent, Suivant, Recharger ; puis, sans pilule ni fond, le cadenas (ou l'icône d'info) suivi de « **domaine** / titre » (titre en couleur secondaire, tronqué) : clic sur le cadenas → panneau du site, clic sur le texte → modifier l'adresse ; à droite la fusée Boost (accent si actif).
 - Toute la barre est une zone `drag` (la fenêtre se déplace en la saisissant), les boutons et le texte cliquable en `no-drag`.
 - Vue partagée : chaque panneau a sa propre barre, qui agit sur son onglet (les boutons ciblent `pane.tabId`). Le panneau qui a le focus garde son anneau ; un panneau sans focus voit sa barre à 70 % d'opacité de contenu. Si la carte fait moins de 420 px de large : seulement Recharger, le cadenas et le domaine.
 - Plus aucune barre d'outils globale au-dessus des panneaux (Toolbar.tsx devient la barre d'un panneau, réutilisée aussi par la barre flottante du mode compact).
@@ -596,7 +596,7 @@ La barre d'outils n'est plus une bande au-dessus de la page, sur le fond de la f
 
 `SIGNET_SEED=1` + captures : impossible de voir la vraie page dans une capture de la fenêtre (vues natives) ; pour vérifier la fusion, le crochet de capture doit, en mode capture seulement, composer l'image de la fenêtre avec les `capturePage()` des vues web aux positions `rect`. Vérifier au moins : une page claire (wikipedia.org), une page sombre (un site à fond noir), une vue partagée avec deux couleurs différentes, la barre latérale masquée (feux tricolores sur la barre), en clair et en sombre.
 
-## v8 — langue des sites et extensions
+## v8 : langue des sites et extensions
 
 Licence du projet : GPL-3.0-or-later (fichier LICENSE). Contrat : `Settings.languages`, `ExtensionInfo`, `SettingsInfo.extensions`, `openExtensionStore`, `removeExtension`. Migration : `settings.languages`, s'il est absent ou vide, est calculé au chargement à partir des langues du système (`app.getPreferredSystemLanguages()`, chaque code régional suivi de sa langue de base, sans doublon : `en-US, fr-FR` → `en-US, en, fr-FR, fr`) ; repli `['en-US', 'en']` si le système n'en donne aucune.
 
@@ -604,7 +604,7 @@ Licence du projet : GPL-3.0-or-later (fichier LICENSE). Contrat : `Settings.lang
 
 - Les sites doivent recevoir les langues de `settings.languages` dans l'en-tête `Accept-Language` et dans `navigator.language` / `navigator.languages`.
 - En-tête : pour **chaque** session (par défaut et profils isolés, voir profiles.ts `configureSession`), `ses.setUserAgent(userAgent, acceptLanguages)` avec la liste simple `fr-FR,fr,en-US,en` (Chromium ajoute lui-même les poids : `fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7`). Les valeurs par défaut suivent le système, pas une langue fixée. Vérifier qu'aucun autre appel à `setUserAgent` n'écrase les langues.
-- `navigator.language` / `languages` : Chromium les tire de la langue du système et ignore `setUserAgent` ; chaque vue d'onglet reçoit donc `Emulation.setUserAgentOverride` (protocole de débogage, `emulateLanguages`) avec la même liste, et avec `userAgentMetadata` : les indices natifs de Chromium, relevés une fois dans la vue de l'interface principale (non surchargée) dès son chargement (`captureNativeHints` : marques avec la marque GREASE propre à la version, ex. « Not:A-Brand » v8 pour 156, version complète, plateforme et sa version, architecture), puis réappliqués aux onglets déjà ouverts. Ne jamais les inventer : des indices faux ne ressemblent à aucun Chromium réel. Sans ces métadonnées, la surcharge efface les indices client (`Sec-CH-UA`, `navigator.userAgentData.brands` vide) : un « Chrome » sans indices passe pour un navigateur intégré et Google refuse la connexion. Le menu Develop garde l'identité par défaut tant qu'aucun agent n'est choisi. Connexion Google : refusée malgré tout (« Ce navigateur ou cette application ne sont peut-être pas sécurisés »), y compris en s'annonçant comme Firefox sur accounts.google.com (essayé puis retiré : Google repère Chromium dans la page et, probablement, par l'empreinte TLS de la connexion). Comparaison avec CEF 156 pur (accepté par Google, prototype Rust cef-rs `cefsimple`) : écarts relevés côté Electron — version complète dans l'agent (corrigé), indices inventés par Signet (corrigé), aucun indice client sur les navigations ni indices détaillés via `Accept-CH`, `window.chrome` vide (CEF : `app`, `csi`, `loadTimes`), notifications « granted » d'office. En complément, `app.commandLine.appendSwitch('lang', languages[0])` avant `ready` (lu depuis state.json) règle la langue de l'application ; un changement de la première langue s'applique entièrement au prochain lancement (le dire dans l'interface).
+- `navigator.language` / `languages` : Chromium les tire de la langue du système et ignore `setUserAgent` ; chaque vue d'onglet reçoit donc `Emulation.setUserAgentOverride` (protocole de débogage, `emulateLanguages`) avec la même liste, et avec `userAgentMetadata` : les indices natifs de Chromium, relevés une fois dans la vue de l'interface principale (non surchargée) dès son chargement (`captureNativeHints` : marques avec la marque GREASE propre à la version, ex. « Not:A-Brand » v8 pour 156, version complète, plateforme et sa version, architecture), puis réappliqués aux onglets déjà ouverts. Ne jamais les inventer : des indices faux ne ressemblent à aucun Chromium réel. Sans ces métadonnées, la surcharge efface les indices client (`Sec-CH-UA`, `navigator.userAgentData.brands` vide) : un « Chrome » sans indices passe pour un navigateur intégré et Google refuse la connexion. Le menu Develop garde l'identité par défaut tant qu'aucun agent n'est choisi. Connexion Google : refusée malgré tout (« Ce navigateur ou cette application ne sont peut-être pas sécurisés »), y compris en s'annonçant comme Firefox sur accounts.google.com (essayé puis retiré : Google repère Chromium dans la page et, probablement, par l'empreinte TLS de la connexion). Comparaison avec CEF 156 pur (accepté par Google, prototype Rust cef-rs `cefsimple`) : écarts relevés côté Electron : version complète dans l'agent (corrigé), indices inventés par Signet (corrigé), aucun indice client sur les navigations ni indices détaillés via `Accept-CH`, `window.chrome` vide (CEF : `app`, `csi`, `loadTimes`), notifications « granted » d'office. En complément, `app.commandLine.appendSwitch('lang', languages[0])` avant `ready` (lu depuis state.json) règle la langue de l'application ; un changement de la première langue s'applique entièrement au prochain lancement (le dire dans l'interface).
 - Changement de la liste : réappliquer l'en-tête à toutes les sessions tout de suite, puis recharger les onglets affichés.
 - Réglages › Général, groupe « Langues des sites » : liste ordonnée (glisser ou flèches haut/bas), bouton supprimer par langue (au moins une), ajout via un sélecteur des langues courantes (nom en français : Français, English, Español, Deutsch, Italiano, Português, Nederlands, 日本語, 한국어, 中文…, plus les variantes régionales utiles fr-FR, fr-CA, fr-BE, en-US, en-GB…), bouton « Revenir aux langues du système » (envoie une liste vide, que le processus principal remplace par les langues du système), note « La langue principale s'applique entièrement au prochain lancement ».
 
@@ -620,7 +620,7 @@ Bibliothèques (déjà installées, dans `dependencies`) : `electron-chrome-exte
 - Réglages : nouvelle section « Extensions » (icône `Puzzle`) : liste des extensions installées (icône, nom, version, bouton « Retirer » avec confirmation en place), bouton « Ouvrir la boutique d'extensions » (`openExtensionStore` → nouvel onglet sur la boutique dans la fenêtre principale), et une note honnête : « La plupart des extensions fonctionnent. Certaines, qui ont besoin de fonctions avancées (réseau, proxy, identité), peuvent ne pas marcher. »
 - Le bloqueur de pubs intégré reste indépendant.
 
-## v9 — interface en anglais et en français
+## v9 : interface en anglais et en français
 
 Toute l'interface de Signet devient traduisible. Langues disponibles au départ : anglais et français. Par défaut, l'interface suit la langue de macOS (`app.getPreferredSystemLanguages()` : la première langue prise en charge, sinon l'anglais). L'utilisateur peut forcer une langue dans les Réglages. Plus aucun texte visible écrit en dur dans le code.
 
@@ -656,7 +656,7 @@ Toute l'interface de Signet devient traduisible. Langues disponibles au départ 
 - Script de contrôle (dans app/desktop/scripts/, lancé par `npm run i18n:check`) qui vérifie que fr et en ont exactement les mêmes clés et qui échoue s'il reste une chaîne visible en dur dans `app/desktop/src/renderer/src/**` et dans les libellés du main (heuristique : chaînes JSX de texte et attributs `title`, `aria-label`, `placeholder`, `label:` contenant des lettres, hors clés, noms propres listés explicitement comme « Signet », « Little Signet », « Peek », « Boost »). Le lancer et le laisser propre.
 - Captures (crochet de développement, profil isolé) de la fenêtre principale, de la barre de commande si possible, des Réglages et de la Bibliothèque, en anglais et en français.
 
-## v10 — glisser pour naviguer, menu des extensions
+## v10 : glisser pour naviguer, menu des extensions
 
 Contrat : `Settings.swipeNavigation?` (absent = activé), `SignetApi.showExtensionMenu(id)`.
 
@@ -683,9 +683,9 @@ Le moteur d'Electron n'inclut pas la navigation par balayage du trackpad : on la
 - Clic droit sur un bouton d'extension de la barre → `showExtensionMenu(id)` → menu natif traduit : nom de l'extension (grisé), « Options » (si l'extension déclare une page d'options : l'ouvrir dans un nouvel onglet), « Désépingler de la barre d'outils », « Gérer les extensions » (Réglages › Extensions), séparateur, « Retirer de Signet… » (boîte de confirmation native puis retrait de toutes les sessions, comme `removeExtension`). Si la bibliothèque fournit déjà un menu contextuel pour ses boutons, le remplacer par celui-ci.
 - Récupérer l'identifiant de l'extension sous le pointeur depuis l'élément `browser-action-list` (lire comment la bibliothèque rend ses boutons : attributs, parties `::part`, éléments dans le shadow DOM) ; si ce n'est pas possible proprement côté interface, passer par l'API de la bibliothèque côté main.
 
-## v11 — adresses internes `signet://`
+## v11 : adresses internes `signet://`
 
-Un schéma d'adresses interne, comme ceux des autres navigateurs. Tout le code vit dans `app/desktop/src/main/web/internal.ts` (seul fichier, avec la liste des pages techniques du moteur, autorisé à contenir les adresses internes du moteur — exception de nommage, comme les importeurs).
+Un schéma d'adresses interne, comme ceux des autres navigateurs. Tout le code vit dans `app/desktop/src/main/web/internal.ts` (seul fichier, avec la liste des pages techniques du moteur, autorisé à contenir les adresses internes du moteur : exception de nommage, comme les importeurs).
 
 ### Trois familles d'adresses
 
@@ -708,7 +708,7 @@ Un schéma d'adresses interne, comme ceux des autres navigateurs. Tout le code v
 - Les liens `signet://` cliqués dans une page `signet://` fonctionnent (y compris les raccourcis vers les écrans).
 - Sécurité : une page web ordinaire ne peut pas naviguer vers `signet://` ni vers une page technique du moteur (refuser dans `will-navigate` / `setWindowOpenHandler` si l'origine d'où part la navigation n'est pas `signet:` ou une saisie de l'utilisateur).
 
-## v12 — onglets en haut (⌃⇧S)
+## v12 : onglets en haut (⌃⇧S)
 
 Deuxième disposition, au choix : la barre latérale (par défaut) ou une **rangée d'onglets en haut de la fenêtre**, avec la page en dessous. Bascule par ⌃⇧S (menu Affichage « Onglets en haut » / « Onglets sur le côté », action de la barre de commande, Réglages › Apparence). Contrat : `Settings.tabLayout`. Le comportement (espaces, favoris, épinglés, dossiers, vues partagées, glisser-déposer, menus contextuels, renommage, médias, téléchargements) est le même ; seule la présentation change.
 
@@ -739,7 +739,7 @@ Style : mêmes jetons que la v6 ; barre d'onglets sur `--bg` (vibrancy), pastill
 
 Captures (crochet de développement, profil isolé, `SIGNET_SEED=1`) en disposition horizontale, en clair et en sombre : avec favoris, épinglés dont un dossier, 6 onglets du jour dont l'actif et une vue partagée ; puis avec 25 onglets (rétrécissement et défilement) ; puis le menu du sélecteur d'espace ouvert et le menu d'un dossier ouvert. Vérifier aussi l'aller-retour ⌃⇧S sans rechargement de page.
 
-## v13 — mini-lecteur flottant (image dans l'image maison)
+## v13 : mini-lecteur flottant (image dans l'image maison)
 
 La fenêtre d'image dans l'image intégrée au moteur est basique et non personnalisable. On la remplace par notre propre mini-lecteur, sur le modèle de l'image dans l'image moderne des navigateurs : fenêtre flottante aux coins arrondis, contrôles translucides au survol. Contrat : `PipState`, `PipCommand`, `onPipState`, `pipCommand`, `openPip`. Code : app/desktop/src/main/windows/pip.ts, route `#pip` (app/desktop/src/renderer/src/windows/Pip.tsx).
 
@@ -773,7 +773,7 @@ Invisibles au repos ; au survol, un voile `rgb(0 0 0 / .35)` apparaît en 150 ms
 - Si la page navigue ou que l'onglet est fermé : le mini-lecteur se ferme proprement.
 - L'image dans l'image native déclenchée par un site lui-même (bouton du lecteur) n'est pas interceptée.
 
-## v14 — confirmation avant de quitter (⌘Q)
+## v14 : confirmation avant de quitter (⌘Q)
 
 Pour éviter de fermer le navigateur par accident. Contrat : `Settings.confirmQuit?` (absent = activé), `QuitHudState`, `onQuitState`. Code : app/desktop/src/main/app/quit.ts, route `#quit` (app/desktop/src/renderer/src/overlay/QuitHud.tsx).
 
@@ -787,7 +787,7 @@ Pour éviter de fermer le navigateur par accident. Contrat : `Settings.confirmQu
 - **Quitter par d'autres moyens** (menu du Dock, déconnexion, extinction, `app.quit()` interne) : jamais de confirmation.
 - **Réglage** : Réglages › Général, interrupteur « Confirmer avant de quitter (maintenir ⌘Q ou appuyer deux fois) ». Désactivé : ⌘Q quitte immédiatement comme avant.
 
-## v15 — groupes d'onglets
+## v15 : groupes d'onglets
 
 Les onglets ouverts depuis un onglet du jour se rangent avec lui dans un groupe : une carte avec un en-tête, comme un dossier. Contrat : `Item.group?` (onglet seul ou vue partagée), `Space.groups?: Record<id, TabGroup>` (`name`, `hue`, `open`), `DragSource` `{ kind: 'group' }`, `DropTarget.groupId?`, `renameGroup`, `toggleGroup`, `showGroupMenu`. Code : packages/shared/src/tree.ts (utilitaires), `app/desktop/src/main/browser/group-actions.ts` et `model/groups.ts`, app/desktop/src/renderer/src/tabs/groups.ts, `GroupRow` (TabRow.tsx).
 
@@ -802,7 +802,7 @@ Les onglets ouverts depuis un onglet du jour se rangent avec lui dans un groupe 
 - **Onglets en haut** : le groupe est un fond teinté qui réunit une étiquette (titre en couleur ; clic : replier / déplier, glisser : tout le groupe, clic droit : menu du groupe ; renommer passe par le champ sous l'étiquette) et ses pastilles ; replié, seule reste la pastille active.
 - Vérification : `SIGNET_GROUPCHECK=<dossier>` (profil isolé exigé).
 
-## v16 — signets, raccourcis sur tous les systèmes
+## v16 : signets, raccourcis sur tous les systèmes
 
 ### Signets (par espace)
 
@@ -819,7 +819,7 @@ Contrat : `Space.bookmarks?: Bookmark[]` (`{ kind: 'link', id, title, url, favic
 
 ### Raccourcis sur Mac, Windows et Linux
 
-- Menus : `CmdOrCtrl` partout (⌘ sur Mac, Ctrl ailleurs). Quitter : ⌘Q sur Mac, Ctrl+Q ailleurs (confirmation par appui maintenu ou double comprise). Raccourcis qui utilisent Control sur Mac et entreraient en conflit ailleurs : aller à l'espace 1–9 = ⌃1…9 sur Mac, Alt+1…9 ailleurs ; vue partagée = ⌃⇧= sur Mac, Alt+Shift+= ailleurs (Ctrl+Shift+= y est le zoom). L'alias caché ⌘⇧S n'existe que sur Mac.
+- Menus : `CmdOrCtrl` partout (⌘ sur Mac, Ctrl ailleurs). Quitter : ⌘Q sur Mac, Ctrl+Q ailleurs (confirmation par appui maintenu ou double comprise). Raccourcis qui utilisent Control sur Mac et entreraient en conflit ailleurs : aller à l'espace 1-9 = ⌃1…9 sur Mac, Alt+1…9 ailleurs ; vue partagée = ⌃⇧= sur Mac, Alt+Shift+= ailleurs (Ctrl+Shift+= y est le zoom). L'alias caché ⌘⇧S n'existe que sur Mac.
 - Textes : écrits à la façon du Mac dans les catalogues ; un post-traitement i18next (`platformKeys`, packages/shared/src/i18n.ts) les écrit pour Windows et Linux (⇧⌘T → Ctrl+Shift+T, ⌥⌘B → Ctrl+Alt+B, ⇥ → Tab ; deux écritures Mac identiques ailleurs n'en font plus qu'une). Le tableau des raccourcis des Réglages, la barre de commande et les indices (`shortcut()`, app/desktop/src/renderer/src/lib/util.ts) suivent la même règle.
 - ⌘D ajoute un signet ; épingler l'onglet passe à ⌥⌘P.
 
@@ -827,7 +827,7 @@ Contrat : `Space.bookmarks?: Bookmark[]` (`{ kind: 'link', id, title, url, favic
 
 Les bascules du menu Affichage sont des cases cochées (coche à gauche quand l'option est active) : Afficher la barre latérale (désactivée avec les onglets en haut), Mode compact, Onglets en haut, Afficher la barre de signets. Le menu est reconstruit dès que l'un de ces états change, quel que soit le chemin (`Browser.apply`).
 
-## v17 — mots de passe
+## v17 : mots de passe
 
 Chacun choisit son gestionnaire dans Réglages › Mots de passe (`settings.passwordManager`, `signet://settings/passwords`) : **Signet** (défaut), une extension de la boutique (Bitwarden, 1Password, Proton Pass, Dashlane, LastPass ; liste `PASSWORD_EXTENSIONS`) ou **Aucun**. Avec une extension, la ligne indique si elle est installée et propose « Installer » (`Extensions.installPasswordManager`) ; le trousseau de Signet ne remplit plus rien et ne propose plus d'enregistrer. Pas de Trousseau iCloud ni de KeePassXC : leurs extensions passent par la messagerie native, absente d'Electron.
 
@@ -851,7 +851,7 @@ Chacun choisit son gestionnaire dans Réglages › Mots de passe (`settings.pass
 - Clic sur la clé (`passwords:key`) : en attente, la proposition rouvre sous le bouton (carte avec flèche) ; sinon, carte « Mots de passe enregistrés » (overlay en mode `passwords`) avec les identifiants du site (jamais les mots de passe), « Copier » pour chacun et « Gérer les mots de passe… » (Réglages › Mots de passe).
 - Le bouton suit la navigation de l'onglet, l'ajout ou le retrait de comptes (Réglages, import, enregistrement) et le changement de gestionnaire.
 
-## v18 — outils de la page : imprimer, enregistrer, code source, orthographe, lecture, traduction
+## v18 : outils de la page (imprimer, enregistrer, code source, orthographe, lecture, traduction)
 
 ### Imprimer, enregistrer, code source (`pagetools.ts`)
 
@@ -879,7 +879,7 @@ Chacun choisit son gestionnaire dans Réglages › Mots de passe (`settings.pass
 - Paragraphes visibles d'abord (`IntersectionObserver`, une hauteur d'écran de marge), puis au fil du défilement et des ajouts de la page (`MutationObserver`). Bouton qui respire pendant la première traduction, accent ensuite ; un second clic rend la page d'origine. Échec réseau : page d'origine et message.
 - Le texte de la page part chez Google seulement à la demande (jamais automatiquement).
 
-## v19 — raccourcis modifiables
+## v19 : raccourcis modifiables
 
 ### Liste des commandes (`app/desktop/src/shared/shortcuts.ts`)
 
@@ -893,7 +893,7 @@ Chacun choisit son gestionnaire dans Réglages › Mots de passe (`settings.pass
 - Section Raccourcis : clic sur la puce d'une commande → « Tapez le raccourci… » ; la touche suivante devient le raccourci (lettre lue dans la disposition du clavier, AZERTY compris, via `navigator.keyboard.getLayoutMap`). Échap annule, retour arrière retire le raccourci (« Aucun »). Raccourci déjà pris par une commande : « Déjà utilisé par … » avec Annuler / Remplacer (l'autre commande n'a plus de raccourci) ; réservé : « Réservé à … ». Une flèche circulaire rétablit le raccourci d'origine d'une ligne modifiée ; « Tout rétablir » efface tous les écarts.
 - Pendant la saisie (`shortcuts:recording`), le menu est reconstruit sans enregistrer aucun raccourci auprès du système et ⌘Q n'est plus intercepté (`pauseQuitShortcut`) : ⌘W ou ⌘Q arrivent à la saisie au lieu de fermer ou quitter. La saisie s'arrête (et tout revient) sur Échap, un clic ailleurs, la perte du focus ou la fermeture de la fenêtre.
 
-## v20 — capture d'écran, espaces en dégradé
+## v20 : capture d'écran, espaces en dégradé
 
 ### Capture d'écran (`capture.ts`, overlay `capture`, `Capture.tsx`)
 
@@ -910,7 +910,7 @@ Chacun choisit son gestionnaire dans Réglages › Mots de passe (`settings.pass
 - Fenêtre principale : fond `linear-gradient(155deg, …)` des trois teintes mêlées au fond de base, dose multipliée par `--gk` (2,6 pour un dégradé, 1 pour une couleur unie) et par le réglage de teinte d'Apparence. Grain : texture de bruit (SVG `feTurbulence`) sous le contenu, en `overlay`. `--h2`, `--h3`, `--gk`, `--grain` sont des propriétés enregistrées et animées comme `--h` : un espace uni pose les trois teintes égales, si bien que le passage d'un espace uni à un dégradé glisse en douceur (`useSpaceTheme`).
 - Bibliothèque : la pastille de l'espace montre son dégradé.
 
-## v21 — dossiers dynamiques
+## v21 : dossiers dynamiques
 
 Un dossier des épinglés qui se remplit seul depuis une source et se met à jour tout seul (`livefolders.ts`, lecture des flux dans `feeds.ts`).
 
@@ -922,7 +922,7 @@ Un dossier des épinglés qui se remplit seul depuis une source et se met à jou
 - Un dossier dynamique est géré : pas de dépôt d'onglet dedans, pas de sous-dossier, absent de « Ranger dans un dossier ». Icône de sa source (`Rss`, `GitPullRequest`) sauf emoji choisi.
 - Jeton GitHub : Réglages › Général › Dossiers dynamiques. Vérifié auprès de GitHub (`/user`), puis enregistré chiffré par `safeStorage` dans `github-token.bin` (userData, 0600) ; jamais dans state.json ni envoyé à une vue (l'interface ne sait que s'il existe). Lien vers la page de création d'un jeton avec l'accès `repo`.
 
-## v22 — notes et Easels
+## v22 : notes et Easels
 
 Des documents qui vivent dans la barre latérale comme des onglets (épinglés, du jour, glissés, archivés, en vue partagée) : `signet://note/<id>` et `signet://easel/<id>` (UUID).
 
@@ -953,7 +953,7 @@ Des documents qui vivent dans la barre latérale comme des onglets (épinglés, 
 - Outil de capture : bouton « Easel » à côté de Copier et Enregistrer : la capture ouvre un nouvel Easel (image réduite à 1600 px de côté).
 - Titre modifiable en haut à gauche ; enregistrement 600 ms après chaque changement (vue comprise).
 
-## v23 — aperçu des onglets, mods
+## v23 : aperçu des onglets, mods
 
 ### Aperçu d'un onglet au survol (`preview.ts`, vue `#preview`, `previewHover.ts`)
 
@@ -969,7 +969,7 @@ Des documents qui vivent dans la barre latérale comme des onglets (épinglés, 
 - Section des Réglages : « Désactiver tous les mods », liste (monter, descendre, exporter en `.css`, modifier, supprimer avec confirmation en place, interrupteur), « Importer… » (nom tiré d'un en-tête `/* name: … */` ou du nom du fichier), « Nouveau mod » ; éditeur à chasse fixe (⌘S enregistre, Tab insère deux espaces, Échap annule) ; aide qui cite les points d'accroche (`--h`, `--accent`, `--bg`, `--surface`, `html.route-main`, `.sidebar`, `.toolbar`, `.tabstrip`, `.bm-bar`, `.palette`).
 - Recours si un mod rend l'interface inutilisable : menu Affichage › « Mods de l'interface » (case cochée, natif : aucun CSS ne peut le masquer), et lancement avec `--safe-mode` (ou `SIGNET_SAFE_MODE=1`) qui n'applique aucun mod pendant la session (la section le signale).
 
-## v24 — sauvegarde et restauration
+## v24 : sauvegarde et restauration
 
 Réglages › Sauvegarde (`signet://settings/backup`, backup.ts, BackupSettings.tsx). Un fichier `.signetbackup` : JSON compressé (gzip) `{ format: 'signetbackup', version: 1, createdAt, appVersion, sections }`, écrit en 0600.
 
@@ -982,7 +982,7 @@ Réglages › Sauvegarde (`signet://settings/backup`, backup.ts, BackupSettings.
 - Application : l'app écrit tout ce qui attend en mémoire, fait une copie de sécurité complète sans les mots de passe (`userData/backups/safety-<date>.signetbackup`, les 3 dernières gardées), modifie les fichiers du profil, puis `app.relaunch()` et `app.exit(0)` (sans les sauvegardes de fermeture, qui réécriraient l'ancien état). Le chargement suivant revalide tout (état, signets, trousseau, notes).
 - Copies de sécurité listées dans la section : « Restaurer… » les ouvre comme un fichier choisi (mode Remplacer présélectionné) ; « Afficher le dossier ».
 
-## v25 — sites installés comme apps
+## v25 : sites installés comme apps
 
 À la façon de Chrome (« Installer la page en tant qu'application ») : `webapps.ts`, route `#webapp` (`WebApp.tsx`), overlay `webapp` (`WebAppInstall.tsx`), Réglages › Apps (`WebAppSettings.tsx`).
 
@@ -1014,12 +1014,12 @@ Réglages › Sauvegarde (`signet://settings/backup`, backup.ts, BackupSettings.
 
 Liste (icône, nom, domaine, espace du profil, « lanceur supprimé ») : Ouvrir, Renommer (sur place ; le lanceur est recréé sous le nouveau nom), Afficher dans le Finder (recrée le lanceur s'il a disparu), Désinstaller (confirmation en place ; ferme ses fenêtres, supprime le lanceur et l'icône). La barre de commande propose « Ouvrir l'app « nom » » pour chaque app. Canaux : `webapp:install`, `webapps:list|open|rename|reveal|remove`, `webapp:ready|home|open-in-main|copy-url` ; événements `webapp:state`, `webapps:changed`.
 
-## v26 — outils de développement intégrés
+## v26 : outils de développement intégrés
 
 Contrat : `TabInfo.devtools`, `DevToolsDock`, `DevToolsPrefs` (`Settings.devtools`), `Pane.devtools` ; canaux `devtools:dock`, `devtools:close`, `devtools:size`, `devtools:menu`. Module devtools.ts, carte DevToolsCard.tsx.
 
 - Chaque onglet a ses propres outils, dans une `WebContentsView` créée par Signet : `setDevToolsWebContents` puis `openDevTools({ mode: 'detach' })`. Une vue neuve à chaque ouverture (une vue d'outils déjà utilisée ne peut pas resservir) ; fermer les outils ferme sa `webContents`.
-- Trois emplacements : **à droite** ou **en bas** de la page (carte à part dans la carte du panneau, séparée de la page par l'écart de 8 px de la vue partagée), ou **dans une fenêtre** (titre « Outils de développement — hôte », position retenue ; barre de titre masquée : la fenêtre charge la route `#devtools`, un en-tête de 36 px avec les feux tricolores, le même titre et les mêmes boutons que la carte intégrée — À droite et En bas rattachent les outils à la page, grisés si l'onglet n'est pas dans la fenêtre principale —, et la vue des outils en dessous). La même vue passe d'un emplacement à l'autre sans rouvrir les outils.
+- Trois emplacements : **à droite** ou **en bas** de la page (carte à part dans la carte du panneau, séparée de la page par l'écart de 8 px de la vue partagée), ou **dans une fenêtre** (titre « Outils de développement - hôte », position retenue ; barre de titre masquée : la fenêtre charge la route `#devtools`, un en-tête de 36 px avec les feux tricolores, le même titre et les mêmes boutons que la carte intégrée (À droite et En bas rattachent les outils à la page, grisés si l'onglet n'est pas dans la fenêtre principale), et la vue des outils en dessous). La même vue passe d'un emplacement à l'autre sans rouvrir les outils.
 - Disposition : la carte du panneau est découpée avant le calcul de la barre de panneau ; la page garde 320 px de large ou 200 px de haut, les outils 320 px ou 160 px (moitié-moitié si la place manque). Les outils intégrés ont un en-tête de 36 px (icône, « Outils de développement », À droite / En bas / Fenêtre, fermer ; à droite l'en-tête est une zone `drag`), vue à rayon 12 dessous. Vue partagée : chaque panneau peut avoir ses outils. Mode image dans l'image : rien pour la page qui y est.
 - Séparateur entre la page et les outils : glisser pour redimensionner (taille en px, appliquée en direct, retenue à la fin du glisser), double-clic pour la taille d'origine (480 px à droite, 320 px en bas).
 - Emplacement et tailles : ceux du dernier choix (`Settings.devtools`, à droite par défaut), pour chaque nouvelle ouverture ; l'état ouvert/fermé et l'emplacement restent propres à chaque onglet, en mémoire seulement (rien n'est rouvert au redémarrage).
@@ -1030,7 +1030,7 @@ Contrat : `TabInfo.devtools`, `DevToolsDock`, `DevToolsPrefs` (`Settings.devtool
 - Un lien ouvert depuis les outils (`devtools-open-url`) ouvre un onglet. Un onglet dont les outils sont ouverts n'est jamais déchargé automatiquement.
 - Captures de développement : `SIGNET_DEVTOOLS=right|bottom|window` ouvre les outils de l'onglet actif ; leur vue est composée dans la capture.
 
-## v27 — mode développeur
+## v27 : mode développeur
 
 Contrat : `Settings.devMode`, `Settings.devKeepOutOfHistory`, `TabInfo.consoleErrors`, `TabInfo.consoleWarnings` ; canal `devtools:console` ; raccourci `jsConsole` (⌥⌘J). Modules devmode.ts et app/desktop/src/shared/devhosts.ts ; section Réglages › Développement (`signet://settings/developer`).
 
@@ -1041,18 +1041,18 @@ Contrat : `Settings.devMode`, `Settings.devKeepOutOfHistory`, `TabInfo.consoleEr
 - Historique : avec l'option, une page locale n'est pas enregistrée (ni donc proposée par la barre de commande) ; les onglets ouverts restent cherchables.
 - Console JavaScript (⌥⌘J, menu Affichage, palette, compteur) : ouvre les outils de l'onglet à leur emplacement habituel (ou les montre s'ils sont ouverts) et affiche le panneau Console. Les outils rétablissent leur dernier panneau en se chargeant : le panneau demandé est affiché après `devtools-opened`.
 
-## v28 — menu Développement
+## v28 : menu Développement
 
 Contrat : `DevOverrides`, `DevNetwork`, `DevUserAgent`, `TabInfo.devOverrides` ; canal `develop:menu`. Module develop.ts.
 
 - Menu **Développement** de l'app (entre Navigation et Fenêtre, comme dans Safari), seulement avec le mode développeur : Outils de développement, Console JavaScript ; Vider le cache et recharger (cache de toute la session de l'onglet, puis rechargement sans cache) ; Effacer les données du site et recharger (cookies et stockage de l'origine de la page) ; puis les réglages de l'onglet : Désactiver le cache, Désactiver JavaScript, Thème de la page (Suivre le système / Forcer le clair / Forcer le sombre), Réduire les animations, Connexion (Sans limitation / 4G rapide / 4G lente / 3G / Hors ligne), Agent utilisateur (Par défaut / Safari Mac, iPhone, iPad / Chrome Android / Firefox Mac) ; Réinitialiser les réglages de l'onglet. Les commandes visent l'onglet de la fenêtre au premier plan ; les coches suivent l'onglet actif de la fenêtre principale (le menu est reconstruit quand il change ou que ses réglages changent).
 - Réglages de l'onglet : propres à l'onglet, tant que sa vue existe (fermer ou décharger l'onglet les efface), jamais enregistrés. Appliqués par le protocole de débogage déjà attaché pour les langues (languages.ts) : `Network.setCacheDisabled`, `Emulation.setScriptExecutionDisabled`, `Emulation.setEmulatedMedia` (`prefers-color-scheme`, `prefers-reduced-motion`), `Network.emulateNetworkConditionsByRule` (motif vide = toutes les requêtes ; `Network.emulateNetworkConditions` en secours), `Emulation.setUserAgentOverride` (toujours avec les langues, réappliqué après un changement des langues ; `navigator.platform` assorti). Le domaine Network n'est activé que pendant qu'un réglage de cache ou de connexion est actif. Désactiver JavaScript ou changer d'agent utilisateur recharge la page.
-- Connexions : valeurs des préréglages de Chromium — 4G rapide 165 ms, 9 Mb/s ↓, 1,5 Mb/s ↑ ; 4G lente 562,5 ms, 1,6 Mb/s ↓, 750 kb/s ↑ (débits × 0,9) ; 3G 2 s, 500 kb/s (× 0,8) ; hors ligne. Agents utilisateurs : Safari 26 (Mac, iPhone, iPad en version mobile), Chrome Android et Firefox Mac à la version de Chromium du moment (+ 3 pour Firefox).
+- Connexions : valeurs des préréglages de Chromium, soit 4G rapide 165 ms, 9 Mb/s ↓, 1,5 Mb/s ↑ ; 4G lente 562,5 ms, 1,6 Mb/s ↓, 750 kb/s ↑ (débits × 0,9) ; 3G 2 s, 500 kb/s (× 0,8) ; hors ligne. Agents utilisateurs : Safari 26 (Mac, iPhone, iPad en version mobile), Chrome Android et Firefox Mac à la version de Chromium du moment (+ 3 pour Firefox).
 - Barre du panneau : bouton fiole (accent) tant qu'au moins un réglage est actif sur l'onglet ; bulle « Réglages de développement actifs : JavaScript désactivé, 3G » ; clic → menu natif des réglages de l'onglet (sans Vider le cache ni Effacer les données).
-- Barre de commande, mode développeur : les mêmes commandes pour l'onglet actif, formulées selon l'état (« Désactiver JavaScript dans l'onglet » / « Réactiver… », « Simuler une connexion : 3G », « Agent utilisateur : Safari — iPhone »…), icône fiole.
+- Barre de commande, mode développeur : les mêmes commandes pour l'onglet actif, formulées selon l'état (« Désactiver JavaScript dans l'onglet » / « Réactiver… », « Simuler une connexion : 3G », « Agent utilisateur : Safari (iPhone) »…), icône fiole.
 - Captures de développement : `SIGNET_DEVELOP=<JSON DevOverrides>` applique des réglages à l'onglet actif et affiche ce que la page en voit (`window.__o`) ; `SIGNET_NETTIME=1` chronomètre le chargement d'une adresse neuve.
 
-## v29 — mode responsive
+## v29 : mode responsive
 
 Contrat : `DevDevice`, `DevResponsive`, `DevOverrides.responsive`, `Pane.responsive`, `Settings.responsive` ; canal `develop:responsive` ; raccourci `responsive` (⇧⌘M, menu Développement). Liste des appareils : app/desktop/src/shared/devices.ts ; interface : Responsive.tsx.
 
@@ -1064,7 +1064,7 @@ Contrat : `DevDevice`, `DevResponsive`, `DevOverrides.responsive`, `Pane.respons
 - Poignées dans la marge : à droite (largeur, des deux côtés puisque la page est centrée), en bas (hauteur), dans le coin (les deux) ; le glisser passe en Taille libre, envoyé à chaque image.
 - Captures de développement : la capture d'une vue en mode responsive couvre la taille émulée, la page réduite en haut à gauche ; la composition la recadre à la taille de la vue.
 
-## v30 — visionneuse JSON
+## v30 : visionneuse JSON
 
 Contrat : `Settings.jsonViewer` (absent = activée). Modules jsonview.ts (main) et app/desktop/src/main/devtools/pages/jsonview.js (script de page embarqué comme texte, `?raw`, lint avec les globales du navigateur).
 
@@ -1078,7 +1078,7 @@ Contrat : `Settings.jsonViewer` (absent = activée). Modules jsonview.ts (main) 
 - Réglages › Développement : interrupteur « Visionneuse JSON » (indépendant du mode développeur).
 - Captures de développement : `SIGNET_JSONTEST=<script>` s'exécute dans le monde de la visionneuse (`window.__signetJson` : sa racine fantôme) et affiche le résultat.
 
-## v31 — extensions non empaquetées
+## v31 : extensions non empaquetées
 
 Contrat : `Settings.unpackedExtensions` (dossiers), `ExtensionInfo.unpacked` ; canaux `extensions:load-unpacked`, `extensions:reload-unpacked`, `extensions:remove-unpacked`. Module unpacked.ts.
 
@@ -1089,7 +1089,7 @@ Contrat : `Settings.unpackedExtensions` (dossiers), `ExtensionInfo.unpacked` ; c
 - Retrait : l'extension est déchargée de toutes les sessions et oubliée ; son dossier n'est jamais effacé (le retrait de la boutique, qui efface le dossier installé, n'est pas utilisé). Même chose depuis « Retirer » du menu d'un bouton d'extension.
 - Captures de développement : `SIGNET_UNPACKED=<dossier>` charge l'extension, modifie `content.js` (v1 → v2), vérifie le rechargement sur la page active, puis la retire (`SIGNET_UNPACKED_KEEP=1` : la garde).
 
-## v32 — noms locaux
+## v32 : noms locaux
 
 Contrat : `DevAlias`, `Settings.devAliases`. Fonctions partagées dans app/desktop/src/shared/devhosts.ts : `isAliasName`, `aliasTarget`, `resolveAlias`, `aliasFor`.
 
@@ -1103,13 +1103,13 @@ Contrat : `DevAlias`, `Settings.devAliases`. Fonctions partagées dans app/deskt
 
 Signet est pensé pour macOS mais doit fonctionner sous Linux et Windows (app/desktop/src/main/app/platform.ts).
 
-- Fenêtres : `windowChrome()` — sur Mac, barre de titre masquée, feux tricolores placés, fond translucide (`vibrancy`) ; ailleurs, le cadre et les boutons du système, barre de menus cachée (Alt l'affiche), fond opaque dans le thème. Les API réservées au Mac (`setWindowButtonVisibility`, `setWindowButtonPosition`, `app.dock`, Touch ID, `defaults`) sont protégées par `IS_MAC`.
+- Fenêtres : `windowChrome()` : sur Mac, barre de titre masquée, feux tricolores placés, fond translucide (`vibrancy`) ; ailleurs, le cadre et les boutons du système, barre de menus cachée (Alt l'affiche), fond opaque dans le thème. Les API réservées au Mac (`setWindowButtonVisibility`, `setWindowButtonPosition`, `app.dock`, Touch ID, `defaults`) sont protégées par `IS_MAC`.
 - Translucidité (Réglages › Apparence) : sans effet hors Mac, les fonds restent opaques (`appearance.ts`).
 - Sites installés comme apps : seulement sur Mac (le lanceur est une app macOS) ; les entrées « Installer comme app » sont masquées ailleurs.
 - Fermeture : hors Mac (pas de Dock pour rouvrir l'app), fermer la dernière fenêtre visible ou réduite quitte l'app (index.ts) ; sur Mac, l'app reste ouverte comme d'habitude. Sans cela, l'app tournait sans fenêtre et la relancer, même dans une version plus récente, ne faisait que réveiller l'ancienne.
 - Wayland (Linux) : l'app tourne sous XWayland (`--ozone-platform=x11`), car Wayland interdit de placer une fenêtre et de la garder au premier plan : le mini-lecteur (position, glisser, redimensionnement, toujours devant) ne marcherait pas. L'option doit être là au démarrage du processus (Electron choisit la plateforme avant notre code) : à l'empaquetage Linux, `scripts/after-pack.mjs` renomme l'exécutable en `signet-bin` et met à sa place un script qui l'ajoute quand `DISPLAY` existe sous une session Wayland. `--ozone-platform=…` passé à la main garde la main. Pas de relance depuis l'app : Chromium lance le nouveau processus sans droit d'élévation (`no_new_privs`) et le montage FUSE de l'AppImage échoue (« Cannot mount AppImage »).
 - AppImage (app/desktop/src/main/app/linux.ts) : à chaque lancement, raccourci `~/.local/share/applications/signet.desktop` (chemin de l'AppImage à jour, types web pour le navigateur par défaut, ligne `X-Signet-AppImage=true` ; un raccourci sans elle n'est jamais remplacé) et icône `~/.local/share/icons/hicolor/512x512/apps/signet.png` (variante choisie), désignée par son chemin complet dans `Icon=` (certains docks ne relisent pas le thème d'icônes après leur démarrage). Les fenêtres reçoivent aussi l'icône choisie.
-- Import (Réglages › Import, barre de commande) : seulement les navigateurs du système — Arc sur Mac et Windows, Safari sur Mac, Chrome, Chromium, Brave et Edge partout (paquet du système, Flatpak ou Snap sous Linux). Fenêtre de choix des données (espaces, favoris, mots de passe, extensions, historique ; tout coché), déchiffrement des mots de passe propre à chaque système (Trousseau, trousseau GNOME, DPAPI) : voir app/desktop/src/main/features/importers/FORMATS.md. La note sur l'accès complet au disque n'apparaît que sur Mac.
+- Import (Réglages › Import, barre de commande) : seulement les navigateurs du système : Arc sur Mac et Windows, Safari sur Mac, Chrome, Chromium, Brave et Edge partout (paquet du système, Flatpak ou Snap sous Linux). Fenêtre de choix des données (espaces, favoris, mots de passe, extensions, historique ; tout coché), déchiffrement des mots de passe propre à chaque système (Trousseau, trousseau GNOME, DPAPI) : voir app/desktop/src/main/features/importers/FORMATS.md. La note sur l'accès complet au disque n'apparaît que sur Mac.
 - Menu de l'app : hors Mac, la barre de menus est cachée (Alt l'affiche) ; un bouton ⋮ au bout de la barre d'outils ouvre tout le menu de l'app sous le pointeur (`showAppMenu`).
 - Vues d'interface vides (guard.ts `healUiView`) : une vue d'interface dont le preload échoue (`preload-error`) ou dont la page ne charge pas (`did-fail-load`) est rechargée, 1 s, 2 s, 4 s… 30 s au plus ; la page elle-même se recharge si `window.signet` manque (main.tsx). Cas typique : `out/` réécrit par une compilation pendant le lancement. Une ligne de journal par panne (pas par essai). En développement, un refus de connexion du serveur de l'interface (`ERR_CONNECTION_REFUSED` sur `ELECTRON_RENDERER_URL`) veut dire que la session de dev est finie (Ctrl+C) : l'app quitte au lieu de réessayer.
 - Menus déroulants (`<select>`) : hors Mac, la liste prend le fond de l'élément, translucide chez nous ; les `option` ont un fond opaque (`--win-bg`).
