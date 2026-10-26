@@ -46,10 +46,7 @@
   background: var(--accent);
   transform: scaleX(0);
   transform-origin: left center;
-  /* On release, back to zero from the current value; during the press, QuitHud.tsx drives it frame by frame. */
-  transition: transform var(--t) var(--ease-out);
-}
-.quit-gauge.holding {
+  /* QuitHud.tsx drives it frame by frame and freezes it on release: no transition. */
   transition: none;
 }
 @keyframes quit-in {
@@ -61,8 +58,5 @@
 @media (prefers-reduced-motion: reduce) {
   .quit-pill {
     animation: fade-in var(--t-hud) var(--ease-out);
-  }
-  .quit-gauge {
-    transition: none;
   }
 }

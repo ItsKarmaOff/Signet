@@ -6,6 +6,12 @@ import { denyWindowOpen } from '../web/guard'
 import { loadRoute, preloadPath } from '../core/urls'
 import { pushUi } from '../ipc/push'
 
+/** Development diagnostics (`SIGNET_QUITDIAG=1 npm run dev`): one line per key event and per inferred release. */
+const DIAG = !app.isPackaged && process.env.SIGNET_QUITDIAG === '1'
+const diag = (msg: string): void => {
+  if (DIAG) console.log(`[quitdiag] +${pressStart ? Date.now() - pressStart : '-'}ms ${msg}`)
+}
+
 const IS_MAC = process.platform === 'darwin'
 /** Quit: ⌘Q on Mac, Ctrl+Q on Windows and Linux (the same for the menu and the fallback shortcut). */
 export const QUIT_ACCELERATOR = IS_MAC ? 'Command+Q' : 'Ctrl+Q'
@@ -16,11 +22,19 @@ const QUIT_MODIFIER_KEY = IS_MAC ? 'meta' : 'control'
 const HOLD_MS = 900
 const AGAIN_MS = 2000
 const FADE_MS = 150
-const TICK_MS = 30 // check of the threshold and of the release (no more progress sending)
-/** Highest gauge share reached by the expected first repeat: the hold lasts longer when the repeat delay is long. */
-const WAIT_SHARE = 0.75
+const TICK_MS = 20 // check of the threshold and of the release (no more progress sending)
+/** Minimum fill time after the expected first repeat: the gauge barely moves before it, then fills over this at least. */
+const POST_REPEAT_MS = 600
 /** Repeat delay taken into account at most (key repeat turned off sets a huge value). */
 const MAX_WAIT_MS = 1500
+
+/** Silence tolerated beyond the expected first repeat before the key counts as released (timer jitter). */
+const FIRST_MARGIN_MS = 80
+/** Bounds of the repeat delay (fallback, `defaults` value or measured one). */
+const MIN_INITIAL_MS = 150
+const MAX_INITIAL_MS = 1500
+/** Typical macOS "delay until repeat", used until `defaults` or a measured first repeat gives the real one. */
+const FALLBACK_INITIAL_MS = 400
 
 /** Delay before warming up the bubble (its page loads the whole UI bundle). */
 const HUD_WARM_MS = 5000
@@ -49,8 +63,12 @@ let hideTimer: NodeJS.Timeout | null = null
  */
 let gotRepeat = false
 let lastEvent = 0
-let initialMs = 700
+let initialMs = FALLBACK_INITIAL_MS
 let repeatMs = 90
+/** The delay comes from the system settings: no need to measure it. */
+let initialKnown = false
+/** Release inferred from silence (not a real keyUp): a late first repeat can still resume the press. */
+let resumable = false
 let fallbackOn = false
 let appActive = false
 
@@ -107,13 +125,25 @@ function readKeyboardTimings(): void {
       const n = Number(String(out).trim())
       if (!err && Number.isFinite(n) && n > 0) set(n * 15)
     })
-  read('InitialKeyRepeat', (ms) => (initialMs = ms))
+  read('InitialKeyRepeat', (ms) => {
+    initialMs = clampInitial(ms)
+    initialKnown = true
+  })
   read('KeyRepeat', (ms) => (repeatMs = ms))
+}
+
+function clampInitial(ms: number): number {
+  return Math.min(MAX_INITIAL_MS, Math.max(MIN_INITIAL_MS, ms))
+}
+
+/** First repeat seen: its delay since the press is the real "delay until repeat" (used for the next presses). */
+function learnInitial(): void {
+  if (!initialKnown) initialMs = clampInitial(Date.now() - pressStart)
 }
 
 /** Hold duration: never shorter than HOLD_MS, longer if the first repeat comes late (the gauge must not be nearly full before it). */
 function holdDuration(): number {
-  return Math.max(HOLD_MS, Math.min(initialMs, MAX_WAIT_MS) / WAIT_SHARE)
+  return Math.max(HOLD_MS, Math.min(initialMs, MAX_WAIT_MS) + POST_REPEAT_MS)
 }
 
 /** True while a shortcut is being typed in Settings: ⌘Q is a key like any other there. */
@@ -133,8 +163,14 @@ export function quitNow(): void {
 /** Handles a key; returns true if it is exactly ⌘Q (or its release) and it must be intercepted. */
 function handleInput(input: Input): boolean {
   const key = input.key.toLowerCase()
+  if (DIAG && (key === 'q' || key === 'meta' || key === 'control')) {
+    diag(`${input.type} key=${key} repeat=${input.isAutoRepeat} meta=${input.meta} ctrl=${input.control} pressing=${pressing}`)
+  }
   if (input.type === 'keyUp') {
-    if (key === 'q' || key === QUIT_MODIFIER_KEY) release()
+    if (key === 'q' || key === QUIT_MODIFIER_KEY) {
+      diag(`release from keyUp ${key}`)
+      release()
+    }
     return false
   }
   if (input.type !== 'keyDown' || key !== 'q' || paused) return false
@@ -155,9 +191,25 @@ function press(repeat: boolean): void {
     // Repeat of the press in progress: the gauge continues; otherwise (a press whose start we missed) ignored.
     if (pressing) {
       // First repeat: the view lifts the gauge's wait ceiling (sent only once).
-      if (!gotRepeat) sendHud({ ...holdState(), repeating: true })
+      if (!gotRepeat) {
+        learnInitial()
+        holdFor = holdDuration()
+        sendHud({ ...holdState(), repeating: true })
+      }
       gotRepeat = true
       lastEvent = Date.now()
+    } else if (resumable && armed && Date.now() - pressStart <= MAX_INITIAL_MS + 300) {
+      // Release was guessed too early (repeat delay longer than expected): the key is still held, resume.
+      resumable = false
+      pressing = true
+      gotRepeat = true
+      lastEvent = Date.now()
+      learnInitial()
+      // The hold was sized for the guessed delay: with the real one, the threshold must not be already reached.
+      holdFor = holdDuration()
+      clearHide()
+      sendHud({ ...holdState(), repeating: true })
+      startTick()
     }
     return
   }
@@ -172,12 +224,25 @@ function press(repeat: boolean): void {
   holdFor = holdDuration()
   lastEvent = pressStart
   gotRepeat = false
+  resumable = false
   clearHide()
   showHud(holdState())
+  startTick()
+}
+
+/** Watches the release (silence of the repeats) and the hold threshold. */
+function startTick(): void {
+  stopTick()
   tick = setInterval(() => {
     const now = Date.now()
     // No repeat at the expected time: the key was released.
-    if (now - lastEvent > (gotRepeat ? Math.max(150, repeatMs * 2) : initialMs + 150)) return release()
+    if (now - lastEvent > (gotRepeat ? Math.max(150, repeatMs * 2) : initialMs + FIRST_MARGIN_MS)) {
+      const early = !gotRepeat
+      diag(`release from silence (repeat=${gotRepeat}, ${now - lastEvent}ms)`)
+      release()
+      resumable = early
+      return
+    }
     // The gauge animates in the view from `pressStart`; main alone keeps the threshold. Without repeats, we cannot tell whether the press is brief: no quit.
     if (gotRepeat && now - pressStart >= holdFor) {
       stopTick()
@@ -212,6 +277,7 @@ function confirmQuit(): void {
 }
 
 function release(): void {
+  resumable = false
   if (!pressing) return
   pressing = false
   stopTick()
