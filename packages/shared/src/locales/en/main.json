@@ -479,7 +479,12 @@
     "passwordsFailed_other": "{{count}} passwords could not be decrypted.",
     "passwordsFailedMac": "macOS must allow Signet to read the browser’s key in the Keychain: run the import again and click “Allow”.",
     "passwordsFailedLinux": "The browser’s key is kept in the system keyring: unlock it and check that the “secret-tool” command (libsecret package) is installed, then run the import again.",
-    "passwordsFailedWindows": "Recent versions of the browser lock some passwords to it: export them as a CSV file from the browser, then import that file in Settings › Passwords."
+    "passwordsFailedWindows": "Recent versions of the browser lock some passwords to it: export them as a CSV file from the browser, then import that file in Settings › Passwords.",
+    "appDataDenied": {
+      "message": "macOS blocked access to {{name}} data",
+      "detailPackaged": "To import from {{name}}, allow it in System Settings › Privacy & Security › Files & Folders › Signet › {{name}}, then import again.",
+      "detailDev": "To import from {{name}}, allow it in System Settings › Privacy & Security › Files & Folders › Signet › {{name}} (in development, it is the “Electron” app), then import again."
+    }
   },
   "internal": {
     "desc": {

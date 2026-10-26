@@ -134,7 +134,11 @@ export class Updates {
   /** electron-updater, loaded on the first check (it reads app-update.yml, written by electron-builder). */
   private async load(): Promise<AppUpdater> {
     if (this.updater) return this.updater
-    const { autoUpdater } = await import('electron-updater')
+    // electron-updater is a CommonJS module whose `autoUpdater` is a getter: loaded with import() in the built app,
+    // it is only reachable through `default` (the named export is undefined there).
+    const mod: { autoUpdater?: AppUpdater; default?: { autoUpdater?: AppUpdater } } = await import('electron-updater')
+    const autoUpdater = mod.default?.autoUpdater ?? mod.autoUpdater
+    if (!autoUpdater) throw new Error('electron-updater: autoUpdater not found')
     autoUpdater.autoDownload = false
     autoUpdater.autoInstallOnAppQuit = true
     // Errors are handled where `checkForUpdates` and `downloadUpdate` are awaited.
