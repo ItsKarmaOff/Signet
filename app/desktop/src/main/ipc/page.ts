@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import type { Browser } from '../browser/browser'
 import { noteFormSubmit } from '../browser/tabs'
+import { registerWebAuthnIpc } from '../web/webauthn'
 
 /**
  * Web page channels (UNTRUSTED: they come from tabs, not the interface). They use neither the "interface only"
@@ -20,4 +21,6 @@ export function registerPageIpc(b: Browser): void {
   b.notes.registerIpc()
   // Passwords page script: main checks the tab and the frame's origin.
   b.passwords.registerPageIpc()
+  // Passkey requests (WebAuthn page script): validated and answered in main.
+  registerWebAuthnIpc(b)
 }

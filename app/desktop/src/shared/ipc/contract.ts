@@ -372,7 +372,7 @@ export const PIP_IPC = {
 // ───────────────────────── Web page channels (UNTRUSTED) ─────────────────────────
 
 /**
- * Channels called by page scripts (src/preload/swipe.ts, passwords.ts, notes.ts), hence from tabs:
+ * Channels called by page scripts (src/preload/swipe.ts, passwords.ts, webauthn.ts, notes.ts), hence from tabs:
  * never by the UI. Each has its own sender check in main (see ipc/page.ts, passwords.ts,
  * notes.ts); they do not go through the "UI only" guard nor the schemas above.
  */
@@ -383,6 +383,7 @@ export const PAGE_IPC = {
   'pw:accounts': 'invoke',
   'pw:fill': 'invoke',
   'pw:submit': 'send',
+  'webauthn:request': 'invoke',
   'notes:locale': 'invoke',
   'notes:appearance': 'invoke',
   'notes:load': 'invoke',

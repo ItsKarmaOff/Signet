@@ -12,13 +12,14 @@ export default defineConfig({
     resolve: shared,
     build: {
       externalizeDeps: { exclude: ['electron-chrome-extensions'] },
-      // Standalone page scripts: identity, drag to navigate, passwords, notes.
+      // Standalone page scripts: identity, drag to navigate, passwords, webauthn, notes.
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/preload/index.ts'),
           identity: resolve(__dirname, 'src/preload/identity.ts'),
           swipe: resolve(__dirname, 'src/preload/swipe.ts'),
           passwords: resolve(__dirname, 'src/preload/passwords.ts'),
+          webauthn: resolve(__dirname, 'src/preload/webauthn.ts'),
           notes: resolve(__dirname, 'src/preload/notes.ts')
         }
       }
