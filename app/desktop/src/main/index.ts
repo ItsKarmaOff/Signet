@@ -36,7 +36,7 @@ if (!app.isPackaged) {
   process.on('warning', (w) => {
     if (w.name !== 'MaxListenersExceededWarning') return
     const emitter = (w as Error & { emitter?: { getType?: () => string; getURL?: () => string; isDestroyed?: () => boolean } }).emitter
-    const where = emitter?.getType && !emitter.isDestroyed?.() ? ` — ${emitter.getType()} ${emitter.getURL?.() ?? ''}` : ''
+    const where = emitter?.getType && !emitter.isDestroyed?.() ? `: ${emitter.getType()} ${emitter.getURL?.() ?? ''}` : ''
     console.warn(`[listeners]${where}\n${w.stack ?? w.message}`)
   })
 }

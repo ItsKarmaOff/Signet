@@ -17,7 +17,7 @@ export interface HueSliderProps {
   label: string
 }
 
-/** Hue slider 0–359 over the space color gradient (the same hues as the desktop picker). */
+/** Hue slider 0-359 over the space color gradient (the same hues as the desktop picker). */
 export function HueSlider({ value, onChange, label }: HueSliderProps) {
   const c = useColors()
   const [width, setWidth] = useState(0)

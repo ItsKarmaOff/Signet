@@ -318,7 +318,7 @@
     },
     "privacy": {
       "adblock": "Bloquer les pubs et les traqueurs",
-      "archive": "Onglets archivés — {{count}}",
+      "archive": "Onglets archivés : {{count}}",
       "cache": "Cache",
       "clear": "Effacer",
       "clearAllEllipsis": "Tout effacer…",
@@ -329,12 +329,12 @@
       "confirm": "Effacer définitivement la sélection ?",
       "confirmAll": "Effacer l’historique, les onglets archivés, la liste des téléchargements, le cache, les cookies, les données et les autorisations de tous les sites ? Vous serez déconnecté des sites.",
       "cookies": "Cookies et données des sites",
-      "downloads": "Liste des téléchargements — {{count}}",
-      "history_one": "Historique — {{count}} entrée",
-      "history_other": "Historique — {{count}} entrées",
+      "downloads": "Liste des téléchargements : {{count}}",
+      "history_one": "Historique : {{count}} entrée",
+      "history_other": "Historique : {{count}} entrées",
       "permAllowed": "Autorisé",
-      "permissions_one": "Autorisations des sites — {{count}} choix",
-      "permissions_other": "Autorisations des sites — {{count}} choix",
+      "permissions_one": "Autorisations des sites : {{count}} choix",
+      "permissions_other": "Autorisations des sites : {{count}} choix",
       "permDenied": "Refusé",
       "permEmpty": "Aucun choix enregistré. Les sites qui demandent la caméra, la position ou les notifications apparaîtront ici.",
       "permNames": {
@@ -947,7 +947,7 @@
     "dockWindow": "Dans une fenêtre à part",
     "close": "Fermer les outils",
     "resize": "Glisser pour redimensionner, double-clic pour la taille d’origine",
-    "windowTitle": "Outils de développement — {{site}}"
+    "windowTitle": "Outils de développement - {{site}}"
   },
   "develop": {
     "noCache": "cache désactivé",
@@ -962,11 +962,11 @@
       "offline": "hors ligne"
     },
     "ua": {
-      "safari-mac": "Safari — Mac",
-      "safari-iphone": "Safari — iPhone",
-      "safari-ipad": "Safari — iPad",
-      "chrome-android": "Chrome — Android",
-      "firefox-mac": "Firefox — Mac"
+      "safari-mac": "Safari (Mac)",
+      "safari-iphone": "Safari (iPhone)",
+      "safari-ipad": "Safari (iPad)",
+      "chrome-android": "Chrome (Android)",
+      "firefox-mac": "Firefox (Mac)"
     },
     "responsive": "mode responsive ({{device}})",
     "device": {

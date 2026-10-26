@@ -76,11 +76,11 @@ Téléchargez le fichier de votre système dans la [dernière version](https://g
 | Système                                | Intel / AMD (64 bits)          | ARM (64 bits)                                      |
 | -------------------------------------- | ------------------------------ | -------------------------------------------------- |
 | macOS                                  | `Signet-X.Y.Z-x64.dmg`         | `Signet-X.Y.Z-arm64.dmg` (Apple Silicon : M1, M2…) |
-| Windows                                | `Signet-X.Y.Z-x64-setup.exe`   | —                                                  |
+| Windows                                | `Signet-X.Y.Z-x64-setup.exe`   | -                                                  |
 | Linux, toutes distributions (AppImage) | `Signet-X.Y.Z-x86_64.AppImage` | `Signet-X.Y.Z-arm64.AppImage`                      |
 | Linux : Debian, Ubuntu, Mint (`deb`)   | `Signet-X.Y.Z-amd64.deb`       | `Signet-X.Y.Z-arm64.deb`                           |
 | Linux : Fedora, openSUSE (`rpm`)       | `Signet-X.Y.Z-x86_64.rpm`      | `Signet-X.Y.Z-aarch64.rpm`                         |
-| Android                                | —                              | `Signet-X.Y.Z-android-arm64.apk`                   |
+| Android                                | -                              | `Signet-X.Y.Z-android-arm64.apk`                   |
 
 Les apps ne sont pas encore signées avec un certificat payant, votre système vous avertira donc la première fois :
 

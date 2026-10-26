@@ -80,7 +80,7 @@ export class TabSleep {
       if (this.d.shown().includes(id) || id === this.d.peekTabId() || this.d.pip.owns(id) || this.d.devtools.isOpen(id)) continue
       if (tab.audible || tab.loading || this.d.media.isActive(id) || this.d.permissions.usesDevices(view.webContents)) continue
       // Development: each sleep in the console, to check the real delay.
-      if (!app.isPackaged) console.log(`[sleep] ${tab.title || tab.url} — hidden for ${Math.round((Date.now() - since) / 60_000)} min`)
+      if (!app.isPackaged) console.log(`[sleep] ${tab.title || tab.url}: hidden for ${Math.round((Date.now() - since) / 60_000)} min`)
       this.discard(id, view)
     }
   }

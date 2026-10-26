@@ -17,7 +17,7 @@ const toGamma = (c: number) => (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2
 /** Hue wrapped into [0, 360[. */
 export const normalizeHue = (h: number): number => ((h % 360) + 360) % 360
 
-/** HSL (h in degrees, s and l between 0 and 1) to sRGB (0–1). */
+/** HSL (h in degrees, s and l between 0 and 1) to sRGB (0-1). */
 export function hslToRgb(h: number, s: number, l: number): Rgb {
   const a = s * Math.min(l, 1 - l)
   const f = (n: number) => {
@@ -52,7 +52,7 @@ function oklabToLinear([L, a, b]: Lab): Rgb {
 
 const inGamut = (rgb: Rgb) => rgb.every((c) => c >= -0.0005 && c <= 1.0005)
 
-/** OKLCH (L 0–1, C, h in degrees) to sRGB (0–1); out of gamut, chroma is reduced until it fits in sRGB. */
+/** OKLCH (L 0-1, C, h in degrees) to sRGB (0-1); out of gamut, chroma is reduced until it fits in sRGB. */
 export function oklchToRgb(L: number, C: number, h: number): Rgb {
   const rad = (normalizeHue(h) * Math.PI) / 180
   const at = (c: number) => oklabToLinear([L, c * Math.cos(rad), c * Math.sin(rad)])
@@ -108,7 +108,7 @@ function oklchFromLab(lab: Lab): Rgb {
   return oklchToRgb(lab[0], C, (Math.atan2(lab[2], lab[1]) * 180) / Math.PI)
 }
 
-/** WCAG relative luminance (0–1), to pick readable text on a color. */
+/** WCAG relative luminance (0-1), to pick readable text on a color. */
 export function luminance(hex: string): number {
   const [r, g, b] = hexToRgb(hex).map(toLinear)
   return 0.2126 * r + 0.7152 * g + 0.0722 * b

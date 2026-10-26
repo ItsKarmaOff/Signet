@@ -87,7 +87,7 @@ export interface TabGroup {
   name: string
   /** Emoji chosen in place of the first tab's icon. */
   icon?: string
-  /** Hue of the card (0–359). */
+  /** Hue of the card (0-359). */
   hue: number
   /** Collapsed: only the header remains (with the active tab if it is a member). */
   open: boolean

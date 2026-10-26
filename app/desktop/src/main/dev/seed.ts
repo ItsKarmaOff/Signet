@@ -57,8 +57,8 @@ export function devSetup(store: Store): void {
     tab(wiki),
     tab(make('Hacker News', 'https://news.ycombinator.com/', 25)),
     tab(make('Example Domain', 'https://example.com/', 150)),
-    tab(make('W3C — Standards du Web', 'https://www.w3.org/', 200)),
-    tab(make('GitHub — Where software is built', 'https://github.com/', 260))
+    tab(make('W3C - Standards du Web', 'https://www.w3.org/', 200)),
+    tab(make('GitHub - Where software is built', 'https://github.com/', 260))
   ]
   perso.activeTabId = wiki
   // SIGNET_ACTIVE=<URL fragment>: active tab at startup (captures only).
@@ -114,7 +114,7 @@ export function devSetup(store: Store): void {
     'Le Monde · Sport',
     'YouTube',
     'OpenStreetMap',
-    'Electron — Releases',
+    'Electron - Releases',
     'CSS-Tricks',
     'Hacker News · Show',
     'Can I use',
@@ -172,9 +172,9 @@ export function devSetup(store: Store): void {
     archivedAt: ago(hours)
   })
   state.archive = [
-    archived('Électron — Documentation', 'https://www.electronjs.org/fr/docs', 200, 2),
-    archived('HTML — Wikipédia', 'https://fr.wikipedia.org/wiki/Hypertext_Markup_Language', 215, 5),
-    archived('Le Monde — Éditorial', 'https://www.lemonde.fr/idees/', 0, 27),
+    archived('Électron - Documentation', 'https://www.electronjs.org/fr/docs', 200, 2),
+    archived('HTML - Wikipédia', 'https://fr.wikipedia.org/wiki/Hypertext_Markup_Language', 215, 5),
+    archived('Le Monde - Éditorial', 'https://www.lemonde.fr/idees/', 0, 27),
     archived('Wikipédia · Cyclisme', 'https://fr.wikipedia.org/wiki/Cyclisme', 210, 30),
     archived('Open Street Map', 'https://www.openstreetmap.org/', 140, 80),
     archived('Notes de version', 'https://github.com/electron/electron/releases', 270, 400)
@@ -190,13 +190,13 @@ export function seedHistory(b: Browser): void {
   const rows: [string, string, number, number][] = [
     ['Wikipédia, l’encyclopédie libre', 'https://www.wikipedia.org/', 210, 0.2],
     ['Hacker News', 'https://news.ycombinator.com/', 25, 0.6],
-    ['GitHub — Where software is built', 'https://github.com/', 260, 1.5],
+    ['GitHub - Where software is built', 'https://github.com/', 260, 1.5],
     ['Example Domain', 'https://example.com/', 150, 3],
-    ['W3C — Standards du Web', 'https://www.w3.org/', 200, 7],
-    ['Le Monde — À la une', 'https://www.lemonde.fr/', 0, 26],
+    ['W3C - Standards du Web', 'https://www.w3.org/', 200, 7],
+    ['Le Monde - À la une', 'https://www.lemonde.fr/', 0, 26],
     ['Wikipédia · Le libre', 'https://fr.wikipedia.org/', 210, 29],
-    ['Électron — Documentation', 'https://www.electronjs.org/fr/docs', 200, 33],
-    ['HTML — Wikipédia', 'https://fr.wikipedia.org/wiki/Hypertext_Markup_Language', 215, 52],
+    ['Électron - Documentation', 'https://www.electronjs.org/fr/docs', 200, 33],
+    ['HTML - Wikipédia', 'https://fr.wikipedia.org/wiki/Hypertext_Markup_Language', 215, 52],
     ['Open Street Map', 'https://www.openstreetmap.org/', 140, 75],
     ['Notes de version', 'https://github.com/electron/electron/releases', 270, 420]
   ]
