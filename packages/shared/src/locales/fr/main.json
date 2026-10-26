@@ -479,7 +479,12 @@
     "passwordsFailed_other": "{{count}} mots de passe n’ont pas pu être déchiffrés.",
     "passwordsFailedMac": "macOS doit autoriser Signet à lire la clé du navigateur dans le Trousseau : relancez l’import et cliquez sur « Autoriser ».",
     "passwordsFailedLinux": "La clé du navigateur est gardée dans le trousseau du système : déverrouillez-le et vérifiez que la commande « secret-tool » (paquet libsecret) est installée, puis relancez l’import.",
-    "passwordsFailedWindows": "Les versions récentes du navigateur verrouillent certains mots de passe : exportez-les en CSV depuis le navigateur, puis importez ce fichier dans Réglages › Mots de passe."
+    "passwordsFailedWindows": "Les versions récentes du navigateur verrouillent certains mots de passe : exportez-les en CSV depuis le navigateur, puis importez ce fichier dans Réglages › Mots de passe.",
+    "appDataDenied": {
+      "message": "macOS a bloqué l’accès aux données de {{name}}",
+      "detailPackaged": "Pour importer depuis {{name}}, autorisez-le dans Réglages Système › Confidentialité et sécurité › Fichiers et dossiers › Signet › {{name}}, puis relancez l’import.",
+      "detailDev": "Pour importer depuis {{name}}, autorisez-le dans Réglages Système › Confidentialité et sécurité › Fichiers et dossiers › Signet › {{name}} (en développement, c’est l’app « Electron »), puis relancez l’import."
+    }
   },
   "internal": {
     "desc": {
