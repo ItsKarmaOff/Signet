@@ -1,6 +1,7 @@
-import type { PasskeyPromptState } from '@shared/types'
+import type { PasskeyPromptState, PasskeyStatus } from '@shared/types'
 import { NOT_ALLOWED_MESSAGE, type WebAuthnRequest } from '../webauthn-request'
 import type { WebAuthnAnswer } from '../webauthn'
+import { decryptAdvert, type Eid } from './eid'
 import { generateQrKeys, qrText, type QrKeys } from './qr'
 
 // "Hybrid" (caBLE v2) sessions: one at a time, owned by the main process. Pure module (no Electron): the window and the
@@ -33,7 +34,16 @@ export interface HybridHost {
   openWindow(target: HybridTarget, onClosed: () => void): () => void
   /** Calls `onGone` when the tab navigates away (main frame, not same-document) or is destroyed. Returns the unwatch function. */
   watch(target: HybridTarget, onGone: () => void): () => void
+  /** Scans for the phone's BLE advert: `onServiceData` gets the service data of each candidate advert, `onState` the state of the scan. Returns the stop function. */
+  scan(onServiceData: (bytes: Uint8Array) => void, onState: (state: ScanState) => void): () => void
+  /** The window must show a new status. */
+  status(status: PasskeyStatus): void
+  /** The phone's advert was found and decrypted (development log). */
+  found?(eid: Eid): void
 }
+
+/** State of the Bluetooth scan, as the window shows it (`unsupported`: no scan on this system). */
+export type ScanState = Exclude<PasskeyStatus, 'found'>
 
 /** What the code window shows. */
 export type HybridPrompt = PasskeyPromptState
@@ -44,13 +54,16 @@ export const NOT_ALLOWED: WebAuthnAnswer = { error: { name: 'NotAllowedError', m
  * One request waiting for a phone. Holds the secrets of the session (identity private key, QR secret): they stay here, in
  * main memory. `end` resolves the answer once and cleans everything.
  *
- * Steps to come plug in here: the BLE scan reads the phone's advert with `keys.secret`, the tunnel handshake uses
- * `keys.ecdh`; success calls `end({ credential })`, a failure `end()`.
+ * The BLE scan reads the phone's advert with `keys.secret` (-> `eid`); the tunnel handshake to come uses
+ * `eid` and `keys.ecdh`; success calls `end({ credential })`, a failure `end()`.
  */
 export class HybridSession {
   readonly keys: QrKeys
   readonly timeout: number
   qr = ''
+  status: PasskeyStatus = 'waiting'
+  /** The phone's decrypted advert, once found: routing id and nonce for the tunnel. Main memory only. */
+  eid: Eid | null = null
   private ended = false
   private cleanups: (() => void)[] = []
   private resolve!: (a: WebAuthnAnswer) => void
@@ -80,7 +93,7 @@ export class HybridSession {
   }
 
   prompt(): HybridPrompt {
-    return { type: this.request.type, rpId: this.request.rpId, qr: this.qr }
+    return { type: this.request.type, rpId: this.request.rpId, qr: this.qr, status: this.status }
   }
 
   /** Ends the session: the first call decides the answer (cancelled by default), the next ones do nothing. */
@@ -118,11 +131,41 @@ export class HybridSessions {
       session.onCleanup(this.host.watch(target, () => session.end()))
       session.qr = await this.host.render(session.text())
       // Replaced, cancelled or gone while the code was drawn.
-      if (!session.isEnded) session.onCleanup(this.host.openWindow(target, () => session.end()))
+      if (!session.isEnded) {
+        session.onCleanup(this.host.openWindow(target, () => session.end()))
+        this.scan(session)
+      }
     } catch {
       session.end()
     }
     return session.answer
+  }
+
+  /** Looks for the phone's advert while the session is open; the first one that decrypts with the QR secret is the phone. */
+  private scan(session: HybridSession): void {
+    let stop = (): void => {}
+    const found = (bytes: Uint8Array): void => {
+      if (session.isEnded || session.eid) return
+      const eid = decryptAdvert(session.keys.secret, bytes)
+      if (!eid) return
+      session.eid = eid
+      stop()
+      this.setStatus(session, 'found')
+      this.host.found?.(eid)
+      // Step to come: open the tunnel with `session.eid` (WebSocket to `eid.tunnelDomain`, routing id and nonce from the
+      // advert), run the Noise handshake with `session.keys.ecdh`, then CTAP2. Success: `session.end({ credential })`,
+      // failure: `session.end()`. The session stays open until then (cancel, timeout) as before.
+    }
+    stop = this.host.scan(found, (state) => {
+      if (!session.eid) this.setStatus(session, state)
+    })
+    session.onCleanup(stop)
+  }
+
+  private setStatus(session: HybridSession, status: PasskeyStatus): void {
+    if (session.isEnded || session.status === status) return
+    session.status = status
+    this.host.status(status)
   }
 
   /** What the window shows; null without a session. */

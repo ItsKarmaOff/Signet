@@ -88,6 +88,9 @@ export interface WebAppState {
   hue: number
 }
 
+/** Progress of a passkey request: waiting for the phone, a Bluetooth problem (`unsupported`: no scan on this system), or phone found. */
+export type PasskeyStatus = 'waiting' | 'off' | 'no-adapter' | 'denied' | 'error' | 'found' | 'unsupported'
+
 /** What the `#passkey` window shows: a passkey request waiting for a phone (null: nothing, the window closes). */
 export interface PasskeyPromptState {
   type: 'get' | 'create'
@@ -95,4 +98,5 @@ export interface PasskeyPromptState {
   rpId: string
   /** QR code (SVG data URL). */
   qr: string
+  status: PasskeyStatus
 }

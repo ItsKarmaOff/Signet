@@ -996,7 +996,14 @@
     "createText": "Scannez ce QR code avec l’appareil photo de votre téléphone pour créer une clé d’accès pour {{site}}.",
     "qrAlt": "QR code à scanner avec votre téléphone",
     "hint": "Le Bluetooth doit être activé sur cet ordinateur et sur le téléphone.",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "status": {
+      "off": "Le Bluetooth est désactivé sur cet ordinateur. Activez-le, puis scannez le code.",
+      "no-adapter": "Aucun adaptateur Bluetooth trouvé sur cet ordinateur.",
+      "denied": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
+      "error": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
+      "found": "Téléphone trouvé. Connexion…"
+    }
   },
   "welcome": {
     "step": "Étape {{current}} sur {{total}}",

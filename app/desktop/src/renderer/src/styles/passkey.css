@@ -14,3 +14,11 @@
 .pk-cancel {
   flex: none;
 }
+/* Bluetooth problem or phone found: stands out from the plain hint, same size. */
+.pk-hint.pk-warn {
+  color: var(--danger);
+}
+.pk-hint.pk-found {
+  color: var(--text);
+  font-weight: 600;
+}

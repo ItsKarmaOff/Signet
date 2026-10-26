@@ -329,6 +329,7 @@ export const IPC = {
   // Passkey from a phone
   getPasskeyPrompt: invoke('passkey:get', []),
   cancelPasskeyPrompt: invoke('passkey:cancel', []),
+  onPasskeyStatus: event('passkey:status'),
 
   // Apps
   installWebApp: invoke('webapp:install', [str(), str(), str()]),

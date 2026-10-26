@@ -996,7 +996,14 @@
     "createText": "Scan this QR code with your phone's camera to create a passkey for {{site}}.",
     "qrAlt": "QR code to scan with your phone",
     "hint": "Bluetooth must be on, on this computer and on the phone.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "status": {
+      "off": "Bluetooth is off on this computer. Turn it on, then scan the code.",
+      "no-adapter": "No Bluetooth adapter found on this computer.",
+      "denied": "Signet can't access Bluetooth on this computer.",
+      "error": "Signet can't access Bluetooth on this computer.",
+      "found": "Phone found. Connecting…"
+    }
   },
   "welcome": {
     "step": "Step {{current}} of {{total}}",

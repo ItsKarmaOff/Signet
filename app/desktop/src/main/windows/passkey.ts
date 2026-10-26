@@ -1,4 +1,4 @@
-import { BrowserWindow, type WebContents, type WebFrameMain } from 'electron'
+import { app, BrowserWindow, type WebContents, type WebFrameMain } from 'electron'
 import QRCode from 'qrcode'
 import { windowChrome } from '../app/platform'
 import type { Browser } from '../browser/browser'
@@ -6,6 +6,8 @@ import { loadRoute, preloadPath } from '../core/urls'
 import { t } from '../app/i18n'
 import type { WebAuthnAnswer } from '../web/webauthn'
 import type { WebAuthnRequest } from '../web/webauthn-request'
+import { pushUi } from '../ipc/push'
+import { CABLE_UUIDS } from '../web/hybrid/eid'
 import { HybridSessions, type HybridHost, type HybridPrompt, type HybridTarget } from '../web/hybrid/session'
 
 const WIDTH = 400
@@ -67,7 +69,40 @@ export class PasskeyPrompt {
           wc.removeListener('render-process-gone', onGone)
         }
       },
-      openWindow: (target, onClosed) => this.open(target.source as WebContents, onClosed)
+      openWindow: (target, onClosed) => this.open(target.source as WebContents, onClosed),
+      scan: (onServiceData, onState) => {
+        // BlueZ (D-Bus) on Linux only; elsewhere there is nothing to scan with.
+        if (process.platform !== 'linux') {
+          onState('unsupported')
+          return () => {}
+        }
+        let stop = (): void => {}
+        let stopped = false
+        void import('../web/hybrid/bluez')
+          .then(({ startBleScan }) => {
+            if (stopped) return
+            stop = startBleScan({
+              uuids: CABLE_UUIDS,
+              onServiceData: (_uuid, bytes) => onServiceData(bytes),
+              onState: (state) => onState(state === 'scanning' ? 'waiting' : state)
+            })
+          })
+          .catch((e) => {
+            console.error('Bluetooth: scan unavailable:', e)
+            if (!stopped) onState('error')
+          })
+        return () => {
+          stopped = true
+          stop()
+        }
+      },
+      status: (status) => {
+        if (this.win && !this.win.isDestroyed()) pushUi(this.win.webContents, 'passkey:status', status)
+      },
+      found: (eid) => {
+        // Development only. Neither the nonce nor any key is logged.
+        if (!app.isPackaged) console.log(`Passkey: phone found (tunnel ${eid.tunnelDomain}, routing id ${eid.routingId.toString('hex')})`)
+      }
     }
   }
 

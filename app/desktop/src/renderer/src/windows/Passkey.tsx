@@ -9,10 +9,13 @@ export function Passkey() {
   const cancel = () => void window.signet.cancelPasskeyPrompt().catch(() => {})
 
   useEffect(() => {
+    // Subscribe first: a status pushed while the prompt is fetched is not lost.
+    const off = window.signet.onPasskeyStatus((status) => setPrompt((p) => p && { ...p, status }))
     void window.signet
       .getPasskeyPrompt()
       .then(setPrompt)
       .catch(() => {})
+    return off
   }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -23,6 +26,10 @@ export function Passkey() {
   }, [])
 
   const kind = prompt?.type ?? 'get'
+  const status = prompt?.status ?? 'waiting'
+  // Waiting (and no scan available): the plain hint; otherwise what is going on.
+  const plain = status === 'waiting' || status === 'unsupported'
+  const hint = plain ? 'passkey.hint' : (`passkey.status.${status}` as 'passkey.hint')
   return (
     <div className="welcome passkey">
       <div className="wl-drag" />
@@ -30,7 +37,9 @@ export function Passkey() {
         <h1>{t(`passkey.${kind}Title`)}</h1>
         <p className="wl-text">{prompt && t(`passkey.${kind}Text`, { site: prompt.rpId })}</p>
         <div className="dv-qr">{prompt && <img src={prompt.qr} alt={t('passkey.qrAlt')} draggable={false} />}</div>
-        <p className="st-hint pk-hint">{t('passkey.hint')}</p>
+        <p className={`st-hint pk-hint${plain ? '' : status === 'found' ? ' pk-found' : ' pk-warn'}`} role="status">
+          {t(hint)}
+        </p>
         <button className="st-btn pk-cancel" onClick={cancel} autoFocus>
           {t('passkey.cancel')}
         </button>
