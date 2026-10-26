@@ -13,6 +13,8 @@ updates:
     open-pull-requests-limit: 10
     commit-message:
       prefix: build(deps)
+    # The repository's labels (Dependabot would otherwise add "javascript", creating it if needed).
+    labels: [dependencies]
     groups:
       # The mobile app's Expo SDK packages move together (patch versions only, see `ignore`).
       expo:
@@ -49,6 +51,7 @@ updates:
       day: monday
     commit-message:
       prefix: ci(deps)
+    labels: [dependencies, ci]
     groups:
       actions:
         patterns: ['*']
