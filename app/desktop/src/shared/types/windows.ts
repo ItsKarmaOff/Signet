@@ -87,3 +87,12 @@ export interface WebAppState {
   inScope: boolean
   hue: number
 }
+
+/** What the `#passkey` window shows: a passkey request waiting for a phone (null: nothing, the window closes). */
+export interface PasskeyPromptState {
+  type: 'get' | 'create'
+  /** Relying party id: the site the passkey is for. */
+  rpId: string
+  /** QR code (SVG data URL). */
+  qr: string
+}

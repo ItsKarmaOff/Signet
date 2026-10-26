@@ -17,6 +17,10 @@ export function registerWindowsIpc(b: Browser, { handle, handlePip }: Registrar)
   handle('littleOpenInMain', ({ sender }) => b.little.openInMain(sender))
   handle('littleCopyUrl', ({ sender }) => b.tabs.copyUrl(b.little.tabIdForBar(sender)))
 
+  // Passkey from a phone (QR code window).
+  handle('getPasskeyPrompt', () => b.passkeys.prompt())
+  handle('cancelPasskeyPrompt', () => b.passkeys.cancel())
+
   handle('openPrivateWindow', () => b.privates.open())
   handle('getPrivateState', ({ sender }) => b.privates.stateForBar(sender))
   handle('privateNewTab', ({ sender }) => b.privates.newTabFromBar(sender))

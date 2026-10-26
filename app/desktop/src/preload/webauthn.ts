@@ -6,10 +6,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 const request = (payload: unknown): Promise<unknown> => ipcRenderer.invoke('webauthn:request', payload)
+// The page gave up on a pending request (AbortSignal): main ends its session (and closes the QR code window).
+const abort = (): void => ipcRenderer.send('webauthn:abort')
 
 try {
   contextBridge.executeInMainWorld({
-    func: (ask: (payload: unknown) => Promise<unknown>) => {
+    func: (ask: (payload: unknown) => Promise<unknown>, cancel: () => void) => {
       const credentials = navigator.credentials as CredentialsContainer | undefined
       const PKC = window.PublicKeyCredential as (typeof PublicKeyCredential & Record<string, unknown>) | undefined
       if (!credentials || !PKC) return
@@ -64,13 +66,18 @@ try {
             const signal = options.signal
             if (signal?.aborted) return reject(signal.reason)
             let done = false
+            let asked = false
             const settle = (fn: (v: unknown) => void, v: unknown): void => {
               if (done) return
               done = true
               signal?.removeEventListener('abort', onAbort)
               fn(v)
             }
-            const onAbort = (): void => settle(reject, signal?.reason)
+            const onAbort = (): void => {
+              const pending = asked && !done
+              settle(reject, signal?.reason)
+              if (pending) cancel()
+            }
             signal?.addEventListener('abort', onAbort)
             // Conditional UI: pending until aborted, nothing to ask.
             if (type === 'get' && (options as CredentialRequestOptions).mediation === 'conditional') return
@@ -80,6 +87,7 @@ try {
             } catch (e) {
               return settle(reject, e)
             }
+            asked = true
             ask(payload).then(
               (answer) => {
                 const a = answer as { error?: { name?: string; message?: string }; credential?: unknown } | null
@@ -129,7 +137,7 @@ try {
         }
       })
     },
-    args: [request]
+    args: [request, abort]
   })
 } catch {
   // frame without context isolation: nothing to do, the page keeps Electron's behavior

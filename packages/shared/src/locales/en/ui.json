@@ -989,6 +989,15 @@
     "resizeDevice": "Drag to resize",
     "scaleShort": "{{percent}}%"
   },
+  "passkey": {
+    "getTitle": "Use a passkey from your phone",
+    "createTitle": "Create a passkey on your phone",
+    "getText": "Scan this QR code with your phone's camera to sign in to {{site}}.",
+    "createText": "Scan this QR code with your phone's camera to create a passkey for {{site}}.",
+    "qrAlt": "QR code to scan with your phone",
+    "hint": "Bluetooth must be on, on this computer and on the phone.",
+    "cancel": "Cancel"
+  },
   "welcome": {
     "step": "Step {{current}} of {{total}}",
     "back": "Back",

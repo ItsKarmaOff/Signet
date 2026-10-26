@@ -140,6 +140,7 @@ function start(): void {
       buildAppMenu(browser)
       browser.settings.retitle()
       browser.welcome.retitle()
+      browser.passkeys.retitle()
       browser.library.retitle()
       browser.boosts.retitle()
       broadcastLocale()

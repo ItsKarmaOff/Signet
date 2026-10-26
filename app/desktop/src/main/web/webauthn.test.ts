@@ -103,13 +103,27 @@ describe('malformed payloads', () => {
 })
 
 describe('answerWebAuthn', () => {
-  it('answers like a cancelled prompt', async () => {
-    const request = ok(run('https://example.com', get))
-    expect(await answerWebAuthn(request)).toEqual({
-      error: {
-        name: 'NotAllowedError',
-        message: 'The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.'
-      }
-    })
+  const notAllowed = {
+    error: {
+      name: 'NotAllowedError',
+      message: 'The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.'
+    }
+  }
+  const sender = { id: 7 } as never
+  const frame = { processId: 1, routingId: 2 } as never
+
+  it('hands a request to the hybrid session', async () => {
+    const request = vi.fn().mockResolvedValue(notAllowed)
+    const b = { passkeys: { request } } as never
+    const r = ok(run('https://example.com', get))
+    expect(await answerWebAuthn(b, r, sender, frame)).toEqual(notAllowed)
+    expect(request).toHaveBeenCalledWith(r, sender, frame)
+  })
+  it('refuses a conditional request without a session', async () => {
+    const request = vi.fn()
+    const b = { passkeys: { request } } as never
+    const r = ok(run('https://example.com', { type: 'get', mediation: 'conditional', publicKey: { challenge: 'abc' } }))
+    expect(await answerWebAuthn(b, r, sender, frame)).toEqual(notAllowed)
+    expect(request).not.toHaveBeenCalled()
   })
 })

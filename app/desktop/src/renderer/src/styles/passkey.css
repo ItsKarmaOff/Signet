@@ -1,0 +1,16 @@
+/* Passkey from a phone (#passkey): reuses the introduction layout (.welcome) and the device pairing code (.dv-qr). */
+.passkey .wl-main h1 {
+  font-size: var(--fs-title, 20px);
+}
+.passkey .wl-text {
+  margin-bottom: var(--s4);
+  min-height: 2.9em;
+}
+.pk-hint {
+  max-width: 300px;
+  margin: var(--s3) 0 var(--s5);
+  text-align: center;
+}
+.pk-cancel {
+  flex: none;
+}

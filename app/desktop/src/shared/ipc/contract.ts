@@ -326,6 +326,10 @@ export const IPC = {
   privateNavigate: invoke('private:navigate', [str()]),
   openPrivateWindow: invoke('private:open', []),
 
+  // Passkey from a phone
+  getPasskeyPrompt: invoke('passkey:get', []),
+  cancelPasskeyPrompt: invoke('passkey:cancel', []),
+
   // Apps
   installWebApp: invoke('webapp:install', [str(), str(), str()]),
   listWebApps: invoke('webapps:list', []),
@@ -384,6 +388,7 @@ export const PAGE_IPC = {
   'pw:fill': 'invoke',
   'pw:submit': 'send',
   'webauthn:request': 'invoke',
+  'webauthn:abort': 'send',
   'notes:locale': 'invoke',
   'notes:appearance': 'invoke',
   'notes:load': 'invoke',
