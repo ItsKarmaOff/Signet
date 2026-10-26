@@ -72,14 +72,15 @@ export class PasskeyPrompt {
       },
       openWindow: (target, onClosed) => this.open(target.source as WebContents, onClosed),
       scan: (onServiceData, onState) => {
-        // BlueZ (D-Bus) on Linux only; elsewhere there is nothing to scan with.
-        if (process.platform !== 'linux') {
+        // BlueZ (D-Bus) on Linux; CoreBluetooth on macOS in development only; elsewhere there is nothing to scan with.
+        const mac = process.platform === 'darwin' && !app.isPackaged
+        if (process.platform !== 'linux' && !mac) {
           onState('unsupported')
           return () => {}
         }
         let stop = (): void => {}
         let stopped = false
-        void import('../web/hybrid/bluez')
+        void (mac ? import('../web/hybrid/corebluetooth') : import('../web/hybrid/bluez'))
           .then(({ startBleScan }) => {
             if (stopped) return
             stop = startBleScan({
