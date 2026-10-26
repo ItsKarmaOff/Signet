@@ -88,6 +88,7 @@ html.route-toolbar {
 }
 html.route-settings,
 html.route-welcome,
+html.route-passkey,
 html.route-library {
   background: transparent;
 }

@@ -21,7 +21,8 @@
     "library": "Bibliothèque",
     "private": "Navigation privée",
     "boost": "Boost · {{site}}",
-    "welcome": "Bienvenue"
+    "welcome": "Bienvenue",
+    "passkey": "Clé d'accès"
   },
   "dialog": {
     "cancel": "Annuler",

@@ -47,3 +47,13 @@ Ce qui n'a pas pu être testé automatiquement : il faut une vraie souris, un vr
 - [ ] Appuyer une fois sur ⌘Q : la bulle « Maintenir ⌘Q pour quitter » apparaît ; maintenir ⌘Q quitte l'app.
 - [ ] Lancer une vidéo YouTube puis changer d'onglet : le mini-lecteur apparaît ; il se déplace et se redimensionne à la souris.
 - [ ] Glisser un bouton d'extension épinglé dans la barre d'outils pour changer sa place ; un clic ouvre bien la fenêtre de l'extension.
+
+## Passkeys depuis un téléphone (Linux ; macOS en développement avec `SIGNET_WEBAUTHN_INTERCEPT=1`)
+
+- [ ] Sur webauthn.io, « Register » : la fenêtre « Clé d'accès » s'ouvre avec un QR code ; « Annuler », Échap et la fermeture de la fenêtre rendent la main au site (erreur).
+- [ ] Bluetooth du PC désactivé : la fenêtre le signale ; une fois réactivé, le message normal revient.
+- [ ] Scanner le QR avec un téléphone (iPhone ou Android), accepter : « Téléphone trouvé. Connexion… », puis « Confirmez sur votre téléphone », puis la fenêtre se ferme et webauthn.io confirme l'enregistrement.
+- [ ] « Authenticate » sur webauthn.io avec la passkey créée : la connexion réussit.
+- [ ] Connexion Microsoft avec une passkey du téléphone ; sans téléphone, « Annuler » mène à « Use my password ».
+- [ ] La même chose dans une fenêtre privée : la fenêtre du QR s'ouvre au-dessus de la fenêtre privée.
+- [ ] Linux : à vérifier en premier (le Mac a déjà été validé), la détection du téléphone par BlueZ ; en cas d'échec, noter les lignes `Passkey:` et `Bluetooth:` du terminal (`npm run dev`).

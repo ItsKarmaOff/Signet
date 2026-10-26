@@ -42,6 +42,9 @@ export const passwordsPath = join(__dirname, '../preload/passwords.js')
 /** Page script that fills `window.chrome` like Chrome (without it, Google refuses sign-in; all frames). */
 export const identityPath = join(__dirname, '../preload/identity.js')
 
+/** Page script that intercepts WebAuthn requests (passkeys; Linux, or on demand in development). */
+export const webauthnPath = join(__dirname, '../preload/webauthn.js')
+
 /** Page script for notes and Easels (active only on their interface route). */
 export const notesPath = join(__dirname, '../preload/notes.js')
 

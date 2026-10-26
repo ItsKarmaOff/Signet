@@ -15,6 +15,7 @@ import { Pip } from '../windows/pip'
 import { PrivateWindows } from '../windows/private'
 import { SettingsWindow } from '../windows/settings'
 import { WelcomeWindow } from '../windows/welcome'
+import { PasskeyPrompt } from '../windows/passkey'
 import { Swipe } from './swipe'
 import { Bookmarks } from '../features/bookmarks'
 import { SitePanel } from './sitepanel'
@@ -81,6 +82,7 @@ export class Browser {
   readonly boosts = new Boosts(this)
   readonly settings = new SettingsWindow(this)
   readonly welcome = new WelcomeWindow(this)
+  readonly passkeys = new PasskeyPrompt(this)
   readonly swipe = new Swipe(this)
   readonly bookmarks = new Bookmarks(this)
   readonly library = new LibraryWindow(this)

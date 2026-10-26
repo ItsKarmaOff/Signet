@@ -21,7 +21,8 @@
     "library": "Library",
     "private": "Private Browsing",
     "boost": "Boost · {{site}}",
-    "welcome": "Welcome"
+    "welcome": "Welcome",
+    "passkey": "Passkey"
   },
   "dialog": {
     "cancel": "Cancel",

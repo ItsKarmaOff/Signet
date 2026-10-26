@@ -309,6 +309,7 @@ html[data-glass='off'] {
 }
 html[data-glass='off'].route-settings,
 html[data-glass='off'].route-welcome,
+html[data-glass='off'].route-passkey,
 html[data-glass='off'].route-library {
   background: var(--bg);
 }
