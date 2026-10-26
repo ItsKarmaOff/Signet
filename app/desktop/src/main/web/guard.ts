@@ -33,6 +33,9 @@ function endDevSession(): void {
   app.quit()
 }
 
+/** Time after which a loaded interface view must have booted (see the `data-boot` marker in renderer main.tsx). */
+export const BOOT_WATCHDOG_MS = 10_000
+
 /** Name of the interface view for the log (route after `#`). */
 const routeOf = (url: string) => /#([a-z]+)/.exec(url)?.[1] ?? 'main'
 
@@ -40,6 +43,8 @@ const routeOf = (url: string) => /#([a-z]+)/.exec(url)?.[1] ?? 'main'
  * An interface view that starts without its bridge script (`preload` unreadable while `out/` is rewritten by a
  * build) or without its page (dev server not ready yet) would stay empty and transparent, hence invisible:
  * we reload it, with increasing delays (1 s, 2 s, 4 s… 30 s at most), until it loads.
+ * A watchdog covers the silent case: the page loads but its script never runs or never finishes booting
+ * (module unreadable while the dev server restarts, chunk missing during an update): no error, no event.
  */
 function healUiView(wc: WebContents): void {
   let tries = 0
@@ -67,10 +72,41 @@ function healUiView(wc: WebContents): void {
     // -3: load interrupted by another navigation, not an outage.
     if (code !== -3) retry(`chargement : ${description} (${code})`)
   })
+  // Boot watchdog: the renderer sets `data-boot` on <html> ('started', 'retrying' when it reloads itself, 'ready').
+  let watchdog: NodeJS.Timeout | null = null
+  const stopWatchdog = () => {
+    if (watchdog) clearTimeout(watchdog)
+    watchdog = null
+  }
+  const checkBoot = async (url: string) => {
+    if (wc.isDestroyed() || devEnded || wc.getURL() !== url || wc.isLoading()) return
+    let boot: unknown
+    try {
+      boot = await wc.executeJavaScript('document.documentElement.dataset.boot')
+    } catch {
+      return // navigation in between or page gone: the next load re-arms the watchdog
+    }
+    if (wc.isDestroyed() || devEnded || wc.getURL() !== url) return
+    if (boot === 'ready')
+      tries = 0 // healthy: the next outage is logged again
+    else if (boot === undefined || boot === null || boot === 'started') {
+      retry(boot === 'started' ? 'boot stuck' : 'script never ran')
+    } // 'retrying': the renderer reloads itself
+  }
+  wc.on('did-start-loading', stopWatchdog)
   wc.on('did-finish-load', () => {
-    if (isAppUrl(wc.getURL())) tries = 0
+    stopWatchdog()
+    const url = wc.getURL()
+    if (!isAppUrl(url)) return
+    watchdog = setTimeout(() => {
+      watchdog = null
+      void checkBoot(url)
+    }, BOOT_WATCHDOG_MS)
   })
-  wc.once('destroyed', () => timer && clearTimeout(timer))
+  wc.once('destroyed', () => {
+    stopWatchdog()
+    if (timer) clearTimeout(timer)
+  })
 }
 
 /** Refuses any window opening from an interface view (to set on those that have no handler of their own). */

@@ -26,5 +26,12 @@ export default defineConfig({
     }
   },
   // Minified UI (JS and CSS); main and preload stay readable for error traces.
-  renderer: { resolve: shared, plugins: [react(), emojiPlugin(__dirname)], build: { minify: true, cssMinify: true } }
+  // No Vite error overlay in development: it crashes in the transparent views and would cover the interface
+  // (compile errors stay in the terminal).
+  renderer: {
+    resolve: shared,
+    plugins: [react(), emojiPlugin(__dirname)],
+    server: { hmr: { overlay: false } },
+    build: { minify: true, cssMinify: true }
+  }
 })
