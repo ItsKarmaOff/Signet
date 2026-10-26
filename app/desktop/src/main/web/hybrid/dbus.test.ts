@@ -88,7 +88,8 @@ afterEach(() => {
   bus = null
 })
 
-describe('DBusClient', () => {
+// The fake bus listens on a unix socket path, which Windows refuses (EACCES); the client only runs on Linux anyway.
+describe.skipIf(process.platform === 'win32')('DBusClient', () => {
   it('authenticates with EXTERNAL and the hex uid, then says Hello', async () => {
     bus = await fakeBus(() => {})
     const c = await connect(bus.path)
