@@ -4,6 +4,7 @@
 // main process (`webauthn:request`), the rest goes to the original. Runs in the page's world, before its scripts; the
 // isolated world only hands over a function (contextBridge proxies it and its promise), nothing is exposed on `window`.
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AssertionResponseJson, AttestationResponseJson, CredentialJson } from '../main/web/hybrid/ctap'
 
 const request = (payload: unknown): Promise<unknown> => ipcRenderer.invoke('webauthn:request', payload)
 // The page gave up on a pending request (AbortSignal): main ends its session (and closes the QR code window).
@@ -51,6 +52,63 @@ try {
         return out
       }
 
+      const fromBase64Url = (s: string): ArrayBuffer => {
+        const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/'))
+        const out = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i)
+        return out.buffer
+      }
+      // Own, non-enumerable properties on an object whose prototype is the native one: instanceof works, the native getters
+      // (which need internal slots) are shadowed, and Object.keys / JSON.stringify show nothing, like the real ones.
+      const define = (target: object, props: Record<string, unknown>): void => {
+        for (const [key, value] of Object.entries(props)) {
+          Object.defineProperty(target, key, { value, enumerable: false, configurable: true, writable: false })
+        }
+      }
+      const protoOf = (name: string, fallback: object): object => {
+        const ctor = (window as unknown as Record<string, { prototype?: object } | undefined>)[name]
+        return ctor?.prototype ?? fallback
+      }
+      // The credential from main (plain base64url data) as an object that behaves like a PublicKeyCredential.
+      const buildCredential = (json: CredentialJson): unknown => {
+        const copy = (): CredentialJson => JSON.parse(JSON.stringify(json)) as CredentialJson
+        const r = json.response
+        const isCreate = 'attestationObject' in r
+        const response = Object.create(protoOf(isCreate ? 'AuthenticatorAttestationResponse' : 'AuthenticatorAssertionResponse', Object.prototype)) as object
+        const common = { clientDataJSON: fromBase64Url(r.clientDataJSON), authenticatorData: fromBase64Url(r.authenticatorData) }
+        if (isCreate) {
+          const a = r as AttestationResponseJson
+          const publicKey = a.publicKey === undefined ? null : fromBase64Url(a.publicKey)
+          define(response, {
+            clientDataJSON: common.clientDataJSON,
+            attestationObject: fromBase64Url(a.attestationObject),
+            getTransports: native('getTransports', () => [...a.transports]),
+            getAuthenticatorData: native('getAuthenticatorData', () => common.authenticatorData),
+            getPublicKey: native('getPublicKey', () => publicKey),
+            getPublicKeyAlgorithm: native('getPublicKeyAlgorithm', () => a.publicKeyAlgorithm ?? -1)
+          })
+        } else {
+          const a = r as AssertionResponseJson
+          define(response, {
+            clientDataJSON: common.clientDataJSON,
+            authenticatorData: common.authenticatorData,
+            signature: fromBase64Url(a.signature),
+            userHandle: a.userHandle === undefined ? null : fromBase64Url(a.userHandle)
+          })
+        }
+        const credential = Object.create(PKC.prototype) as object
+        define(credential, {
+          id: json.id,
+          rawId: fromBase64Url(json.rawId),
+          type: json.type,
+          authenticatorAttachment: json.authenticatorAttachment,
+          response,
+          getClientExtensionResults: native('getClientExtensionResults', () => ({ ...json.clientExtensionResults })),
+          toJSON: native('toJSON', copy)
+        })
+        return credential
+      }
+
       const NOT_ALLOWED = 'The operation either timed out or was not allowed. See: https://www.w3.org/TR/webauthn-2/#sctn-privacy-considerations-client.'
       const failure = (name: string, message: string): unknown => (name === 'TypeError' ? new TypeError(message) : new DOMException(message, name))
 
@@ -92,8 +150,13 @@ try {
               (answer) => {
                 const a = answer as { error?: { name?: string; message?: string }; credential?: unknown } | null
                 if (a?.error) settle(reject, failure(String(a.error.name), String(a.error.message)))
-                else if (a?.credential) settle(resolve, a.credential)
-                else settle(reject, failure('NotAllowedError', NOT_ALLOWED))
+                else if (a?.credential) {
+                  try {
+                    settle(resolve, buildCredential(a.credential as CredentialJson))
+                  } catch {
+                    settle(reject, failure('NotAllowedError', NOT_ALLOWED))
+                  }
+                } else settle(reject, failure('NotAllowedError', NOT_ALLOWED))
               },
               () => settle(reject, failure('NotAllowedError', NOT_ALLOWED))
             )

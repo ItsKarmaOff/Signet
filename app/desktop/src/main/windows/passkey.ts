@@ -8,6 +8,7 @@ import type { WebAuthnAnswer } from '../web/webauthn'
 import type { WebAuthnRequest } from '../web/webauthn-request'
 import { pushUi } from '../ipc/push'
 import { CABLE_UUIDS } from '../web/hybrid/eid'
+import { openTunnel } from '../web/hybrid/tunnel'
 import { HybridSessions, type HybridHost, type HybridPrompt, type HybridTarget } from '../web/hybrid/session'
 
 const WIDTH = 400
@@ -102,6 +103,11 @@ export class PasskeyPrompt {
       found: (eid) => {
         // Development only. Neither the nonce nor any key is logged.
         if (!app.isPackaged) console.log(`Passkey: phone found (tunnel ${eid.tunnelDomain}, routing id ${eid.routingId.toString('hex')})`)
+      },
+      openTunnel,
+      // Development only: stages and failure reasons, no keys, no data.
+      log: (line) => {
+        if (!app.isPackaged) console.log(`Passkey: ${line}`)
       }
     }
   }

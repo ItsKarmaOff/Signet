@@ -88,8 +88,11 @@ export interface WebAppState {
   hue: number
 }
 
-/** Progress of a passkey request: waiting for the phone, a Bluetooth problem (`unsupported`: no scan on this system), or phone found. */
-export type PasskeyStatus = 'waiting' | 'off' | 'no-adapter' | 'denied' | 'error' | 'found' | 'unsupported'
+/**
+ * Progress of a passkey request: waiting for the phone, a Bluetooth problem (`unsupported`: no scan on this system), then
+ * phone found and connecting, confirming on the phone, or failed.
+ */
+export type PasskeyStatus = 'waiting' | 'off' | 'no-adapter' | 'denied' | 'error' | 'unsupported' | 'connecting' | 'confirm' | 'failed'
 
 /** What the `#passkey` window shows: a passkey request waiting for a phone (null: nothing, the window closes). */
 export interface PasskeyPromptState {

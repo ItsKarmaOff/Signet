@@ -1002,7 +1002,9 @@
       "no-adapter": "Aucun adaptateur Bluetooth trouvé sur cet ordinateur.",
       "denied": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
       "error": "Signet n’a pas accès au Bluetooth de cet ordinateur.",
-      "found": "Téléphone trouvé. Connexion…"
+      "connecting": "Téléphone trouvé. Connexion…",
+      "confirm": "Confirmez sur votre téléphone.",
+      "failed": "Connexion au téléphone impossible. Réessayez."
     }
   },
   "welcome": {

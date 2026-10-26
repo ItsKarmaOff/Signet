@@ -1,8 +1,10 @@
 import type { PasskeyPromptState, PasskeyStatus } from '@shared/types'
 import { NOT_ALLOWED_MESSAGE, type WebAuthnRequest } from '../webauthn-request'
 import type { WebAuthnAnswer } from '../webauthn'
+import { CtapFailure, parseCtapResponse, parseGetInfo, planCtap } from './ctap'
 import { decryptAdvert, type Eid } from './eid'
 import { generateQrKeys, qrText, type QrKeys } from './qr'
+import { TunnelError, type Tunnel, type TunnelOptions } from './tunnel'
 
 // "Hybrid" (caBLE v2) sessions: one at a time, owned by the main process. Pure module (no Electron): the window and the
 // tab watching are injected by `HybridHost`. Tested.
@@ -40,10 +42,17 @@ export interface HybridHost {
   status(status: PasskeyStatus): void
   /** The phone's advert was found and decrypted (development log). */
   found?(eid: Eid): void
+  /** Connects to the phone through the tunnel server (see tunnel.ts). */
+  openTunnel(options: TunnelOptions): Promise<Tunnel>
+  /** Development log of the stages and of why a request failed (never data or keys). */
+  log?(line: string): void
 }
 
 /** State of the Bluetooth scan, as the window shows it (`unsupported`: no scan on this system). */
-export type ScanState = Exclude<PasskeyStatus, 'found'>
+export type ScanState = Extract<PasskeyStatus, 'waiting' | 'off' | 'no-adapter' | 'denied' | 'error' | 'unsupported'>
+
+/** How long the "failed" status stays before the page gets its error. */
+export const FAILED_DELAY = 3000
 
 /** What the code window shows. */
 export type HybridPrompt = PasskeyPromptState
@@ -54,8 +63,8 @@ export const NOT_ALLOWED: WebAuthnAnswer = { error: { name: 'NotAllowedError', m
  * One request waiting for a phone. Holds the secrets of the session (identity private key, QR secret): they stay here, in
  * main memory. `end` resolves the answer once and cleans everything.
  *
- * The BLE scan reads the phone's advert with `keys.secret` (-> `eid`); the tunnel handshake to come uses
- * `eid` and `keys.ecdh`; success calls `end({ credential })`, a failure `end()`.
+ * The BLE scan reads the phone's advert with `keys.secret` (-> `eid`); the tunnel handshake uses `eid` and `keys.ecdh`;
+ * success calls `end({ credential })`, a failure shows "failed" for a moment, then `end({ error })`.
  */
 export class HybridSession {
   readonly keys: QrKeys
@@ -150,16 +159,55 @@ export class HybridSessions {
       if (!eid) return
       session.eid = eid
       stop()
-      this.setStatus(session, 'found')
       this.host.found?.(eid)
-      // Step to come: open the tunnel with `session.eid` (WebSocket to `eid.tunnelDomain`, routing id and nonce from the
-      // advert), run the Noise handshake with `session.keys.ecdh`, then CTAP2. Success: `session.end({ credential })`,
-      // failure: `session.end()`. The session stays open until then (cancel, timeout) as before.
+      void this.connect(session, eid)
     }
     stop = this.host.scan(found, (state) => {
       if (!session.eid) this.setStatus(session, state)
     })
     session.onCleanup(stop)
+  }
+
+  /** Tunnel, handshake, then the CTAP2 request; the session stays open until the answer, a failure, cancel or timeout. */
+  private async connect(session: HybridSession, eid: Eid): Promise<void> {
+    const log = (line: string): void => this.host.log?.(line)
+    const abort = new AbortController()
+    session.onCleanup(() => abort.abort())
+    this.setStatus(session, 'connecting')
+    try {
+      const tunnel = await this.host.openTunnel({
+        eid,
+        secret: session.keys.secret,
+        identity: session.keys.ecdh,
+        signal: abort.signal,
+        log
+      })
+      session.onCleanup(() => tunnel.close())
+      if (session.isEnded) return
+      this.setStatus(session, 'confirm')
+      const plan = planCtap(session.request, parseGetInfo(tunnel.getInfo))
+      if (plan.skipped.length) log(`ignored extensions: ${plan.skipped.join(', ')}`)
+      log(`sending ${plan.type === 'get' ? 'getAssertion' : 'makeCredential'}`)
+      const response = await tunnel.transact(plan.bytes, abort.signal)
+      const credential = parseCtapResponse(plan, response)
+      log('credential received')
+      session.end({ credential })
+    } catch (e) {
+      if (session.isEnded) return
+      this.fail(session, e)
+    }
+  }
+
+  /** Shows "failed" for a few seconds, then answers the page with the mapped error. */
+  private fail(session: HybridSession, e: unknown): void {
+    // Only our own errors carry a message that is safe to log (fixed texts, no data).
+    this.host.log?.(
+      e instanceof TunnelError ? `failed (${e.stage}): ${e.message}` : e instanceof CtapFailure ? `failed: ${e.reason}` : 'failed: unexpected error'
+    )
+    const answer: WebAuthnAnswer = e instanceof CtapFailure ? { error: e.error } : NOT_ALLOWED
+    this.setStatus(session, 'failed')
+    const timer = setTimeout(() => session.end(answer), FAILED_DELAY)
+    session.onCleanup(() => clearTimeout(timer))
   }
 
   private setStatus(session: HybridSession, status: PasskeyStatus): void {

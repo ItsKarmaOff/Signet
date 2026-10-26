@@ -1,9 +1,10 @@
 import { app, ipcMain, type WebContents, type WebFrameMain } from 'electron'
 import type { Browser } from '../browser/browser'
+import type { CredentialJson } from './hybrid/ctap'
 import { NOT_ALLOWED_MESSAGE, isWebAuthnError, validateWebAuthnRequest, type WebAuthnError, type WebAuthnRequest } from './webauthn-request'
 
-/** Answer sent to the page: an error (the page rejects with it); steps to come add the credential here. */
-export type WebAuthnAnswer = { error: WebAuthnError }
+/** Answer sent to the page: an error (the page rejects with it) or the credential from the phone (plain data, see hybrid/ctap.ts). */
+export type WebAuthnAnswer = { error: WebAuthnError } | { credential: CredentialJson }
 
 /** Only Linux has no passkey support to lose; elsewhere only on demand, in development (Windows Hello keeps working). */
 export function webauthnInterceptEnabled(): boolean {
@@ -12,8 +13,8 @@ export function webauthnInterceptEnabled(): boolean {
 
 /**
  * Answers a validated request: a conditional one stays pending in the page (no IPC), the others open a hybrid session
- * (QR code for a phone) that ends cancelled for now, so that sites fall back to other methods.
- * The next steps (BLE, tunnel) complete the session (see hybrid/session.ts).
+ * (QR code for a phone) that ends with the credential from the phone, or with an error so that sites fall back to other
+ * methods (see hybrid/session.ts).
  */
 export function answerWebAuthn(b: Browser, request: WebAuthnRequest, sender: WebContents, frame: WebFrameMain): Promise<WebAuthnAnswer> {
   if (request.mediation === 'conditional') return Promise.resolve({ error: { name: 'NotAllowedError', message: NOT_ALLOWED_MESSAGE } })

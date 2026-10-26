@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { WebAuthnRequest } from '../webauthn-request'
 import { createCipheriv, createHmac } from 'node:crypto'
+import { createHash } from 'node:crypto'
+import { encodeCbor, type CborValue } from './cbor'
+import { clientDataJson } from './ctap'
 import { eidKeys } from './eid'
-import { HybridSessions, hybridTimeout, type HybridHost, type HybridTarget, type ScanState } from './session'
+import { FAILED_DELAY, HybridSessions, hybridTimeout, type HybridHost, type HybridTarget, type ScanState } from './session'
+import type { Tunnel, TunnelOptions } from './tunnel'
 
 const request = (publicKey: Record<string, unknown> = {}, type: 'get' | 'create' = 'get'): WebAuthnRequest => ({
   type,
@@ -20,6 +24,9 @@ function makeHost() {
   const scans: { onData: (b: Uint8Array) => void; onState: (s: ScanState) => void; stopped: number }[] = []
   const statuses: string[] = []
   const found: unknown[] = []
+  const logs: string[] = []
+  /** Calls of openTunnel, to be answered by the test. */
+  const opens: { options: TunnelOptions; resolve: (t: Tunnel) => void; reject: (e: unknown) => void }[] = []
   const host: HybridHost = {
     render: (text) => Promise.resolve(`qr:${text}`),
     openWindow: (_t, cb) => {
@@ -37,9 +44,11 @@ function makeHost() {
       return () => scan.stopped++
     },
     status: (s) => statuses.push(s),
-    found: (e) => found.push(e)
+    found: (e) => found.push(e),
+    openTunnel: (options) => new Promise<Tunnel>((resolve, reject) => opens.push({ options, resolve, reject })),
+    log: (line) => logs.push(line)
   }
-  return { host, closed, onClosed, gone, unwatched, scans, statuses, found }
+  return { host, closed, onClosed, gone, unwatched, scans, statuses, found, logs, opens }
 }
 
 const NOT_ALLOWED = { error: { name: 'NotAllowedError', message: expect.stringContaining('timed out or was not allowed') } }
@@ -226,21 +235,23 @@ describe('HybridSessions', () => {
       expect(h.found).toEqual([])
     })
 
-    it('keeps the decrypted advert, stops the scan and shows the phone as found', async () => {
+    it('keeps the decrypted advert, stops the scan and starts connecting', async () => {
       const { h, sessions, session } = await open()
       h.scans[0]!.onData(advertFor(Buffer.alloc(16, 9)))
       h.scans[0]!.onData(advertFor(session.keys.secret, 1))
       expect(session.eid?.tunnelDomain).toBe('cable.auth.com')
       expect(session.eid?.routingId.toString('hex')).toBe('aabbcc')
       expect(h.scans[0]!.stopped).toBe(1)
-      expect(h.statuses).toEqual(['found'])
+      expect(h.statuses).toEqual(['connecting'])
       expect(h.found).toHaveLength(1)
-      expect(sessions.prompt()).toMatchObject({ status: 'found' })
+      expect(h.opens).toHaveLength(1)
+      expect(sessions.prompt()).toMatchObject({ status: 'connecting' })
       // The session stays open, and later adverts or scan states change nothing.
       h.scans[0]!.onData(advertFor(session.keys.secret, 0))
       h.scans[0]!.onState('error')
       expect(session.eid?.tunnelDomain).toBe('cable.auth.com')
-      expect(sessions.prompt()).toMatchObject({ status: 'found' })
+      expect(sessions.prompt()).toMatchObject({ status: 'connecting' })
+      expect(h.opens).toHaveLength(1)
       expect(h.closed).toEqual([false])
     })
 
@@ -261,6 +272,237 @@ describe('HybridSessions', () => {
       h.scans[0]!.onState('denied')
       h.scans[0]!.onData(Buffer.alloc(20))
       expect(h.statuses).toEqual([])
+    })
+  })
+
+  describe('tunnel and CTAP', () => {
+    const getInfo = encodeCbor(
+      new Map<CborValue, CborValue>([
+        [1, ['FIDO_2_0']],
+        [
+          4,
+          new Map<CborValue, CborValue>([
+            ['uv', true],
+            ['rk', true]
+          ])
+        ]
+      ])
+    )
+    const challenge = Buffer.alloc(32, 5)
+    const rpId = 'example.com'
+    const getRequest = (): WebAuthnRequest => ({
+      type: 'get',
+      rpId,
+      origin: `https://${rpId}`,
+      publicKey: { challenge: challenge.toString('base64url'), allowCredentials: [{ type: 'public-key', id: Buffer.alloc(8, 1).toString('base64url') }] }
+    })
+
+    const fakeTunnel = (transact: Tunnel['transact']) => {
+      const tunnel = { getInfo: Buffer.from(getInfo), transact: vi.fn(transact), close: vi.fn() }
+      return tunnel
+    }
+
+    /** A valid answer to the getAssertion request above. */
+    function assertion(auth = authenticatorData(rpId)): Buffer {
+      return Buffer.concat([
+        Buffer.of(0),
+        Buffer.from(
+          encodeCbor(
+            new Map<CborValue, CborValue>([
+              [2, new Uint8Array(auth)],
+              [3, Uint8Array.of(1, 2, 3)]
+            ])
+          )
+        )
+      ])
+    }
+    const authenticatorData = (id: string): Buffer => Buffer.concat([createHash('sha256').update(id).digest(), Buffer.of(0x05), Buffer.alloc(4)])
+
+    /** Session with the phone found and the tunnel being opened. */
+    async function connecting(req = getRequest()) {
+      const h = makeHost()
+      const sessions = new HybridSessions(h.host)
+      const answer = sessions.start(req, target())
+      await vi.advanceTimersByTimeAsync(0)
+      const session = (sessions as unknown as { current: { keys: { secret: Buffer } } }).current
+      h.scans[0]!.onData(advertFor(session.keys.secret, 0))
+      return { h, sessions, answer, session }
+    }
+
+    it('opens the tunnel with the advert, the QR secret and the identity key', async () => {
+      const { h, session } = await connecting()
+      expect(h.opens).toHaveLength(1)
+      const { options } = h.opens[0]!
+      expect(options.eid.tunnelDomain).toBe('cable.ua5v.com')
+      expect(options.secret).toBe(session.keys.secret)
+      expect(options.identity.getPublicKey().length).toBe(65)
+      expect(options.signal!.aborted).toBe(false)
+      expect(h.statuses).toEqual(['connecting'])
+    })
+
+    it('success: confirm on the phone, the CTAP request goes out, the credential ends the session', async () => {
+      const { h, sessions, answer } = await connecting()
+      const tunnel = fakeTunnel(() => Promise.resolve(assertion()))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(h.statuses).toEqual(['connecting', 'confirm'])
+      expect(tunnel.transact).toHaveBeenCalledTimes(1)
+      const sent = tunnel.transact.mock.calls[0]![0]
+      expect(sent[0]).toBe(0x02)
+      const result = await answer
+      expect(result).toMatchObject({
+        credential: { id: Buffer.alloc(8, 1).toString('base64url'), type: 'public-key', authenticatorAttachment: 'cross-platform' }
+      })
+      expect((result as { credential: { response: { clientDataJSON: string } } }).credential.response.clientDataJSON).toBe(
+        Buffer.from(clientDataJson('get', challenge, `https://${rpId}`)).toString('base64url')
+      )
+      // The window closes, the tunnel is closed, nothing is left running.
+      expect(h.closed).toEqual([true])
+      expect(tunnel.close).toHaveBeenCalled()
+      expect(sessions.prompt()).toBeNull()
+      expect(vi.getTimerCount()).toBe(0)
+      expect(h.scans[0]!.stopped).toBeGreaterThanOrEqual(1)
+    })
+
+    it('a registration works the same way', async () => {
+      const req = {
+        type: 'create' as const,
+        rpId,
+        origin: `https://${rpId}`,
+        publicKey: {
+          challenge: challenge.toString('base64url'),
+          rp: { name: 'Example' },
+          user: { id: 'AQID', name: 'a', displayName: 'A' },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }]
+        }
+      }
+      const { h, answer } = await connecting(req)
+      const tunnel = fakeTunnel(() => Promise.resolve(Buffer.of(0x19)))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(tunnel.transact.mock.calls[0]![0][0]).toBe(0x01)
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+      await expect(answer).resolves.toMatchObject({ error: { name: 'InvalidStateError' } })
+    })
+
+    it('a tunnel that cannot be opened: failed for 3 s, then NotAllowedError', async () => {
+      const { h, sessions, answer } = await connecting()
+      h.opens[0]!.reject(new Error('boom'))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(h.statuses).toEqual(['connecting', 'failed'])
+      expect(sessions.prompt()).toMatchObject({ status: 'failed' })
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY - 1)
+      expect(sessions.prompt()).not.toBeNull()
+      expect(h.closed).toEqual([false])
+      await vi.advanceTimersByTimeAsync(1)
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(h.closed).toEqual([true])
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('CTAP errors: excluded credential -> InvalidStateError, others -> NotAllowedError', async () => {
+      for (const [status, name] of [
+        [0x19, 'InvalidStateError'],
+        [0x2e, 'NotAllowedError'],
+        [0x27, 'NotAllowedError']
+      ] as const) {
+        const { h, answer } = await connecting()
+        h.opens[0]!.resolve(fakeTunnel(() => Promise.resolve(Buffer.of(status))))
+        await vi.advanceTimersByTimeAsync(0)
+        expect(h.statuses).toEqual(['connecting', 'confirm', 'failed'])
+        await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+        await expect(answer).resolves.toMatchObject({ error: { name } })
+      }
+    })
+
+    it('an invalid response (rpIdHash of another site) fails', async () => {
+      const { h, answer } = await connecting()
+      h.opens[0]!.resolve(fakeTunnel(() => Promise.resolve(assertion(authenticatorData('evil.example')))))
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(h.statuses).toEqual(['connecting', 'confirm', 'failed'])
+    })
+
+    it('a tunnel that fails while waiting for the phone fails the session', async () => {
+      const { h, answer } = await connecting()
+      const tunnel = fakeTunnel(() => Promise.reject(new Error('closed')))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(tunnel.close).toHaveBeenCalled()
+    })
+
+    it('a request the phone cannot be sent (no challenge) fails', async () => {
+      const { h, answer } = await connecting(request({}))
+      const tunnel = fakeTunnel(() => Promise.resolve(Buffer.of(0)))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(tunnel.transact).not.toHaveBeenCalled()
+    })
+
+    it('cancel while connecting aborts the tunnel and closes it if it opens late', async () => {
+      const { h, sessions, answer } = await connecting()
+      sessions.cancel()
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(h.opens[0]!.options.signal!.aborted).toBe(true)
+      const tunnel = fakeTunnel(() => Promise.resolve(assertion()))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(tunnel.transact).not.toHaveBeenCalled()
+      expect(tunnel.close).toHaveBeenCalled()
+      expect(h.statuses).toEqual(['connecting'])
+    })
+
+    it('cancel while confirming closes the tunnel and aborts the pending request', async () => {
+      const { h, sessions, answer } = await connecting()
+      let signal: AbortSignal | undefined
+      const tunnel = fakeTunnel((_req, s) => {
+        signal = s
+        return new Promise(() => {})
+      })
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(0)
+      expect(h.statuses).toEqual(['connecting', 'confirm'])
+      sessions.cancel()
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(tunnel.close).toHaveBeenCalledTimes(1)
+      expect(signal!.aborted).toBe(true)
+      expect(h.statuses).toEqual(['connecting', 'confirm'])
+    })
+
+    it('cancel while "failed" is shown ends at once', async () => {
+      const { h, sessions, answer } = await connecting()
+      h.opens[0]!.reject(new Error('boom'))
+      await vi.advanceTimersByTimeAsync(1000)
+      sessions.cancel()
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('the session timeout ends a request waiting for the phone', async () => {
+      const req = getRequest()
+      req.publicKey.timeout = 30_000
+      const { h, answer } = await connecting(req)
+      const tunnel = fakeTunnel(() => new Promise(() => {}))
+      h.opens[0]!.resolve(tunnel)
+      await vi.advanceTimersByTimeAsync(30_000)
+      await expect(answer).resolves.toEqual(NOT_ALLOWED)
+      expect(tunnel.close).toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+    })
+
+    it('logs stages without keys or data', async () => {
+      const { h, answer, session } = await connecting()
+      h.opens[0]!.options.log?.('tunnel: x')
+      h.opens[0]!.resolve(fakeTunnel(() => Promise.resolve(Buffer.of(0x2e))))
+      await vi.advanceTimersByTimeAsync(FAILED_DELAY)
+      await answer
+      const text = h.logs.join('\n')
+      expect(text).toContain('sending getAssertion')
+      expect(text).toContain('failed: CTAP status 0x2e')
+      expect(text).not.toContain(session.keys.secret.toString('hex'))
+      expect(text).not.toContain(challenge.toString('hex'))
     })
   })
 })

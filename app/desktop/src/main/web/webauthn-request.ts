@@ -2,7 +2,7 @@ import { parse } from 'tldts'
 
 // Validation of a WebAuthn request coming from a page, as a browser does it. Pure module (no Electron), tested.
 
-export type WebAuthnErrorName = 'NotAllowedError' | 'SecurityError' | 'TypeError'
+export type WebAuthnErrorName = 'NotAllowedError' | 'SecurityError' | 'TypeError' | 'InvalidStateError'
 export interface WebAuthnError {
   name: WebAuthnErrorName
   message: string

@@ -37,7 +37,7 @@ export function Passkey() {
         <h1>{t(`passkey.${kind}Title`)}</h1>
         <p className="wl-text">{prompt && t(`passkey.${kind}Text`, { site: prompt.rpId })}</p>
         <div className="dv-qr">{prompt && <img src={prompt.qr} alt={t('passkey.qrAlt')} draggable={false} />}</div>
-        <p className={`st-hint pk-hint${plain ? '' : status === 'found' ? ' pk-found' : ' pk-warn'}`} role="status">
+        <p className={`st-hint pk-hint${plain ? '' : status === 'connecting' || status === 'confirm' ? ' pk-found' : ' pk-warn'}`} role="status">
           {t(hint)}
         </p>
         <button className="st-btn pk-cancel" onClick={cancel} autoFocus>
