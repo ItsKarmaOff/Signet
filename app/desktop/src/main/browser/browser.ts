@@ -50,6 +50,7 @@ import { Broadcast, type Changed } from './broadcast'
 import { Floating } from './floating'
 import { FolderActions } from './folder-actions'
 import { GroupActions } from './group-actions'
+import { HtmlFullscreen } from './fullscreen'
 import { Layout } from './layout'
 import { Overlay } from './overlay'
 import { Peek } from './peek'
@@ -119,6 +120,7 @@ export class Browser {
   readonly sleep: TabSleep
   readonly floating: Floating
   readonly layout: Layout
+  readonly fullscreen: HtmlFullscreen
   readonly undo: Undo
   readonly overlay: Overlay
   readonly peek: Peek
@@ -181,6 +183,18 @@ export class Browser {
       changed
     })
     this.floating = new Floating({ store, window: this, changed, overlayOpen: () => this.overlay.open })
+    this.fullscreen = new HtmlFullscreen({
+      window: this,
+      shown: () => this.layout.shownTabs,
+      inMiniPlayer: (tabId) => this.pip.owns(tabId),
+      contentsOf: (tabId) => this.views.viewOf(tabId)?.webContents,
+      changed
+    })
+    this.fullscreen.onOther((tabId) => {
+      this.privates.refit(tabId)
+      this.webApps.refit(tabId)
+      this.little.refit(tabId)
+    })
     this.layout = new Layout({
       store,
       window: this,
@@ -198,7 +212,8 @@ export class Browser {
       media: this.media,
       permissions: this.permissions,
       siteColor: this.siteColor,
-      previews: this.previews
+      previews: this.previews,
+      fullscreen: this.fullscreen
     })
     this.undo = new Undo({ store, window: this, changed })
     this.overlay = new Overlay({
@@ -309,6 +324,7 @@ export class Browser {
       store,
       host: this,
       layout: this.layout,
+      fullscreen: this.fullscreen,
       overlay: this.overlay,
       compact: this.compact,
       find: this.find,

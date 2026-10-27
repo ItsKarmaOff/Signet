@@ -10,6 +10,7 @@ import { emulateLanguages } from '../web/languages'
 import { SLOW_PERSIST_MS, type Changed } from './broadcast'
 import type { Compact } from './compact'
 import type { FindBar } from './find'
+import type { HtmlFullscreen } from './fullscreen'
 import type { Floating } from './floating'
 import type { Layout } from './layout'
 import type { Media } from './media'
@@ -44,6 +45,7 @@ export interface MainWindowDeps {
   overlay: Pick<Overlay, 'create' | 'ensureLoaded' | 'reset' | 'destroyView'>
   compact: Pick<Compact, 'create' | 'destroy'>
   find: Pick<FindBar, 'create' | 'destroy'>
+  fullscreen: Pick<HtmlFullscreen, 'onWindowLeft' | 'reset'>
   floating: Pick<Floating, 'reset'>
   sleep: Pick<TabSleep, 'start' | 'stop'>
   views: Pick<Views, 'all' | 'destroyView'>
@@ -98,6 +100,8 @@ export class MainWindow {
       remember()
       store.schedule(SLOW_PERSIST_MS)
     })
+    // The user leaves system fullscreen (green button, shortcut) while a page is fullscreen: the page leaves it too.
+    win.on('leave-full-screen', () => this.d.fullscreen.onWindowLeft())
     win.on('closed', () => this.onClosed())
     // Leaving the window (other app, other desktop, other window) with a video playing: automatic mini player.
     win.on('blur', () => this.d.media.onWindowBlur())
@@ -160,6 +164,7 @@ export class MainWindow {
     const { store, host, views } = this.d
     host.win = null
     this.d.layout.onClosed()
+    this.d.fullscreen.reset()
     this.d.sleep.stop()
     for (const t of this.warmTimers) clearTimeout(t)
     this.warmTimers = []

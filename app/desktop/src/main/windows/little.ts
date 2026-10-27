@@ -2,6 +2,7 @@ import { BrowserWindow, type Rectangle, type WebContents, type WebContentsView }
 import { windowChrome } from '../app/platform'
 import type { LittleState } from '@shared/types'
 import type { Browser } from '../browser/browser'
+import { fitRect } from '../browser/fullscreen'
 import { newTab } from '../core/store'
 import { denyWindowOpen } from '../web/guard'
 import { loadRoute, preloadPath } from '../core/urls'
@@ -17,6 +18,8 @@ interface Entry {
   view: WebContentsView
   /** Last state sent to the bar (JSON): avoids sending the same one again. */
   lastSent: string
+  /** Places the page view (follows the window size and the page fullscreen). */
+  place?: () => void
 }
 
 /** Small windows to quickly open a link: a bar (route #little) and a detached tab. */
@@ -44,13 +47,16 @@ export class LittleWindows {
     this.last = win.getBounds()
 
     const view = this.b.views.ensureView(tab.id, win)
-    this.windows.set(win, { tabId: tab.id, view, lastSent: '' })
+    const entry: Entry = { tabId: tab.id, view, lastSent: '' }
+    this.windows.set(win, entry)
     win.contentView.addChildView(view)
     const place = () => {
       const { width, height } = win.getContentBounds()
-      view.setBorderRadius(12)
-      view.setBounds({ x: PAD, y: BAR, width: width - PAD * 2, height: height - BAR - PAD })
+      const full = this.b.fullscreen.isOther(tab.id)
+      view.setBorderRadius(full ? 0 : 12)
+      view.setBounds(fitRect(full, { width, height }, { x: PAD, y: BAR, width: width - PAD * 2, height: height - BAR - PAD }))
     }
+    entry.place = place
     place()
     win.on('resize', place)
 
@@ -74,6 +80,11 @@ export class LittleWindows {
     if (!win || !entry || win.webContents !== barre) return
     entry.lastSent = ''
     this.push(win)
+  }
+
+  /** A tab's page entered or left fullscreen. */
+  refit(tabId: string): void {
+    for (const e of this.windows.values()) if (e.tabId === tabId) e.place?.()
   }
 
   tabIdOf(win: BrowserWindow | null): string | null {
