@@ -22,6 +22,8 @@ import type { Views } from './views'
 import type { Floating } from './floating'
 import type { Changed } from './broadcast'
 import type { HtmlFullscreen } from './fullscreen'
+import { SLIDE_UI_LEAD_MS, slideAt, slideRect, slideState, type SlideMotion, type SlidePlan } from '@shared/slide'
+import { pushUi } from '../ipc/push'
 
 const PAD = 8
 /** Height of the panel bar, at the top of each card. */
@@ -99,6 +101,17 @@ export class Layout {
   shownTabs: string[] = []
   /** Transient width during a gesture (elastic effect at the limits): never written to the persisted state. */
   liveSidebarWidth: number | null = null
+  /**
+   * Sidebar slide in progress (shared/slide): the spring, and where the native pages are on it
+   * (1: shown, 0: hidden); null at rest. Meanwhile the layout is the one of the hidden sidebar; the
+   * pages take their final size at once and move with the bar's edge (slidRect).
+   */
+  slideMotion: SlideMotion | null = null
+  sidebarProgress: number | null = null
+  /** Views that follow the slide (pages, their devtools, find bar), with their laid-out rectangle. */
+  private slid: { view: WebContentsView; rect: Rect; radius?: number; keepWidth?: boolean }[] = []
+  /** Pages tinted with their site color during the slide (restored to white at rest). */
+  private tinted = new Set<WebContentsView>()
   private focusPending = false
   private findFocus = false
   /** Last `webContents` reported to extensions (null: unknown, to report again). */
@@ -180,6 +193,60 @@ export class Layout {
     if (radius !== undefined && last?.radius !== radius) view.setBorderRadius(radius)
     if (!last || last.rect.x !== rect.x || last.rect.y !== rect.y || last.rect.width !== rect.width || last.rect.height !== rect.height) view.setBounds(rect)
     this.applied.set(view, { rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height }, radius: radius ?? last?.radius ?? -1 })
+  }
+
+  /** The slide as sent to the main UI; null at rest. */
+  slidePlan(): SlidePlan | null {
+    const motion = this.slideMotion
+    if (!motion || this.sidebarProgress === null) return null
+    const { x, width } = this.contentArea
+    const bar = this.liveSidebarWidth ?? this.d.store.state.sidebarWidth
+    return { from: { x, width }, width: bar, gap: PAD, right: this.sidebarRight, motion }
+  }
+
+  private putSlid(view: WebContentsView, rect: Rect, radius?: number, keepWidth?: boolean): void {
+    this.slid.push({ view, rect, radius, keepWidth })
+    const plan = this.slidePlan()
+    this.put(view, plan && this.sidebarProgress !== null ? this.slidRect(rect, plan, this.sidebarProgress, keepWidth) : rect, radius)
+  }
+
+  /**
+   * A page during the slide: at its size with the sidebar shown, the narrower one, moved with the
+   * edge next to the sidebar. Resizing a page blocks main until it redraws, so it happens once: when
+   * an opening starts, when a closing ends. Narrower, it never runs past the window's margin; the
+   * card under it, stretched in the page's color, fills what it does not cover.
+   */
+  private slidRect(rect: Rect, plan: SlidePlan, p: number, keepWidth?: boolean): Rect {
+    const shown = slideAt(plan, 1)
+    const now = slideAt(plan, p)
+    const r = slideRect(rect, shown, keepWidth)
+    const shift = plan.right ? now.to.x + now.to.width - (shown.to.x + shown.to.width) : now.to.x - shown.to.x
+    return { ...r, x: r.x + shift }
+  }
+
+  /**
+   * A page that widens shows its view's background until Chromium draws the new width: during the
+   * slide that strip takes the site's color instead of white (the default of createTabView).
+   */
+  private tint(view: WebContentsView, tabId: string): void {
+    const color = this.sidebarProgress !== null ? this.d.store.state.tabs[tabId]?.themeColor : undefined
+    if (color) {
+      view.setBackgroundColor(color)
+      this.tinted.add(view)
+    } else if (this.tinted.delete(view)) view.setBackgroundColor('#ffffff')
+  }
+
+  /** One step of the slide at `now` (ms): moves the pages, sends the main UI its position; false once settled. */
+  stepSlide(now: number): boolean {
+    const plan = this.slidePlan()
+    if (!plan) return false
+    const { progress, done } = slideState(plan.motion, now)
+    this.sidebarProgress = progress
+    for (const { view, rect, radius, keepWidth } of this.slid) this.put(view, this.slidRect(rect, plan, progress, keepWidth), radius)
+    const win = this.d.window.win
+    const lead = plan.motion.target === 0 ? SLIDE_UI_LEAD_MS : 0
+    if (win && !win.isDestroyed()) pushUi(win.webContents, 'sidebar:slide', slideState(plan.motion, now + lead).progress)
+    return !done
   }
 
   /** Places or removes only the tab preview view (at the top of the stack), without redoing the layout or sending the state. */
@@ -278,8 +345,9 @@ export class Layout {
     const compactMode = this.d.store.state.settings.compactMode
     const { compact } = this.d
     const buttons = this.horizontal || this.sidebarRight ? !compactMode || compact.floating : this.sidebarOn || (compactMode && compact.floating)
-    // Traffic lights: Mac only (elsewhere, the system frame keeps its buttons).
-    if (IS_MAC && this.buttonsVisible !== buttons) {
+    // Traffic lights: Mac only (elsewhere, the system frame keeps its buttons). A closing slide hides
+    // them at once (before it starts moving); an opening one shows them once the bar has settled.
+    if (IS_MAC && this.buttonsVisible !== buttons && (this.sidebarProgress === null || !buttons)) {
       this.buttonsVisible = buttons
       win.setWindowButtonVisibility(buttons)
     }
@@ -301,7 +369,8 @@ export class Layout {
     if (compactMode) compact.create()
     floating.warm()
     const right = this.sidebarRight
-    const side = sidebarVisible ? sidebarWidth : PAD
+    // Slide: the geometry of the hidden sidebar, the pages placed by putSlid.
+    const side = sidebarVisible && this.sidebarProgress === null ? sidebarWidth : PAD
     const x0 = right ? PAD : side
     const top = this.horizontal ? TAB_BAR + TAB_BAR_GAP : PAD
     const area = compactMode
@@ -309,6 +378,12 @@ export class Layout {
       : { x: x0, y: top, width: W - PAD - side, height: H - top - PAD }
 
     this.contentArea = area
+    this.slid = []
+    // Back at rest: the pages tinted for the slide get their white background back.
+    if (this.sidebarProgress === null) {
+      for (const v of this.tinted) if (!v.webContents.isDestroyed()) v.setBackgroundColor('#ffffff')
+      this.tinted.clear()
+    }
     const ids = displayedTabIds(state, space)
     find.follow(space.activeTabId)
     const split = displayedSplit(state, space)
@@ -329,11 +404,12 @@ export class Layout {
       const rect = responsive?.frame ?? area
       // While the page is in the mini player, the main window does not display it.
       if (!owned) {
-        this.put(view, rect, 12)
+        this.tint(view, tabId)
+        this.putSlid(view, rect, 12)
         desired.push(view)
       } else this.applied.delete(view)
       if (tools) {
-        this.put(tools.view, tools.rect, 12)
+        this.putSlid(tools.view, tools.rect, 12)
         desired.push(tools.view)
       }
       const pane: Pane = { tabId, rect, card, focused: tabId === active }
@@ -344,7 +420,7 @@ export class Layout {
 
     const findPane = panes.find((p) => p.focused)
     if (find.isOpen && findPane && find.view) {
-      this.put(find.view, find.bounds(findPane.rect))
+      this.putSlid(find.view, find.bounds(findPane.rect), undefined, true)
       desired.push(find.view)
     }
     if ((floating.shown || floating.leaving) && !sidebarVisible && floating.sidebar) {

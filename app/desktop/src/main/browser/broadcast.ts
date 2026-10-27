@@ -80,7 +80,7 @@ export interface OverlaySurface {
 export interface BroadcastDeps {
   store: Store
   window: { readonly win: BrowserWindow | null }
-  layout: Pick<Layout, 'update' | 'panes' | 'dividers' | 'liveSidebarWidth' | 'shownTabs'>
+  layout: Pick<Layout, 'update' | 'panes' | 'dividers' | 'liveSidebarWidth' | 'sidebarProgress' | 'slidePlan' | 'shownTabs'>
   floating: Pick<Floating, 'shown' | 'leaving' | 'sidebar'>
   compact: Pick<Compact, 'floating' | 'leaving' | 'send'>
   media: Pick<Media, 'current'>
@@ -190,8 +190,10 @@ export class Broadcast {
       // Bookmarks of other spaces (potentially heavy) are not used by any view: only the active space's bar reads them.
       spaces: state.spaces.map((s) => (s.id === state.activeSpaceId || !s.bookmarks ? s : { ...s, bookmarks: undefined })),
       activeSpaceId: state.activeSpaceId,
-      sidebarVisible: sidebarOn,
+      // While it slides out, the sidebar stays rendered (moved by sidebarSlide).
+      sidebarVisible: sidebarOn || layout.sidebarProgress !== null,
       sidebarWidth: layout.liveSidebarWidth ?? state.sidebarWidth,
+      sidebarSlide: layout.slidePlan(),
       panes: layout.panes,
       settings: state.settings,
       downloads: state.downloads,
