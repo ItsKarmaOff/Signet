@@ -66,7 +66,7 @@ export function FloatingToolbar() {
   if (!s) return null
   return (
     <div className={`float-toolbar${on ? ' on' : ''}`}>
-      {s.settings.tabLayout === 'horizontal' ? <TabStrip s={s} floating /> : <Toolbar s={s} leading floating />}
+      {s.settings.tabLayout === 'horizontal' ? <TabStrip s={s} floating /> : <Toolbar s={s} leading={IS_MAC} sidebarToggle floating />}
     </div>
   )
 }
@@ -114,9 +114,11 @@ export function App() {
   const newTabKeys = shortcutLabel('newTab', s.settings.shortcuts, IS_MAC)
   const bookmarkKeys = shortcutLabel('bookmark', s.settings.shortcuts, IS_MAC)
   const right = !horizontal && s.settings.sidebarSide === 'right'
-  // Sidebar hidden or on the right: the top-left card carries the traffic lights (never with tabs on top).
-  const corner =
-    !horizontal && (!s.sidebarVisible || right) && !compact ? [...s.panes].sort((a, b) => a.card.y - b.card.y || a.card.x - b.card.x)[0] : undefined
+  // Sidebar on the right: the top-left card carries the traffic lights (Mac only; a hidden left sidebar hides them).
+  const corner = IS_MAC && right && !compact ? [...s.panes].sort((a, b) => a.card.y - b.card.y || a.card.x - b.card.x)[0] : undefined
+
+  // The sidebar toggle lives in the top-left pane's bar, sidebar shown or not (compact mode: the floating bar has it).
+  const first = !horizontal && !compact ? [...s.panes].sort((a, b) => a.card.y - b.card.y || a.card.x - b.card.x)[0] : undefined
 
   return (
     <div className={`app${s.overlayOpen ? ' covered' : ''}`}>
@@ -138,7 +140,14 @@ export function App() {
                 {/* Responsive mode: no overflow, it would show through the translucent background of the device area. */}
                 <div className="pane-fill" style={{ height: PANE_BAR + (bookmarks ? BOOKMARK_BAR : 0) + (p.responsive ? 0 : 12) }} />
                 <div className="pane-bar" style={{ height: PANE_BAR }}>
-                  <Toolbar s={s} tabId={p.tabId} leading={p === corner} narrow={p.card.width < 420} dim={s.panes.length > 1 && !p.focused} />
+                  <Toolbar
+                    s={s}
+                    tabId={p.tabId}
+                    leading={p === corner}
+                    sidebarToggle={p === first}
+                    narrow={p.card.width < 420}
+                    dim={s.panes.length > 1 && !p.focused}
+                  />
                 </div>
                 {bookmarks && (
                   <div className={`pane-bookmarks${s.panes.length > 1 && !p.focused ? ' dim' : ''}`} style={{ top: PANE_BAR, height: BOOKMARK_BAR }}>
