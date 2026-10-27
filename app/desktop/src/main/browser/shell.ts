@@ -1,3 +1,5 @@
+import { systemPreferences } from 'electron'
+import { IS_MAC } from '../app/platform'
 import { emulateLanguages } from '../web/languages'
 import type { Adblock } from '../web/adblock'
 import type { Store } from '../core/store'
@@ -11,6 +13,7 @@ import type { Floating } from './floating'
 import type { Layout } from './layout'
 import type { Overlay } from './overlay'
 import type { Views } from './views'
+import { slideState, type SlideMotion } from '@shared/slide'
 
 export interface ShellDeps {
   store: Store
@@ -18,14 +21,34 @@ export interface ShellDeps {
   floating: Pick<Floating, 'hide'>
   compact: Pick<Compact, 'hide'>
   overlay: Pick<Overlay, 'kind' | 'hide'>
-  layout: Pick<Layout, 'panes'> & { liveSidebarWidth: number | null }
+  layout: Pick<Layout, 'panes' | 'stepSlide'> & { liveSidebarWidth: number | null; sidebarProgress: number | null; slideMotion: SlideMotion | null }
   views: Pick<Views, 'all' | 'viewOf'>
   develop: Pick<Develop, 'reapplyAll'>
   adblock: Pick<Adblock, 'sync'>
 }
 
+/** Steps of the pages during the slide (ms): finer than the screen, the spring is read on the clock. */
+const SLIDE_STEP_MS = 8
+/**
+ * A slide from rest starts this much later (ms): the main UI must first receive and draw the new
+ * state; without it the pages would leave alone and the bar catch up.
+ */
+const SLIDE_START_DELAY_MS = 60
+/** Closing on a Mac also hides the traffic lights, which relays the window out first: a longer wait. */
+const SLIDE_CLOSE_DELAY_MS = 140
+
+const reducedMotion = (): boolean => {
+  try {
+    return systemPreferences.getAnimationSettings().prefersReducedMotion
+  } catch {
+    return false
+  }
+}
+
 /** Window look: sidebar (shown, width), compact mode, tab row on top, and a few settings toggles. */
 export class Shell {
+  private slideTimer: NodeJS.Timeout | null = null
+
   constructor(private readonly d: ShellDeps) {}
 
   /** ⌘S has no purpose when the tabs are on top. */
@@ -39,10 +62,42 @@ export class Shell {
       // ⌘S in compact mode: we leave the mode and the sidebar is shown.
       state.settings.compactMode = false
       state.sidebarVisible = true
+      this.stopSlide()
     } else {
       state.sidebarVisible = !state.sidebarVisible
+      this.startSlide(state.sidebarVisible)
     }
     this.d.changed()
+  }
+
+  /**
+   * Slides the sidebar toward shown or hidden, from where it is now with its speed: a toggle
+   * mid-slide turns back smoothly. Main moves the pages; the main UI reads the same spring.
+   */
+  private startSlide(show: boolean): void {
+    const { layout } = this.d
+    if (reducedMotion()) return this.stopSlide()
+    const now = Date.now()
+    const moving = layout.slideMotion
+    const current = moving ? slideState(moving, now) : { progress: show ? 0 : 1, velocity: 0 }
+    // Turning back mid-slide goes on at once (a pause would show); from rest, both sides start together.
+    const start = moving ? now : now + (!show && IS_MAC ? SLIDE_CLOSE_DELAY_MS : SLIDE_START_DELAY_MS)
+    layout.slideMotion = { start, from: current.progress, velocity: current.velocity, target: show ? 1 : 0 }
+    layout.sidebarProgress = current.progress
+    this.slideTimer ??= setInterval(() => {
+      if (layout.stepSlide(Date.now())) return
+      // Settled: final layout (pages' size, traffic lights).
+      this.stopSlide()
+      this.d.changed({ persist: false })
+    }, SLIDE_STEP_MS)
+  }
+
+  /** Ends the slide at once (the layout follows on the caller's next change). */
+  private stopSlide(): void {
+    if (this.slideTimer) clearInterval(this.slideTimer)
+    this.slideTimer = null
+    this.d.layout.slideMotion = null
+    this.d.layout.sidebarProgress = null
   }
 
   /** Switches between the sidebar and the tab row on top (⌃⇧S); no page is reloaded. */
@@ -51,6 +106,7 @@ export class Shell {
     if ((settings.tabLayout ?? 'vertical') === layout) return
     if (this.d.overlay.kind === 'popover') this.d.overlay.hide()
     settings.tabLayout = layout
+    this.stopSlide()
     this.d.floating.hide()
     this.d.compact.hide()
     this.d.changed()
@@ -65,6 +121,7 @@ export class Shell {
     const { settings } = this.d.store.state
     if (settings.compactMode === on) return
     settings.compactMode = on
+    this.stopSlide()
     this.d.floating.hide()
     this.d.compact.hide()
     this.d.changed()

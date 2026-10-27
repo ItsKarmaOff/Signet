@@ -16,6 +16,15 @@
 .drag-strip.short {
   left: var(--gap);
 }
+/* Sidebar slide (toggle): the fixed bar follows main's frames (variable set by App). */
+.sidebar:not(.floating) {
+  translate: var(--sidebar-slide, 0px) 0;
+}
+/* A resized page takes a few frames to draw at its new size: meanwhile the card under it shows the
+   page's own color (sampled at its top) rather than a white or empty strip. */
+.sliding .pane-shadow {
+  background: var(--bar-bg);
+}
 /* Hover strip on the left edge (sidebar hidden): no drag zone, otherwise no mouse events. */
 .rim-hover {
   position: absolute;
