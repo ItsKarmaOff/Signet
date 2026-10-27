@@ -23,6 +23,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import type { OverlayPayload, WebAppInfo, WebAppsInfo, WebAppState } from '@shared/types'
 import type { Browser } from '../browser/browser'
+import { fitRect } from '../browser/fullscreen'
 import { AtomicWriter } from '../core/atomic'
 import { newTab } from '../core/store'
 import { isIsolated, sessionFor } from '../web/profiles'
@@ -74,6 +75,8 @@ interface AppWindow {
   view: WebContentsView
   /** Last state sent to the bar (JSON). */
   lastSent: string
+  /** Places the page view (follows the window size and the page fullscreen). */
+  place?: () => void
 }
 
 /** What the page inspection found, while waiting for the overlay's answer. */
@@ -304,6 +307,11 @@ export class WebApps {
   private pending: (Proposal & { token: string; tabId: string }) | null = null
   private seq = 0
 
+  /** A tab's page entered or left fullscreen. */
+  refit(tabId: string): void {
+    this.owner.get(tabId)?.place?.()
+  }
+
   constructor(private b: Browser) {
     try {
       const raw = JSON.parse(readFileSync(this.file, 'utf8')) as { apps?: unknown }
@@ -430,8 +438,9 @@ export class WebApps {
     this.owner.set(tab.id, entry)
     const place = () => {
       const { width, height } = win.getContentBounds()
-      view.setBounds({ x: 0, y: WEBAPP_BAR, width, height: Math.max(0, height - WEBAPP_BAR) })
+      view.setBounds(fitRect(this.b.fullscreen.isOther(tab.id), { width, height }, { x: 0, y: WEBAPP_BAR, width, height: Math.max(0, height - WEBAPP_BAR) }))
     }
+    entry.place = place
     place()
     win.on('resize', place)
     const remember = () => {

@@ -21,6 +21,7 @@ import type { TabSleep } from './sleep'
 import type { Views } from './views'
 import type { Floating } from './floating'
 import type { Changed } from './broadcast'
+import type { HtmlFullscreen } from './fullscreen'
 
 const PAD = 8
 /** Height of the panel bar, at the top of each card. */
@@ -80,6 +81,7 @@ export interface LayoutDeps {
   permissions: Pick<Permissions, 'onLayout'>
   siteColor: Pick<SiteColor, 'onShown'>
   previews: Pick<TabPreviews, 'placed' | 'viewIfAny' | 'onShown'>
+  fullscreen: Pick<HtmlFullscreen, 'tabId' | 'onLayout'>
 }
 
 /**
@@ -385,10 +387,19 @@ export class Layout {
     }
     this.d.media.onLayout(ids)
     this.shownTabs = ids
+    this.d.fullscreen.onLayout(ids)
     this.d.sleep.trackHidden(ids)
     this.d.permissions.onLayout()
     this.d.siteColor.onShown(ids)
     previews.onShown(ids)
+    // Page fullscreen: only that tab's view, over the whole window; every other layer is out of the stack.
+    const fsId = this.d.fullscreen.tabId
+    const fsView = fsId && ids.includes(fsId) && !pip.owns(fsId) ? views.viewOf(fsId) : undefined
+    if (fsView) {
+      this.put(fsView, { x: 0, y: 0, width: W, height: H }, 0)
+      desired.length = 0
+      desired.push(fsView)
+    }
     this.setStack(win, desired)
     this.applyFocus(win, ids, peekView)
     devtools.afterLayout(ids)

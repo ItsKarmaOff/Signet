@@ -68,6 +68,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
   b.media.attach(tabId, wc)
   b.siteColor.attach(tabId, wc)
   b.devMode.attach(tabId, wc)
+  b.fullscreen.attach(tabId, wc)
   const info = () => b.store.state.tabs[tabId]
   // Private window tab: nothing in the history, its links stay in its window.
   const priv = b.privates.owns(tabId)
