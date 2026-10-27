@@ -713,6 +713,7 @@
     "reload": "Recharger",
     "secure": "Connexion sécurisée : informations sur le site",
     "showSidebar": "Afficher la barre latérale",
+    "hideSidebar": "Masquer la barre latérale",
     "stop": "Arrêter",
     "addBookmark": "Ajouter aux signets ({{keys}})",
     "removeBookmark": "Retirer des signets ({{keys}})",

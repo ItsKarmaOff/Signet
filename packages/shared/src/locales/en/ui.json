@@ -713,6 +713,7 @@
     "reload": "Reload",
     "secure": "Secure connection: site information",
     "showSidebar": "Show sidebar",
+    "hideSidebar": "Hide sidebar",
     "stop": "Stop",
     "addBookmark": "Bookmark this page ({{keys}})",
     "removeBookmark": "Remove bookmark ({{keys}})",
