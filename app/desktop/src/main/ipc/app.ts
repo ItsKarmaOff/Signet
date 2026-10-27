@@ -1,5 +1,6 @@
 import { BrowserWindow, Menu } from 'electron'
 import type { Browser } from '../browser/browser'
+import { guardMenu } from '../app/menuguard'
 import { currentLocale } from '../app/i18n'
 import { appearanceOf } from '../app/appearance'
 import { logUiError } from '../app/uilog'
@@ -18,6 +19,7 @@ export function registerAppIpc(b: Browser, { handle }: Registrar): void {
   )
   handle('showAppMenu', ({ sender }) => {
     const win = BrowserWindow.fromWebContents(sender) ?? b.win
-    Menu.getApplicationMenu()?.popup(win && !win.isDestroyed() ? { window: win } : undefined)
+    const menu = Menu.getApplicationMenu()
+    if (menu) guardMenu(menu).popup(win && !win.isDestroyed() ? { window: win } : undefined)
   })
 }

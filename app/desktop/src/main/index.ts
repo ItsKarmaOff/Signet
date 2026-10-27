@@ -8,6 +8,7 @@ import { broadcastLocale, onLocaleChange } from './app/i18n'
 import { applyTheme } from './app/appearance'
 import { startupLanguage } from './web/languages'
 import { registerInternalScheme } from './web/internal'
+import { initMenuGuard } from './app/menuguard'
 import { initQuit, isQuitHud } from './app/quit'
 import { guardUiViews } from './web/guard'
 import { LAUNCH_ARG } from './features/webapps'
@@ -40,6 +41,8 @@ if (!app.isPackaged) {
     console.warn(`[listeners]${where}\n${w.stack ?? w.message}`)
   })
 }
+// Escape closes an open native menu even if the OS did not give it the keyboard.
+initMenuGuard()
 // Quit confirmation: listens to the keys of all views as soon as they are created.
 initQuit(() => browser?.store.state.settings.confirmQuit !== false)
 const pendingUrls: string[] = []

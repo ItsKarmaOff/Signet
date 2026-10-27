@@ -1,3 +1,4 @@
+import { guardMenu } from './menuguard'
 import { Menu, MenuItem, nativeImage, type MenuItemConstructorOptions, type NativeImage } from 'electron'
 
 /**
@@ -121,7 +122,7 @@ export function alignIcons<T extends Entry>(items: T[]): T[] {
   })
 }
 
-/** Menu.buildFromTemplate, with aligned labels (see alignIcons). */
+/** Menu.buildFromTemplate, with aligned labels (see alignIcons) and Escape closing it (see menuguard). */
 export function buildMenu(items: Entry[]): Menu {
-  return Menu.buildFromTemplate(alignIcons(items))
+  return guardMenu(Menu.buildFromTemplate(alignIcons(items)))
 }
