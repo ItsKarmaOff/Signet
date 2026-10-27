@@ -1,6 +1,6 @@
 // Link with the phone (no account): glues together the service (service.ts), the mDNS announcement, dev server detection
 // and the UI (Settings › Devices, "Open on my phone" menus, toolbar indicator).
-import { app, Menu, safeStorage, webContents, type MenuItemConstructorOptions } from 'electron'
+import { app, safeStorage, webContents, type MenuItemConstructorOptions } from 'electron'
 import { hostname } from 'node:os'
 import { join } from 'node:path'
 import QRCode from 'qrcode'
@@ -9,7 +9,7 @@ import type { LinkDevice } from '@signet/shared/link/protocol'
 import type { LinkState } from '@shared/types'
 import type { Browser } from '../../browser/browser'
 import { isUiContents, t } from '../../app/i18n'
-import { menuIcon } from '../../app/menuicons'
+import { buildMenu, menuIcon } from '../../app/menuicons'
 import { pushUi } from '../../ipc/push'
 import { Discovery } from './discovery'
 import { DevServerScanner } from './devservers'
@@ -218,7 +218,7 @@ export class Link {
     const targets = this.targets()
     if (targets.length === 1) this.openOnPhone(tabId, targets[0]!.linkId)
     else if (targets.length > 1)
-      Menu.buildFromTemplate(targets.map((d) => ({ label: d.name, click: () => this.openOnPhone(tabId, d.linkId) }))).popup({ window: this.b.win ?? undefined })
+      buildMenu(targets.map((d) => ({ label: d.name, click: () => this.openOnPhone(tabId, d.linkId) }))).popup({ window: this.b.win ?? undefined })
   }
 
   /** "Open on my phone" menu entry (none if no phone is active or the page cannot be sent). */
