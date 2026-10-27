@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Globe, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { Bookmark } from '@shared/types'
+import type { Bookmark, Pane, Rect, Snapshot } from '@shared/types'
+import { slideAt, slideRect, type SidebarSlide } from '@shared/slide'
 import { Dividers } from './tabs/Dividers'
 import { DevToolsCard } from './devtools/DevToolsCard'
 import { ResponsiveFrame } from './devtools/Responsive'
@@ -86,14 +87,76 @@ function FocusRing({ id, card }: { id: string; card: { x: number; y: number; wid
   )
 }
 
+/** The fixed sidebar's shift goes through a CSS variable (styles/layout.css): no sidebar render per frame. */
+function setSidebarShift(slide: SidebarSlide | null): void {
+  const root = document.documentElement
+  root.style.setProperty('--sidebar-slide', `${slide?.sidebar ?? 0}px`)
+  root.classList.toggle('sliding', slide !== null)
+}
+
+/** Sidebar slide (toggle): the geometry comes with the state, each step's position from main (shared/slide). */
+function useSidebarSlide(s: Snapshot | null): SidebarSlide | null {
+  const plan = s?.sidebarSlide ?? null
+  const [progress, setProgress] = useState<number | null>(null)
+  useEffect(() => window.signet.onSidebarSlide(setProgress), [])
+  const slide = plan ? slideAt(plan, progress ?? plan.motion.from) : null
+  useLayoutEffect(() => setSidebarShift(slide), [slide])
+  return slide
+}
+
+/** Two states equal for the sidebar: same values one level down (the state is rebuilt on each send). */
+function sameForSidebar(a: { s: Snapshot }, b: { s: Snapshot }): boolean {
+  if (a.s === b.s) return true
+  // Only the main UI's page chrome reads these; the sidebar's slide goes through a CSS variable.
+  const skip = new Set<string>(['sidebarSlide', 'panes', 'dividers', 'overlayOpen'])
+  const x = a.s as unknown as Record<string, unknown>
+  const y = b.s as unknown as Record<string, unknown>
+  const keys = new Set([...Object.keys(x), ...Object.keys(y)])
+  for (const k of keys) {
+    if (skip.has(k) || x[k] === y[k]) continue
+    const u = x[k]
+    const v = y[k]
+    if (Array.isArray(u) && Array.isArray(v)) {
+      if (u.length !== v.length || u.some((e, i) => e !== v[i])) return false
+    } else if (u && v && typeof u === 'object' && typeof v === 'object') {
+      const uk = Object.keys(u)
+      const vo = v as Record<string, unknown>
+      if (uk.length !== Object.keys(vo).length || uk.some((key) => (u as Record<string, unknown>)[key] !== vo[key])) return false
+    } else return false
+  }
+  return true
+}
+
+/**
+ * The page chrome (cards, dividers) stretched into the space the bar leaves on this step of the slide.
+ * The native pages under it already have their final size and only move: the card, in the page's
+ * color, fills the rest.
+ */
+function stretched(s: Snapshot, slide: SidebarSlide | null): Snapshot {
+  if (!slide) return s
+  const r = <R extends Rect>(x: R): R => slideRect(x, slide)
+  const pane = (p: Pane): Pane => ({
+    ...p,
+    rect: r(p.rect),
+    card: r(p.card),
+    ...(p.devtools && { devtools: { ...p.devtools, card: r(p.devtools.card), rect: r(p.devtools.rect), divider: r(p.devtools.divider) } }),
+    ...(p.responsive && { responsive: { ...p.responsive, bar: r(p.responsive.bar), area: r(p.responsive.area) } })
+  })
+  return { ...s, panes: s.panes.map(pane), dividers: s.dividers.map((d) => ({ ...d, rect: r(d.rect) })) }
+}
+
+/** The slide steps do not redraw the sidebar, nor a new state that changes nothing it shows. */
+const FixedSidebar = memo(Sidebar, sameForSidebar)
+
 /** Main window: sidebar, toolbar, focus ring, empty state. */
 const EMPTY_BOOKMARKS: Bookmark[] = []
 
 export function App() {
   const { t } = useTranslation()
-  const s = useSnapshot()
-  const space = s?.spaces.find((x) => x.id === s.activeSpaceId) ?? s?.spaces[0]
+  const snap = useSnapshot()
+  const space = snap?.spaces.find((x) => x.id === snap.activeSpaceId) ?? snap?.spaces[0]
   useSpaceTheme(space)
+  const slide = useSidebarSlide(snap)
   // ⌘L: the main process asks where the visible address field is (active pane's bar); without it, the command bar stays centered.
   useEffect(
     () =>
@@ -103,7 +166,8 @@ export function App() {
       }),
     []
   )
-  if (!s) return null
+  if (!snap) return null
+  const s = stretched(snap, slide)
 
   const left = s.sidebarVisible ? s.sidebarWidth : 0
   const ring = s.panes.length > 1 ? s.panes.find((p) => p.focused) : undefined
@@ -128,7 +192,7 @@ export function App() {
         <div className="top-hover" onMouseEnter={() => window.signet.setToolbarHover(true)} onMouseLeave={() => window.signet.setToolbarHover(false)} />
       )}
       {!s.sidebarVisible && !horizontal && <div className={`rim-hover${right ? ' right' : ''}`} onMouseEnter={() => window.signet.setSidebarHover(true)} />}
-      {s.sidebarVisible && <Sidebar s={s} />}
+      {s.sidebarVisible && <FixedSidebar s={snap} />}
       {s.panes.map((p) => (
         <Fragment key={p.tabId}>
           <div

@@ -1,5 +1,6 @@
 import type { Divider, DownloadInfo, Settings, Space, TabInfo } from '@signet/shared/types'
 import type { MediaInfo, Pane } from './tabs'
+import type { SlidePlan } from '../slide'
 
 /** Everything the main window needs to render itself. Pushed on the `state` channel. */
 export interface Snapshot {
@@ -9,6 +10,8 @@ export interface Snapshot {
   activeSpaceId: string
   sidebarVisible: boolean
   sidebarWidth: number
+  /** Sidebar slide in progress, played by the main UI (see shared/slide); null or absent at rest. */
+  sidebarSlide?: SlidePlan | null
   /** Areas occupied by the displayed web views, in window coordinates. */
   panes: Pane[]
   settings: Settings
