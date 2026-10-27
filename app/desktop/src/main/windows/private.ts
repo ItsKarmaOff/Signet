@@ -13,7 +13,7 @@ import { t } from '../app/i18n'
 import { pushUi } from '../ipc/push'
 
 const CASCADE = 24
-const PAD = 8
+const PAD = 6
 /** Tabs on top: tab row (40 px) and gap with the card. */
 const TOP = 44
 /** Address bar, at the top of the card. */

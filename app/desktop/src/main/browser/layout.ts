@@ -25,7 +25,7 @@ import type { HtmlFullscreen } from './fullscreen'
 import { SLIDE_UI_LEAD_MS, slideAt, slideRect, slideState, type SlideMotion, type SlidePlan } from '@shared/slide'
 import { pushUi } from '../ipc/push'
 
-const PAD = 8
+const PAD = 6
 /** Height of the panel bar, at the top of each card. */
 export const PANE_BAR = 40
 /** Height of the tab bar (`horizontal` layout) and gap between it and the cards. */

@@ -10,7 +10,7 @@ import { pushUi } from '../ipc/push'
 
 const CASCADE = 24
 /** Margin around the card + the card's bar (like PANE_BAR). */
-const PAD = 8
+const PAD = 6
 const BAR = PAD + 40
 
 interface Entry {
