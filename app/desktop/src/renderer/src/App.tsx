@@ -156,8 +156,8 @@ export function App() {
         <div
           className={`empty${s.settings.compactMode ? ' compact' : ''}`}
           style={{
-            left: s.sidebarVisible && !right ? left : compact ? 6 : 8,
-            right: s.sidebarVisible && right ? left : compact ? 6 : 8,
+            left: s.sidebarVisible && !right ? left : 6,
+            right: s.sidebarVisible && right ? left : 6,
             ...(horizontal && !compact ? { top: 44 } : undefined)
           }}
         >
