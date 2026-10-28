@@ -21,6 +21,8 @@ export function registerPageIpc(b: Browser): void {
   b.notes.registerIpc()
   // Passwords page script: main checks the tab and the frame's origin.
   b.passwords.registerPageIpc()
+  // Extension pages calling the APIs Signet adds (proxy, privacy, alarms): sender checked in the router.
+  b.extensions.registerPageIpc()
   // Passkey requests (WebAuthn page script): validated and answered in main.
   registerWebAuthnIpc(b)
 }

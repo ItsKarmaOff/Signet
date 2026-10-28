@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { barStyle, domainOf, isSecure, languageName, luminance, share, themeBackground } from './util'
+import { badgeColors, barStyle, domainOf, isSecure, languageName, luminance, share, themeBackground } from './util'
 
 describe('domainOf', () => {
   it('strips www. and keeps the hostname', () => {
@@ -254,5 +254,23 @@ describe('shortcut / wantsNewTab depending on the system', () => {
     expect(win.wantsNewTab({ metaKey: false, ctrlKey: true, button: 0 })).toBe(true)
     expect(win.wantsNewTab({ metaKey: true, ctrlKey: false, button: 0 })).toBe(false)
     expect(win.wantsNewTab({ metaKey: false, ctrlKey: false, button: 1 })).toBe(true)
+  })
+})
+
+describe('badgeColors', () => {
+  it('picks dark text on a light background and white text on a dark one', () => {
+    expect(badgeColors('#4fd18b')).toEqual({ backgroundColor: '#4fd18b', color: 'rgb(0 0 0 / .85)' })
+    expect(badgeColors('#d32f2f')).toEqual({ backgroundColor: '#d32f2f', color: '#fff' })
+  })
+
+  it("reads Chrome's [r, g, b, a] arrays, short hex and rgb()", () => {
+    expect(badgeColors([0, 0, 0, 255])?.color).toBe('#fff')
+    expect(badgeColors('#fff')).toEqual({ backgroundColor: '#ffffff', color: 'rgb(0 0 0 / .85)' })
+    expect(badgeColors('rgba(255, 255, 0, 1)')?.color).toBe('rgb(0 0 0 / .85)')
+  })
+
+  it('ignores unreadable colors (the stylesheet fallback applies)', () => {
+    expect(badgeColors(undefined)).toBeUndefined()
+    expect(badgeColors('green')).toBeUndefined()
   })
 })

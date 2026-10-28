@@ -67,8 +67,8 @@ describe('IPC registration', () => {
         .filter((d) => d.kind === 'invoke')
         .map((d) => d.channel),
       ...Object.values(PIP_IPC).map((d) => d.channel),
-      // Web pages: swipe and forms (ipc/page.ts); notes and passwords register themselves (see below).
-      ...Object.keys(PAGE_IPC).filter((c) => !/^(pw|notes):/.test(c))
+      // Web pages: swipe and forms (ipc/page.ts); notes, passwords and extension APIs register themselves (see below and apis/router.test.ts).
+      ...Object.keys(PAGE_IPC).filter((c) => !/^(pw|notes):|^signet-crx$/.test(c))
     ]
     const dupes = ipc.registrations.filter((c, i) => ipc.registrations.indexOf(c) !== i)
     expect(dupes).toEqual([])

@@ -397,5 +397,7 @@ export const PAGE_IPC = {
   'notes:appearance': 'invoke',
   'notes:load': 'invoke',
   'notes:save': 'invoke',
-  'notes:remove': 'invoke'
+  'notes:remove': 'invoke',
+  // Extension API calls (src/preload/extension-apis.ts); handled by features/extensions/apis/router.ts, which checks the sender.
+  'signet-crx': 'invoke'
 } as const satisfies Record<string, 'invoke' | 'send'>

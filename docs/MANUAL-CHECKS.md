@@ -48,6 +48,19 @@ What could not be tested automatically: it needs a real mouse, a real trackpad, 
 - [ ] Play a YouTube video, then switch tabs: the mini player shows up; it can be moved and resized with the mouse.
 - [ ] Drag a pinned extension button in the toolbar to change its place; a click still opens the extension's window.
 
+## Extension APIs (NordVPN: proxy, privacy, alarms)
+
+- [ ] Install NordVPN from the Chrome Web Store: it installs; Settings › Extensions lists it. In `chrome://extensions` style inspection of its service worker (or the terminal), `[signet] extension APIs installed: proxy, privacy, alarms` shows and there is no "Unknown Extension API" nor "Failed to start worker".
+- [ ] Open its popup and sign in; connect to a server: an IP-check site (for example ifconfig.me) shows the VPN address in a tab of the default space.
+- [ ] The same in a tab of an isolated space: it also goes through the VPN. A private window stays direct.
+- [ ] Disconnect: the IP check shows your real address again (system proxy restored).
+- [ ] Connect, quit and relaunch Signet: still connected (the proxy is applied again once the extension loads). Remove the extension while connected: the real address is back at once.
+- [ ] While connected, a WebRTC leak test (browserleaks.com/webrtc) shows no local or public address that bypasses the VPN.
+- [ ] Terminal shows `[extension-apis] <id> offscreen document created: chrome-extension://<id>/offscreen-chromium.html`, and no offscreen window or tab appears anywhere.
+- [ ] When connecting, the terminal shows `proxy auth requested by <host>:<port>` then `proxy auth answered: credentials supplied`, and pages load through the VPN.
+- [ ] Let the extension open and close a tab by itself (sign-in), then click its toolbar button: its popup still opens (no "Unable to get active tab").
+- [ ] Its alarms keep running: leave it connected several minutes; no error in the worker console.
+
 ## Passkeys from a phone (Linux; macOS in development with `SIGNET_WEBAUTHN_INTERCEPT=1`)
 
 - [ ] On webauthn.io, "Register": the "Passkey" window opens with a QR code; "Cancel", Esc and closing the window hand control back to the site (error).
