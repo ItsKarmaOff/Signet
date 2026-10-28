@@ -4,6 +4,7 @@ import type { Rect } from '@shared/types'
 import { randomUUID } from 'node:crypto'
 import type { PrivateState } from '@shared/types'
 import type { Browser } from '../browser/browser'
+import { fitRect } from '../browser/fullscreen'
 import { configurePrivateSession, releasePrivateSession } from '../web/profiles'
 import { newTab } from '../core/store'
 import { denyWindowOpen } from '../web/guard'
@@ -12,7 +13,7 @@ import { t } from '../app/i18n'
 import { pushUi } from '../ipc/push'
 
 const CASCADE = 24
-const PAD = 8
+const PAD = 6
 /** Tabs on top: tab row (40 px) and gap with the card. */
 const TOP = 44
 /** Address bar, at the top of the card. */
@@ -330,8 +331,15 @@ export class PrivateWindows {
     if (!pw.shown || pw.win.isDestroyed()) return
     const { width, height } = pw.win.getContentBounds()
     const card = this.card(width, height)
-    pw.shown.setBorderRadius(12)
-    pw.shown.setBounds({ x: card.x, y: card.y + BAR, width: Math.max(0, card.width), height: Math.max(0, card.height - BAR) })
+    const full = !!pw.active && this.b.fullscreen.isOther(pw.active)
+    pw.shown.setBorderRadius(full ? 0 : 12)
+    pw.shown.setBounds(fitRect(full, { width, height }, { x: card.x, y: card.y + BAR, width: Math.max(0, card.width), height: Math.max(0, card.height - BAR) }))
+  }
+
+  /** A tab's page entered or left fullscreen: its window places the view again. */
+  refit(tabId: string): void {
+    const pw = this.owner.get(tabId)
+    if (pw && pw.active === tabId) this.place(pw)
   }
 
   /** State requested by the bar at startup. */

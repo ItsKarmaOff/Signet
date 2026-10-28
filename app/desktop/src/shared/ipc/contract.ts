@@ -82,6 +82,7 @@ export const IPC = {
   onStatePatch: event('state:patch'),
   onPendingSpace: event('space:pending'),
   onEditAddressRequest: event('palette:edit-url-request'),
+  onSidebarSlide: event('sidebar:slide'),
   getLocale: invoke('locale:get', []),
   onLocale: event('locale'),
   getAppearance: invoke('appearance:get', []),

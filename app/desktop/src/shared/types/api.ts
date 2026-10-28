@@ -36,6 +36,8 @@ export interface SignetApi {
   getState(): Promise<Snapshot>
   onState(cb: (s: Snapshot) => void): () => void
   onStatePatch(cb: (p: StatePatch) => void): () => void
+  /** One step of the sidebar slide: where the bar and the page chrome go (1 shown, 0 hidden). */
+  onSidebarSlide(cb: (progress: number) => void): () => void
   /** Hint from main: a space is being chosen elsewhere (overlay popover). */
   onPendingSpace(cb: (spaceId: string) => void): () => void
   /** ⌘L: main asks for the address field's rectangle; the answer goes through `openPalette('edit-url', rect)`. */

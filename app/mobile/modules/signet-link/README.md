@@ -1,50 +1,50 @@
-# signet-link (module natif)
+# signet-link (native module)
 
-Transport du lien téléphone ↔ ordinateur. Protocole et règles : `packages/shared/src/link/README.md`. Interface JS :
-`src/SignetLinkModule.ts` (c'est le contrat : iOS et Android l'implémentent à l'identique).
+Transport for the phone ↔ computer link. Protocol and rules: `packages/shared/src/link/README.md`. JS interface:
+`src/SignetLinkModule.ts` (this is the contract: iOS and Android implement it identically).
 
-## Sockets TLS épinglées (`open`, `writeLine`, `close`, `onSocketLine`, `onSocketClosed`)
+## Pinned TLS sockets (`open`, `writeLine`, `close`, `onSocketLine`, `onSocketClosed`)
 
-- TLS 1.2+ vers `host:port`, SNI = `serverName`. La vérification standard est **remplacée** par : SHA-256 du certificat feuille (DER)
-  en base64url == `certSha256`. Sinon : rejet `pin-mismatch`.
-  - iOS : Network.framework, `NWProtocolTLS.Options` + `sec_protocol_options_set_verify_block` + `sec_protocol_options_set_tls_server_name`.
-  - Android : `SSLSocket` (SSLContext avec un X509TrustManager qui compare l'empreinte), SNI via `SSLParameters.serverNames`.
-- `open` résout après la poignée de main ; rejette (`timeout`, `refused`, `unreachable`, `pin-mismatch`, `tls`) sinon.
-- Lecture par lignes (`\n`), UTF-8 ; une ligne de plus de 64 Kio ferme la socket (`line-too-long`).
-- `onSocketClosed` est émis une seule fois par socket, avec `error` sauf fermeture normale ou `close()`.
-- Tout le réseau hors du fil principal ; événements émis vers JS sans bloquer.
+- TLS 1.2+ to `host:port`, SNI = `serverName`. Standard verification is **replaced** by: SHA-256 of the leaf certificate (DER)
+  in base64url == `certSha256`. Otherwise: rejected with `pin-mismatch`.
+  - iOS: Network.framework, `NWProtocolTLS.Options` + `sec_protocol_options_set_verify_block` + `sec_protocol_options_set_tls_server_name`.
+  - Android: `SSLSocket` (SSLContext with an X509TrustManager that compares the fingerprint), SNI via `SSLParameters.serverNames`.
+- `open` resolves after the handshake; rejects (`timeout`, `refused`, `unreachable`, `pin-mismatch`, `tls`) otherwise.
+- Reads line by line (`\n`), UTF-8; a line longer than 64 KiB closes the socket (`line-too-long`).
+- `onSocketClosed` is emitted only once per socket, with `error` except on a normal close or `close()`.
+- All networking off the main thread; events emitted to JS without blocking.
 
 ## mDNS (`startBrowsing`, `stopBrowsing`, `onServiceFound`, `onServiceLost`)
 
-- Type `_signet._tcp`, domaine `local.`. Pour chaque service : résoudre adresses + port + TXT (`v`, `id`).
-- iOS : `NWBrowser` (bonjourWithTXTRecord) puis résolution (NWConnection vers l'endpoint du service, ou `NetService`), Info.plist
-  `NSBonjourServices` et `NSLocalNetworkUsageDescription` (déjà dans app.json). La première recherche déclenche l'alerte « Réseau local ».
-- Android : `NsdManager` (discoverServices + resolveService / registerServiceInfoCallback sur API 34+), `WifiManager.MulticastLock`
-  pendant la recherche.
+- Type `_signet._tcp`, domain `local.`. For each service: resolve addresses + port + TXT (`v`, `id`).
+- iOS: `NWBrowser` (bonjourWithTXTRecord) then resolution (NWConnection to the service endpoint, or `NetService`), Info.plist
+  `NSBonjourServices` and `NSLocalNetworkUsageDescription` (already in app.json). The first search triggers the "Local Network" alert.
+- Android: `NsdManager` (discoverServices + resolveService / registerServiceInfoCallback on API 34+), `WifiManager.MulticastLock`
+  during the search.
 
-## Relais localhost (`setLocalhostRoute`, `attachToWebView`, `isLocalhostRoutingSupported`, `onTunnelError`)
+## Localhost relay (`setLocalhostRoute`, `attachToWebView`, `isLocalhostRoutingSupported`, `onTunnelError`)
 
-Ouvrir le tunnel (commun) : socket épinglée vers le premier endpoint de la route qui répond (`endpoints`, dans l'ordre ; retenir celui
-qui a marché), ligne `{"type":"hello","v":1,"linkId","token","role":"tunnel","port":PORT}`, attendre une ligne. `{"type":"ok"}` →
-relayer les octets. Sinon, répondre `HTTP/1.1 502 Bad Gateway` avec une petite page texte, et émettre `onTunnelError { port, code }`.
+Opening the tunnel (shared): pinned socket to the first endpoint of the route that answers (`endpoints`, in order; remember the one
+that worked), line `{"type":"hello","v":1,"linkId","token","role":"tunnel","port":PORT}`, wait for one line. `{"type":"ok"}` →
+relay the bytes. Otherwise, answer `HTTP/1.1 502 Bad Gateway` with a small text page, and emit `onTunnelError { port, code }`.
 
-### iOS : ports miroirs
+### iOS: mirror ports
 
-**Sur un vrai iPhone, iOS n'envoie jamais `localhost` à un proxy** (`WKWebsiteDataStore.proxyConfigurations` est ignoré pour lui ;
-vérifié sur un iPhone sous iOS 27 : `example.com` arrive au proxy, `localhost` jamais). Le simulateur, qui utilise le réseau du Mac,
-le fait : il ne prouve donc rien pour ce cas.
+**On a real iPhone, iOS never sends `localhost` to a proxy** (`WKWebsiteDataStore.proxyConfigurations` is ignored for it;
+checked on an iPhone running iOS 27: `example.com` reaches the proxy, `localhost` never does). The simulator, which uses the Mac's network,
+does it: so it proves nothing for this case.
 
-Le module écoute donc lui-même sur le localhost du téléphone (`127.0.0.1` et `::1`), aux ports `route.ports` (tous les ports qui
-écoutent sur l'ordinateur, plus ceux ouverts à la main), et passe chaque connexion telle quelle dans un tunnel vers le même port de
-l'ordinateur. Le WebView ouvre `http://localhost:5173` sans rien savoir : origine `localhost`, contexte sûr, WebSocket, appels vers
-d'autres ports (API) compris, onglets privés aussi (`attachToWebView` ne fait rien). Un port déjà pris sur le téléphone est ignoré.
-Les écoutes sont relancées au retour au premier plan (iOS peut les reprendre pendant la mise en veille). Dans le simulateur, rien
-n'est relayé : il partage le localhost du Mac (le relais s'y rappellerait lui-même) et `localhost` y mène déjà à l'ordinateur.
-Journal : sous-système `dev.signet.link`, ou sortie standard avec `SIGNET_LINK_DEBUG=1`
+So the module listens itself on the phone's localhost (`127.0.0.1` and `::1`), on the ports in `route.ports` (all the ports that
+listen on the computer, plus those opened by hand), and passes each connection as is through a tunnel to the same port on
+the computer. The WebView opens `http://localhost:5173` without knowing anything: `localhost` origin, secure context, WebSocket, calls to
+other ports (API) included, private tabs too (`attachToWebView` does nothing). A port already taken on the phone is ignored.
+The listeners are restarted when the app comes back to the foreground (iOS can reclaim them during sleep). In the simulator, nothing
+is relayed: it shares the Mac's localhost (the relay would call itself) and `localhost` there already leads to the computer.
+Log: subsystem `dev.signet.link`, or standard output with `SIGNET_LINK_DEBUG=1`
 (`DEVICECTL_CHILD_SIGNET_LINK_DEBUG=1 xcrun devicectl device process launch --console --device <udid> dev.signet.mobile`).
 
-### Android : ports miroirs aussi (jamais testé sur un appareil)
+### Android: mirror ports too (never tested on a device)
 
-Même principe qu'iOS : un `ServerSocket` sur `127.0.0.1` et `::1` pour chaque port de `route.ports`, chaque connexion relayée telle
-quelle dans un tunnel. L'émulateur Android a son propre localhost : le relais y marche comme sur un téléphone. Le trafic `http://`
-(localhost compris) est autorisé par `expo-build-properties` (`android.usesCleartextTraffic`).
+Same principle as iOS: a `ServerSocket` on `127.0.0.1` and `::1` for each port in `route.ports`, each connection relayed as
+is through a tunnel. The Android emulator has its own localhost: the relay works there as on a phone. `http://` traffic
+(localhost included) is allowed by `expo-build-properties` (`android.usesCleartextTraffic`).

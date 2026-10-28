@@ -1,56 +1,56 @@
 # Signet mobile
 
-L'app mobile de Signet (iOS et Android), en React Native avec Expo (SDK 58) et `expo-router`. Elle tourne dans **Expo Go** pour le développement, et s'installe aussi compilée sur un iPhone (voir plus bas).
+The Signet mobile app (iOS and Android), in React Native with Expo (SDK 58) and `expo-router`. It runs in **Expo Go** for development, and can also be installed as a compiled app on an iPhone (see below).
 
-Les **fondations** sont posées : navigation, système de design, store avec sauvegarde, traductions. Chaque fonction (navigateur, barre de commande, onglets, espaces, bibliothèque, réglages, accueil) a son dossier et ses routes ; plusieurs sont encore des écrans provisoires (`StubScreen`).
+The **foundations** are in place: navigation, design system, store with persistence, translations. Each feature (browser, command bar, tabs, spaces, library, settings, onboarding) has its own folder and routes; several are still placeholder screens (`StubScreen`).
 
-## Disposition
+## Layout
 
 ```
 app/mobile/
-  app/                 ROUTES (expo-router). Fichiers minces : ils réexportent un écran de src/features/.
-    _layout.tsx        racine : gestes, zones sûres, thème, lecture du stockage, pile principale, toasts
-    index.tsx          /                      navigateur
-    tabs.tsx           /tabs                  sélecteur d'onglets (modale plein écran)
-    command.tsx        /command               barre de commande (modale transparente)
-    onboarding.tsx     /onboarding            premier lancement (seule route tant que onboardingDone est faux)
-    library/           /library, /library/history, /library/bookmarks   (modale, pile propre)
-    settings/          /settings, /settings/search-engine|homepage|data|about   (modale, pile propre)
-    spaces/edit/[id]   /spaces/edit/<id|new>  éditeur d'espace (feuille)
+  app/                 ROUTES (expo-router). Thin files: they re-export a screen from src/features/.
+    _layout.tsx        root: gestures, safe areas, theme, storage loading, main stack, toasts
+    index.tsx          /                      browser
+    tabs.tsx           /tabs                  tab switcher (full-screen modal)
+    command.tsx        /command               command bar (transparent modal)
+    onboarding.tsx     /onboarding            first launch (the only route while onboardingDone is false)
+    library/           /library, /library/history, /library/bookmarks   (modal, own stack)
+    settings/          /settings, /settings/search-engine|homepage|data|about   (modal, own stack)
+    spaces/edit/[id]   /spaces/edit/<id|new>  space editor (sheet)
   src/
-    features/<fonction>/   les écrans et composants d'une fonction : browser, command, tabs, spaces, library, settings, onboarding
-                           (chaque dossier a un index.ts qui dit ce qui s'y construit)
-    ui/                    le système de design (thème, texte, composants) : `import { Button } from '@/ui'`
-    state/                 le store (zustand), ses tranches, sa sauvegarde : `import { useStore } from '@/state'`
-    lib/                   utilitaires sans écran : i18n (`useT`), haptics
+    features/<feature>/    the screens and components of a feature: browser, command, tabs, spaces, library, settings, onboarding
+                           (each folder has an index.ts that says what is built there)
+    ui/                    the design system (theme, text, components): `import { Button } from '@/ui'`
+    state/                 the store (zustand), its slices, its persistence: `import { useStore } from '@/state'`
+    lib/                   utilities with no screen: i18n (`useT`), haptics
 ```
 
-L'alias `@/` pointe sur `src/` (tsconfig `paths`, pris en charge par Metro). Les imports entre fonctions passent par leur `index.ts`.
+The `@/` alias points to `src/` (tsconfig `paths`, supported by Metro). Imports between features go through their `index.ts`.
 
-**Qui touche quoi.** Chaque fonction vit dans son dossier de `src/features/` et dans ses routes d'`app/`. Pour éviter les conflits entre personnes qui travaillent en parallèle : `src/ui/`, `src/state/types.ts`, `app/_layout.tsx` et les catalogues `mobile.json` sont des fichiers partagés, on y ajoute sans réorganiser (une tranche du store = un fichier dans `src/state/slices/`).
+**Who touches what.** Each feature lives in its folder under `src/features/` and in its routes under `app/`. To avoid conflicts between people working in parallel: `src/ui/`, `src/state/types.ts`, `app/_layout.tsx` and the `mobile.json` catalogs are shared files, you add to them without reorganizing (one store slice = one file in `src/state/slices/`).
 
-## Ce qui vient du paquet partagé
+## What comes from the shared package
 
-La logique qui n'est pas propre au téléphone vit dans `@signet/shared` et a ses tests Vitest. Ici, il reste l'affichage et ce qui touche la plateforme (WebView, stockage, haptique, langue de l'appareil).
+The logic that is not specific to the phone lives in `@signet/shared` and has its Vitest tests. What stays here is the display and whatever touches the platform (WebView, storage, haptics, device language).
 
-| Import                                  | Contenu                                                                                                                        |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `@signet/shared/mobile/workspace`       | Espaces et onglets : `Workspace`, `openTab`, `closeTab`, `moveTab`, `pinTab`, `addSpace`, navigation privée… (fonctions pures) |
-| `@signet/shared/mobile/history`         | Historique : `addVisit`, `searchHistory` (frecency), `groupByDay`, `topSites`                                                  |
-| `@signet/shared/mobile/bookmarks`       | Signets (arbre de liens et dossiers) : ajouter, déplacer, chercher                                                             |
-| `@signet/shared/mobile/settings`        | Type `MobileSettings`, valeurs par défaut, `sanitizeSettings`                                                                  |
-| `@signet/shared/mobile/search`          | Moteurs de recherche, `resolveInput(saisie, moteur)`                                                                           |
-| `@signet/shared/mobile/suggestions`     | `suggest()` : suggestions de la barre de commande                                                                              |
-| `@signet/shared/mobile/color`           | Couleurs d'un espace (accent, fonds teintés, dégradé), calcul porté du bureau                                                  |
-| `@signet/shared/mobile/persist`         | Document enregistré : version, migrations, lecture tolérante                                                                   |
-| `@signet/shared/{types,urls,site,i18n}` | Types communs (`TabInfo`, `Space`, `Bookmark`…), adresses, domaine d'un site, `createI18n`                                     |
-| `@signet/shared/locales/*/mobile.json`  | Les textes de l'app, en anglais et en français                                                                                 |
+| Import                                  | Contents                                                                                                                   |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `@signet/shared/mobile/workspace`       | Spaces and tabs: `Workspace`, `openTab`, `closeTab`, `moveTab`, `pinTab`, `addSpace`, private browsing... (pure functions) |
+| `@signet/shared/mobile/history`         | History: `addVisit`, `searchHistory` (frecency), `groupByDay`, `topSites`                                                  |
+| `@signet/shared/mobile/bookmarks`       | Bookmarks (tree of links and folders): add, move, search                                                                   |
+| `@signet/shared/mobile/settings`        | `MobileSettings` type, default values, `sanitizeSettings`                                                                  |
+| `@signet/shared/mobile/search`          | Search engines, `resolveInput(input, engine)`                                                                              |
+| `@signet/shared/mobile/suggestions`     | `suggest()`: command bar suggestions                                                                                       |
+| `@signet/shared/mobile/color`           | Space colors (accent, tinted backgrounds, gradient), computation ported from desktop                                       |
+| `@signet/shared/mobile/persist`         | Saved document: version, migrations, tolerant reading                                                                      |
+| `@signet/shared/{types,urls,site,i18n}` | Common types (`TabInfo`, `Space`, `Bookmark`...), addresses, a site's domain, `createI18n`                                 |
+| `@signet/shared/locales/*/mobile.json`  | The app's strings, in English and French                                                                                   |
 
-## Le store
+## The store
 
-Un seul store zustand (`useStore`), découpé en tranches qui sont de fines enveloppes autour des fonctions pures du paquet partagé. Lire : `useStore((s) => s.settings.theme)` ou un hook de `src/state/hooks.ts` (`useCurrentTab`, `useVisibleTabs`, `useActiveSpace`, `useSpaces`, `usePrivateMode`, `useSettings`, `useIsBookmarked(url)`). Écrire : appeler une action, `useStore.getState().openTab({ url })` ou `const openTab = useStore((s) => s.openTab)`.
+A single zustand store (`useStore`), split into slices that are thin wrappers around the pure functions of the shared package. Read: `useStore((s) => s.settings.theme)` or a hook from `src/state/hooks.ts` (`useCurrentTab`, `useVisibleTabs`, `useActiveSpace`, `useSpaces`, `usePrivateMode`, `useSettings`, `useIsBookmarked(url)`). Write: call an action, `useStore.getState().openTab({ url })` or `const openTab = useStore((s) => s.openTab)`.
 
-| Tranche     | État                            | Actions principales                                                                                                                                                                                                                                      |
+| Slice       | State                           | Main actions                                                                                                                                                                                                                                             |
 | ----------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `workspace` | `workspace`, `lastClosed`       | `openTab`, `closeTab`, `undoCloseTab`, `activateTab`, `updateTab`, `moveTab`, `pinTab`, `favoriteTab`, `closeTodayTabs`, `setPrivateMode`, `closePrivateTabs`, `setActiveSpace`, `addSpace`, `editSpace`, `removeSpace`, `moveSpace`, `reportNavigation` |
 | `history`   | `history`                       | `addVisit`, `removeHistoryEntry`, `clearHistory(since?)`                                                                                                                                                                                                 |
@@ -58,120 +58,120 @@ Un seul store zustand (`useStore`), découpé en tranches qui sont de fines enve
 | `settings`  | `settings`                      | `setSettings(patch)`, `resetSettings`                                                                                                                                                                                                                    |
 | `ui`        | `ui.onboardingDone`, `hydrated` | `setOnboardingDone`                                                                                                                                                                                                                                      |
 
-Règles à connaître :
+Rules to know:
 
-- **Les onglets privés** vivent dans `workspace.priv`, jamais enregistrés, jamais dans l'historique. `reportNavigation(tabId, page, patch)` est la porte d'entrée des visites : elle met l'onglet à jour et n'ajoute à l'historique que hors navigation privée et page chargée.
-- **Sauvegarde** : `state/persistence.ts` lit AsyncStorage au lancement (`hydrated` passe à vrai, la racine n'affiche que le fond avant) puis écrit 600 ms après le dernier changement, et tout de suite quand l'app passe en arrière-plan. Un seul document JSON versionné (`signet.mobile.state`) ; une lecture illisible donne les valeurs par défaut, jamais une erreur. L'ancien format du squelette (`signet.tabs.v1`) est migré une fois.
-- **Langue** : `settings.language` est appliquée par `persistence.ts`. Dans un composant, `const t = useT()`.
+- **Private tabs** live in `workspace.priv`, never saved, never in history. `reportNavigation(tabId, page, patch)` is the entry point for visits: it updates the tab and only adds to history outside private browsing and once the page has loaded.
+- **Persistence**: `state/persistence.ts` reads AsyncStorage at launch (`hydrated` becomes true, before that the root only shows the background), then writes 600 ms after the last change, and right away when the app goes to the background. A single versioned JSON document (`signet.mobile.state`); an unreadable read gives the default values, never an error. The old skeleton format (`signet.tabs.v1`) is migrated once.
+- **Language**: `settings.language` is applied by `persistence.ts`. In a component, `const t = useT()`.
 
-## Le système de design (`src/ui/`)
+## The design system (`src/ui/`)
 
-Tout s'importe de `@/ui`. Le thème (`useTheme()`, `useColors()`) suit **la teinte de l'espace actif** (même calcul que le bureau, en OKLCH) et le réglage clair / sombre / auto ; la navigation privée passe en sombre violet-gris.
+Everything is imported from `@/ui`. The theme (`useTheme()`, `useColors()`) follows **the hue of the active space** (same computation as desktop, in OKLCH) and the light / dark / auto setting; private browsing switches to a dark violet-gray.
 
-| Composant                               | Rôle et props principales                                                                                                                                                                     |
+| Component                               | Role and main props                                                                                                                                                                           |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Text`                                  | `variant` (largeTitle, title1-3, headline, body, callout, subhead, footnote, caption, caption2), `color` (text, secondary, tertiary, accent, danger, onAccent, ou couleur), `weight`, `align` |
-| `GlassBar`                              | Barre de verre (flou iOS, voile teinté ; opaque sous Android ou « Réduire la transparence ») : `edge` (top, bottom, none), `floating`, `intensity`                                            |
-| `IconButton`                            | `icon`, `label` (obligatoire), `onPress`, `onLongPress`, `size`, `tone`, `filled`, `badge`, `disabled` ; zone 44 pt, haptique légère                                                          |
+| `Text`                                  | `variant` (largeTitle, title1-3, headline, body, callout, subhead, footnote, caption, caption2), `color` (text, secondary, tertiary, accent, danger, onAccent, or a color), `weight`, `align` |
+| `GlassBar`                              | Glass bar (iOS blur, tinted veil; opaque on Android or with "Reduce Transparency"): `edge` (top, bottom, none), `floating`, `intensity`                                                       |
+| `IconButton`                            | `icon`, `label` (required), `onPress`, `onLongPress`, `size`, `tone`, `filled`, `badge`, `disabled`; 44 pt hit area, light haptic                                                             |
 | `Button`                                | `title`, `onPress`, `variant` (primary, secondary, plain, destructive), `size` (md, lg), `icon`, `loading`, `fullWidth`                                                                       |
-| `ListSection` + `ListRow` + `SwitchRow` | Listes style Réglages iOS. Row : `title`, `subtitle`, `icon`, `iconColor`, `left`, `value`, `right`, `selected`, `chevron`, `destructive`, `onPress`                                          |
-| `Screen`, `Sheet`                       | `Screen` : fond, zones sûres (`edges`), `scroll`, `padded`. `Sheet` : contenu d'une feuille (`title`, `doneLabel`, `onDone`)                                                                  |
-| `TextField`, `SearchField`              | Champs : `label`, `error`, `right` ; `SearchField` : `value`, `onChangeText`, `clearLabel`. Hauteur fixe : **jamais `flex: 1` sur un champ dans une colonne**                                 |
-| `Favicon`                               | `uri`, `url`, `size` ; lettre sur fond teinté en repli                                                                                                                                        |
+| `ListSection` + `ListRow` + `SwitchRow` | iOS Settings-style lists. Row: `title`, `subtitle`, `icon`, `iconColor`, `left`, `value`, `right`, `selected`, `chevron`, `destructive`, `onPress`                                            |
+| `Screen`, `Sheet`                       | `Screen`: background, safe areas (`edges`), `scroll`, `padded`. `Sheet`: the content of a sheet (`title`, `doneLabel`, `onDone`)                                                              |
+| `TextField`, `SearchField`              | Fields: `label`, `error`, `right`; `SearchField`: `value`, `onChangeText`, `clearLabel`. Fixed height: **never `flex: 1` on a field in a column**                                             |
+| `Favicon`                               | `uri`, `url`, `size`; falls back to a letter on a tinted background                                                                                                                           |
 | `EmptyState`                            | `icon`, `title`, `message`, `action`                                                                                                                                                          |
-| `toast` + `ToastHost`                   | `toast.show({ message, actionLabel, onAction, duration })` depuis n'importe où ; l'hôte est monté dans `app/_layout.tsx`                                                                      |
+| `toast` + `ToastHost`                   | `toast.show({ message, actionLabel, onAction, duration })` from anywhere; the host is mounted in `app/_layout.tsx`                                                                            |
 | `SegmentedControl`                      | `options` (`value`, `label`, `icon`), `value`, `onChange`                                                                                                                                     |
-| `PressableScale`                        | Base de tout ce qui se presse : ressort, échelle 0,96, mouvement réduit respecté ; `haptic`                                                                                                   |
-| `icons`                                 | Les icônes lucide utilisées (`icons.Search`). Pour en ajouter, une ligne dans `src/ui/icons.ts` (import par icône : le paquet entier est trop lourd)                                          |
-| `useStackOptions`, `HeaderDone`         | En-têtes de pile aux couleurs du thème ; bouton OK d'une modale                                                                                                                               |
-| `StubScreen`                            | Écran provisoire des routes pas encore faites                                                                                                                                                 |
+| `PressableScale`                        | Base of everything that can be pressed: spring, 0.96 scale, reduced motion respected; `haptic`                                                                                                |
+| `icons`                                 | The lucide icons in use (`icons.Search`). To add one, one line in `src/ui/icons.ts` (one import per icon: the whole package is too heavy)                                                     |
+| `useStackOptions`, `HeaderDone`         | Stack headers in the theme colors; the Done button of a modal                                                                                                                                 |
+| `StubScreen`                            | Placeholder screen for routes not built yet                                                                                                                                                   |
 
-Jetons : `space`, `gutter`, `radius`, `type`, `shadow`, `springs` (`default`, `snappy`, `gentle`, `press`). Le mouvement passe par Reanimated ; `useReduceMotion()` et `useReduceTransparency()` donnent les réglages d'accessibilité.
+Tokens: `space`, `gutter`, `radius`, `type`, `shadow`, `springs` (`default`, `snappy`, `gentle`, `press`). Motion goes through Reanimated; `useReduceMotion()` and `useReduceTransparency()` give the accessibility settings.
 
-## Recettes
+## Recipes
 
-**Ajouter un écran.** 1) Écrivez l'écran dans `src/features/<fonction>/MonEcran.tsx` (commencez par `<Screen>`), exportez-le depuis l'`index.ts` du dossier. 2) Créez la route : `app/<chemin>.tsx` avec `export { MonEcran as default } from '@/features/<fonction>'`. 3) S'il faut un titre ou une présentation (modale, feuille), déclarez-le dans le `_layout.tsx` du dossier (`<Stack.Screen name="..." options={{ title: t('...') }} />`). 4) Naviguez avec `router.push('/chemin')`. Tous les textes passent par `t()`.
+**Add a screen.** 1) Write the screen in `src/features/<feature>/MyScreen.tsx` (start with `<Screen>`), export it from the folder's `index.ts`. 2) Create the route: `app/<path>.tsx` with `export { MyScreen as default } from '@/features/<feature>'`. 3) If it needs a title or a presentation (modal, sheet), declare it in the folder's `_layout.tsx` (`<Stack.Screen name="..." options={{ title: t('...') }} />`). 4) Navigate with `router.push('/path')`. All strings go through `t()`.
 
-**Ajouter un réglage.** 1) `packages/shared/src/mobile/settings.ts` : le champ dans `MobileSettings`, sa valeur par défaut, son assainissement dans `sanitizeSettings`. 2) Un test dans `settings.test.ts`. 3) Une ligne dans `src/features/settings/SettingsScreen.tsx` (`SwitchRow`, `ListRow`…) qui appelle `setSettings({ champ })`. 4) Les textes dans les deux `mobile.json`. Aucun changement de store ni de sauvegarde : les réglages sont assainis à la lecture, une ancienne sauvegarde reçoit la valeur par défaut.
+**Add a setting.** 1) `packages/shared/src/mobile/settings.ts`: the field in `MobileSettings`, its default value, its sanitizing in `sanitizeSettings`. 2) A test in `settings.test.ts`. 3) A row in `src/features/settings/SettingsScreen.tsx` (`SwitchRow`, `ListRow`...) that calls `setSettings({ field })`. 4) The strings in both `mobile.json` files. No change to the store or to persistence: settings are sanitized on read, an old save gets the default value.
 
-**Ajouter une action au store.** 1) La logique pure (une fonction qui reçoit l'état et renvoie le nouvel état) dans `packages/shared/src/mobile/<module>.ts`, avec son test. 2) Le type de l'action dans `src/state/types.ts`, dans la tranche concernée. 3) Son implémentation (une ligne `set((s) => ({ ... }))`) dans `src/state/slices/<tranche>.ts`. Une nouvelle donnée à sauvegarder : ajoutez-la à `LoadedState` et `PersistedState` dans `persist.ts`, assainissez-la dans `parsePersisted`, et si le format casse l'ancien, augmentez `PERSIST_VERSION` et ajoutez une étape dans `migrate`.
+**Add a store action.** 1) The pure logic (a function that takes the state and returns the new state) in `packages/shared/src/mobile/<module>.ts`, with its test. 2) The action's type in `src/state/types.ts`, in the relevant slice. 3) Its implementation (one `set((s) => ({ ... }))` line) in `src/state/slices/<slice>.ts`. New data to save: add it to `LoadedState` and `PersistedState` in `persist.ts`, sanitize it in `parsePersisted`, and if the format breaks the old one, bump `PERSIST_VERSION` and add a step in `migrate`.
 
-**Ajouter une icône, un composant.** Icône : `src/ui/icons.ts`. Composant partagé : `src/ui/MonComposant.tsx` et une ligne dans `src/ui/index.ts`. Un composant propre à une fonction reste dans `src/features/<fonction>/`.
+**Add an icon, a component.** Icon: `src/ui/icons.ts`. Shared component: `src/ui/MyComponent.tsx` and a line in `src/ui/index.ts`. A component specific to one feature stays in `src/features/<feature>/`.
 
-## Développement : atteindre un état par lien
+## Development: reaching a state through a link
 
-Le simulateur ne sait pas toucher l'écran en ligne de commande. En développement (`__DEV__`), la route `app/dev/[action].tsx` prépare l'état de l'app et renvoie à l'accueil ; elle ne fait rien en production. On l'ouvre avec un lien profond :
+The simulator cannot tap the screen from the command line. In development (`__DEV__`), the `app/dev/[action].tsx` route sets up the app state and goes back to the home screen; it does nothing in production. You open it with a deep link:
 
 ```bash
 xcrun simctl openurl booted "exp://127.0.0.1:8081/--/dev/seed"
 xcrun simctl io booted screenshot capture.png
 ```
 
-| Action                                                  | Effet                                                                                                                   |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `dev/seed`                                              | 3 espaces, onglets (favoris, épinglés, du jour), historique sur plusieurs jours, signets avec dossier ; accueil terminé |
-| `dev/reset`                                             | état neuf : l'accueil (onboarding) revient                                                                              |
-| `dev/lang-fr`, `dev/lang-en`                            | langue                                                                                                                  |
-| `dev/theme-dark`, `dev/theme-light`, `dev/theme-system` | thème                                                                                                                   |
-| `dev/private-on`, `dev/private-off`                     | navigation privée                                                                                                       |
-| `dev/open?url=https://…`                                | ouvre un onglet sur cette adresse                                                                                       |
-| `dev/space?i=1`                                         | active le 2e espace                                                                                                     |
-| `dev/toast`                                             | affiche un toast                                                                                                        |
-| `dev/download?url=…`, `dev/download-private?url=…`      | télécharge un fichier (iOS ; l'onglet privé ne l'inscrit pas dans la liste)                                             |
-| `dev/pw-seed`                                           | 3 identifiants de démonstration dans le Trousseau (l'id du premier est écrit dans le journal)                           |
-| `dev/blocking-on`, `dev/blocking-off`                   | blocage de contenu                                                                                                      |
-| `dev/clear-site-data`                                   | efface les données de sites (natif) ; le journal donne le nombre de sites avant et après                                |
+| Action                                                  | Effect                                                                                                           |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `dev/seed`                                              | 3 spaces, tabs (favorites, pinned, today's), history over several days, bookmarks with a folder; onboarding done |
+| `dev/reset`                                             | fresh state: onboarding comes back                                                                               |
+| `dev/lang-fr`, `dev/lang-en`                            | language                                                                                                         |
+| `dev/theme-dark`, `dev/theme-light`, `dev/theme-system` | theme                                                                                                            |
+| `dev/private-on`, `dev/private-off`                     | private browsing                                                                                                 |
+| `dev/open?url=https://…`                                | opens a tab on that address                                                                                      |
+| `dev/space?i=1`                                         | activates the 2nd space                                                                                          |
+| `dev/toast`                                             | shows a toast                                                                                                    |
+| `dev/download?url=…`, `dev/download-private?url=…`      | downloads a file (iOS; the private tab does not add it to the list)                                              |
+| `dev/pw-seed`                                           | 3 demo credentials in the Keychain (the id of the first one is written to the log)                               |
+| `dev/blocking-on`, `dev/blocking-off`                   | content blocking                                                                                                 |
+| `dev/clear-site-data`                                   | clears site data (native); the log gives the number of sites before and after                                    |
 
-Autres liens utiles : `/?dev=menu|menupw|find|reader|linkmenu|pwsave|pwchip` (menu de la page, avec ou sans « Remplir le mot de passe » ; menu d'un appui long sur un lien ; carte « Enregistrer le mot de passe ? » ; bouton clé), `/command?newTab=1&q=swift` (saisie préremplie, pour voir les suggestions du réseau), `/?dev=menu|find|reader` (ouvre le menu de page, la recherche ou la lecture sur l'onglet affiché), `/onboarding?devPage=2`, `/tabs`, `/command?newTab=1`, `/settings/data`, `/spaces/edit/new`. Après une modification de l'état persistant, relancez Expo Go pour repartir d'une pile de navigation propre.
+Other useful links: `/?dev=menu|menupw|find|reader|linkmenu|pwsave|pwchip` (page menu, with or without "Fill password"; long-press menu on a link; "Save password for <site>?" card; key button), `/command?newTab=1&q=swift` (prefilled input, to see the network suggestions), `/?dev=menu|find|reader` (opens the page menu, find in page or reader on the current tab), `/onboarding?devPage=2`, `/tabs`, `/command?newTab=1`, `/settings/data`, `/spaces/edit/new`. After changing the persisted state, restart Expo Go to start again from a clean navigation stack.
 
-**Dans le simulateur, sans Expo Go** (blocage de contenu, Trousseau, icônes : modules natifs). `npx expo prebuild --platform ios` (sauvegardez `package.json` avant, prebuild réécrit ses scripts), puis `xcodebuild -workspace ios/Signet.xcworkspace -scheme Signet -configuration Debug -destination id=<udid> -derivedDataPath ios/build-sim build` et `xcrun simctl install` / `launch dev.signet.mobile`. L'app de développement charge le JavaScript depuis Metro (`npx expo start`, port 8081). Le simulateur demande « Ouvrir dans Signet ? » à chaque lien `signet://` : pour piloter l'app sans toucher l'écran, lancez `python3 scripts/qa-server.py &`, l'app (en `__DEV__`) lit une commande par seconde sur `localhost:8099` et navigue (`curl -G --data-urlencode 'p=/dev/seed' localhost:8099/set`). Face ID : `xcrun simctl spawn <udid> notifyutil -s com.apple.BiometricKit.enrollmentChanged 1 && notifyutil -p com.apple.BiometricKit.enrollmentChanged` pour inscrire un visage, `notifyutil -p com.apple.BiometricKit_Sim.pearl.match` pour le reconnaître.
+**In the simulator, without Expo Go** (content blocking, Keychain, icons: native modules). `npx expo prebuild --platform ios` (back up `package.json` first, prebuild rewrites its scripts), then `xcodebuild -workspace ios/Signet.xcworkspace -scheme Signet -configuration Debug -destination id=<udid> -derivedDataPath ios/build-sim build` and `xcrun simctl install` / `launch dev.signet.mobile`. The development app loads the JavaScript from Metro (`npx expo start`, port 8081). The simulator asks "Open in Signet?" for every `signet://` link: to drive the app without tapping the screen, run `python3 scripts/qa-server.py &`, the app (in `__DEV__`) reads one command per second from `localhost:8099` and navigates (`curl -G --data-urlencode 'p=/dev/seed' localhost:8099/set`). Face ID: `xcrun simctl spawn <udid> notifyutil -s com.apple.BiometricKit.enrollmentChanged 1 && notifyutil -p com.apple.BiometricKit.enrollmentChanged` to enroll a face, `notifyutil -p com.apple.BiometricKit_Sim.pearl.match` to match it.
 
-## Installer l'app compilée sur un iPhone
+## Installing the compiled app on an iPhone
 
-Une vraie app sur l'écran d'accueil, qui marche sans le Mac, avec sa page dans Réglages › Apps et le choix de l'icône. Avec un identifiant Apple gratuit, elle expire au bout de 7 jours : relancez la commande.
+A real app on the Home Screen, which works without the Mac, with its own page in Settings › Apps and the icon picker. With a free Apple Account, it expires after 7 days: run the command again.
 
-1. Une seule fois : un identifiant Apple dans Xcode › Settings › Accounts, et le Mode développeur sur l'iPhone (Réglages › Confidentialité et sécurité).
-2. iPhone branché et déverrouillé, depuis la racine : `npm run mobile:device`. Le script génère le projet natif (`ios/`, ignoré par git), compile en Release et installe l'app (premier passage : 15 à 25 minutes).
-3. Au premier lancement : Réglages › Général › VPN et gestion de l'appareil › votre identifiant › Faire confiance.
+1. Once only: an Apple Account in Xcode › Settings › Accounts, and Developer Mode on the iPhone (Settings › Privacy & Security).
+2. iPhone plugged in and unlocked, from the repo root: `npm run mobile:device`. The script generates the native project (`ios/`, ignored by git), builds in Release and installs the app (first run: 15 to 25 minutes).
+3. On first launch: Settings › General › VPN & Device Management › your Apple Account › Trust.
 
-L'équipe de signature est `ios.appleTeamId` dans `app.json`. Pour un autre iPhone : `IOS_DEVICE=<udid> npm run mobile:device` (`xcrun devicectl list devices` donne l'UDID).
+The signing team is `ios.appleTeamId` in `app.json`. For another iPhone: `IOS_DEVICE=<udid> npm run mobile:device` (`xcrun devicectl list devices` gives the UDID).
 
-## Essayer l'app sur un iPhone avec Expo Go
+## Trying the app on an iPhone with Expo Go
 
-Expo Go est une app gratuite qui lance votre code sans que vous ayez à compiler ni à signer quoi que ce soit.
+Expo Go is a free app that runs your code without you having to build or sign anything.
 
-1. Sur l'iPhone, installez **Expo Go** depuis l'App Store. Il doit gérer le **SDK 58** (mettez-le à jour si besoin). Si votre Expo Go est trop ancien ou trop récent, l'app refusera de s'ouvrir et le dira.
-2. Sur votre ordinateur, installez les dépendances (une seule fois) : `npm install`, à la racine du dépôt.
-3. Toujours à la racine, lancez : `npm run mobile`. Expo démarre et affiche un **QR code** dans le terminal.
-4. Sur l'iPhone, ouvrez l'app **Appareil photo** et visez le QR code. Touchez la bannière « Ouvrir dans Expo Go ». L'app se charge.
-5. Modifiez un fichier de `app/mobile` ou de `packages/shared/src` : l'app se recharge toute seule.
+1. On the iPhone, install **Expo Go** from the App Store. It must support **SDK 58** (update it if needed). If your Expo Go is too old or too new, the app will refuse to open and say so.
+2. On your computer, install the dependencies (once only): `npm install`, at the repo root.
+3. Still at the root, run: `npm run mobile`. Expo starts and shows a **QR code** in the terminal.
+4. On the iPhone, open the **Camera** app and point it at the QR code. Tap the "Open in Expo Go" banner. The app loads.
+5. Edit a file in `app/mobile` or `packages/shared/src`: the app reloads by itself.
 
-L'iPhone et l'ordinateur doivent être sur **le même réseau Wi-Fi**. Si ce n'est pas possible (réseau d'entreprise, Wi-Fi qui isole les appareils), utilisez un tunnel :
+The iPhone and the computer must be on **the same Wi-Fi network**. If that is not possible (company network, Wi-Fi that isolates devices), use a tunnel:
 
 ```bash
 cd app/mobile
 npx expo start --tunnel
 ```
 
-## Simulateur iOS (Mac seulement)
+## iOS simulator (Mac only)
 
-1. Installez Xcode depuis l'App Store.
-2. Ouvrez Xcode, puis **Xcode › Settings › Components** : téléchargez un **runtime iOS** (le simulateur n'en a pas par défaut).
-3. À la racine du dépôt : `npm run mobile:ios`. Expo ouvre le simulateur et y lance l'app.
+1. Install Xcode from the App Store.
+2. Open Xcode, then **Xcode › Settings › Components**: download an **iOS runtime** (the simulator has none by default).
+3. At the repo root: `npm run mobile:ios`. Expo opens the simulator and launches the app in it.
 
 ## Android
 
-**Essayer.** Sur un téléphone Android, installez **Expo Go** depuis le Play Store, puis lancez `npm run mobile` et scannez le QR code depuis Expo Go (il a son propre lecteur). Ou, avec un émulateur Android Studio déjà démarré : `npm run mobile:android`.
+**Try it.** On an Android phone, install **Expo Go** from the Play Store, then run `npm run mobile` and scan the QR code from Expo Go (it has its own scanner). Or, with an Android Studio emulator already running: `npm run mobile:android`.
 
-**Compiler l'app (icônes alternatives, navigateur par défaut, verrou biométrique).** Rien de tout cela n'existe dans Expo Go.
+**Build the app (alternate icons, default browser, biometric lock).** None of this exists in Expo Go.
 
-1. Installez Android Studio (SDK Android, JDK 17 fourni) et branchez un téléphone en débogage USB, ou démarrez un émulateur.
-2. Depuis `app/mobile` : `npx expo prebuild --platform android` génère `android/` (ignoré par git ; ne touchez pas à `ios/`). Prebuild réécrit les scripts de `package.json` : sauvegardez-le avant et restaurez la copie ensuite (un `git checkout` perdrait les dépendances ajoutées et pas encore commitées).
-3. `npx expo run:android --variant release` compile et installe, ou ouvrez `android/` dans Android Studio. Pour un `.apk` / `.aab` distribuable : EAS (`npx eas-cli build --platform android --profile preview`, un `eas.json` reste à créer) ou `cd android && ./gradlew assembleRelease` (il faut alors une clé de signature).
+1. Install Android Studio (Android SDK, bundled JDK 17) and plug in a phone with USB debugging, or start an emulator.
+2. From `app/mobile`: `npx expo prebuild --platform android` generates `android/` (ignored by git; do not touch `ios/`). Prebuild rewrites the scripts in `package.json`: back it up first and restore the copy afterwards (a `git checkout` would lose dependencies that were added and not committed yet).
+3. `npx expo run:android --variant release` builds and installs, or open `android/` in Android Studio. For a distributable `.apk` / `.aab`: EAS (`npx eas-cli build --platform android --profile preview`, an `eas.json` still has to be created) or `cd android && ./gradlew assembleRelease` (you then need a signing key).
 
-**Clé de signature des versions publiées.** Android n'installe une mise à jour que si elle est signée avec la même clé que la version déjà installée. Toutes les versions publiées sont donc signées avec une seule clé, gardée hors du dépôt. La perdre, c'est ne plus jamais pouvoir mettre l'app à jour (il faudrait la désinstaller, données comprises).
+**Signing key for published versions.** Android only installs an update if it is signed with the same key as the version already installed. So all published versions are signed with a single key, kept outside the repo. Losing it means never being able to update the app again (it would have to be uninstalled, data included).
 
-1. Créer la clé, une seule fois (OpenSSL suffit, pas besoin de Java). Choisissez un mot de passe solide, demandé deux fois :
+1. Create the key, once only (OpenSSL is enough, no need for Java). Pick a strong password, asked twice:
 
    ```bash
    openssl req -x509 -newkey rsa:4096 -sha256 -days 10000 -nodes -subj "/CN=Signet" -keyout signet-key.pem -out signet-cert.pem
@@ -179,50 +179,50 @@ npx expo start --tunnel
    rm signet-key.pem signet-cert.pem
    ```
 
-2. Sauvegarder `signet-release.keystore` et son mot de passe dans un gestionnaire de mots de passe, plus une copie hors de l'ordinateur. Ne jamais les commiter.
-3. Les donner au workflow Build, sous forme de secrets du dépôt :
+2. Save `signet-release.keystore` and its password in a password manager, plus a copy off the computer. Never commit them.
+3. Give them to the Build workflow, as repository secrets:
 
    ```bash
    base64 -i signet-release.keystore | gh secret set ANDROID_KEYSTORE_BASE64
-   gh secret set ANDROID_KEYSTORE_PASSWORD   # colle le mot de passe
+   gh secret set ANDROID_KEYSTORE_PASSWORD   # paste the password
    ```
 
-Le workflow signe alors l'APK avec cette clé (alias `signet`) et affiche dans son log l'empreinte SHA-256 du certificat, qui doit rester la même d'une version à l'autre. Une release (tag `v…`) échoue tout de suite si les secrets manquent. Un lancement à la main sans eux signe avec la clé de debug d'Expo, pour tester seulement.
+The workflow then signs the APK with this key (alias `signet`) and prints in its log the SHA-256 fingerprint of the certificate, which must stay the same from one version to the next. A release (tag `v…`) fails right away if the secrets are missing. A manual run without them signs with the Expo debug key, for testing only.
 
-**Ce qui est configuré dans `app.json` (`android`).**
+**What is configured in `app.json` (`android`).**
 
-| Sujet                 | Réglage                                                                                                                                                                                                                               |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Icône                 | Icône adaptative : fond, logo et silhouette monochrome (icônes à thème d'Android 13+) dans `assets/android/<id>-background\|foreground\|monochrome.png`, générés par `npm run icons -w @signet/mobile` depuis les SVG du bureau.      |
-| Icônes alternatives   | Les 7 icônes (`Ocean`… `Or`) deviennent des `activity-alias` du manifeste. Sur Android, changer d'icône peut fermer l'app : l'écran de choix demande confirmation, et `useSyncAppIcon` relit l'icône réelle au lancement suivant.     |
-| Permissions           | Caméra, micro, position précise et approximative (jamais en arrière-plan), biométrie, vibration, réseau. Retirées : stockage externe, médias, fenêtres flottantes. Le sélecteur de fichiers des sites passe par le sélecteur système. |
-| Navigateur par défaut | Filtre d'intention `VIEW` + `BROWSABLE` + `DEFAULT` pour `http` et `https` (Paramètres › Apps › Apps par défaut › App de navigation). `app/+native-intent.tsx` renvoie ces liens vers `app/open.tsx`, qui ouvre un onglet.            |
-| Clavier, retour       | `softwareKeyboardLayoutMode: resize` ; geste de retour prédictif désactivé (le bouton retour recule dans la page via `BackHandler`).                                                                                                  |
-| Langues               | `expo-localization` déclare `en` et `fr` (sélecteur de langue par app d'Android 13+). Le nom de l'app est le même dans les deux.                                                                                                      |
+| Topic           | Setting                                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Icon            | Adaptive icon: background, logo and monochrome silhouette (Android 13+ themed icons) in `assets/android/<id>-background\|foreground\|monochrome.png`, generated by `npm run icons -w @signet/mobile` from the desktop SVGs.                 |
+| Alternate icons | The 7 icons (`Ocean`... `Or`) become `activity-alias` entries in the manifest. On Android, changing the icon can close the app: the picker screen asks for confirmation, and `useSyncAppIcon` reads the real icon again on the next launch. |
+| Permissions     | Camera, microphone, precise and approximate location (never in the background), biometrics, vibration, network. Removed: external storage, media, overlay windows. The file picker of sites goes through the system picker.                 |
+| Default browser | `VIEW` + `BROWSABLE` + `DEFAULT` intent filter for `http` and `https` (Settings › Apps › Default apps › Browser app). `app/+native-intent.tsx` sends these links to `app/open.tsx`, which opens a tab.                                      |
+| Keyboard, back  | `softwareKeyboardLayoutMode: resize`; predictive back gesture disabled (the back button goes back in the page through `BackHandler`).                                                                                                       |
+| Languages       | `expo-localization` declares `en` and `fr` (Android 13+ per-app language picker). The app name is the same in both.                                                                                                                         |
 
-**Pas testé (aucun appareil ni SDK Android sur le Mac de développement).** Seuls `expo export --platform android` (le bundle se construit) et `expo prebuild --platform android` (le manifeste, les ressources d'icônes et les alias se génèrent) ont été vérifiés. Restent à essayer sur un vrai téléphone : le rendu des icônes (zone sûre, icône à thème), le changement d'icône et le comportement des lanceurs, le choix de Signet comme navigateur par défaut et l'ouverture d'un lien externe, les invites caméra, micro et position dans les sites, le téléversement de fichiers, les téléchargements, le clavier (`resize` avec le mode bord à bord), le bouton retour, le verrou biométrique, la capture d'écran des onglets privés (pas encore bloquée, voir `FLAG_SECURE`).
+**Not tested (no Android device or SDK on the development Mac).** Only `expo export --platform android` (the bundle builds) and `expo prebuild --platform android` (the manifest, icon resources and aliases are generated) have been checked. Still to try on a real phone: icon rendering (safe zone, themed icon), icon switching and launcher behavior, choosing Signet as the default browser and opening an external link, camera, microphone and location prompts in sites, file uploads, downloads, the keyboard (`resize` with edge-to-edge mode), the back button, the biometric lock, screenshots of private tabs (not blocked yet, see `FLAG_SECURE`).
 
-## Téléchargements
+## Downloads
 
-Les téléchargements dans l'app (Bibliothèque › Téléchargements, dossier visible dans l'app Fichiers) existent **sur iOS seulement** ; sous Android, le téléchargement passe par le gestionnaire de téléchargements du système. Un téléchargement lancé depuis un **onglet privé** n'est ni listé ni sauvegardé : le fichier va dans le cache de l'app (purgé par le système) et le toast propose de l'ouvrir ou de l'enregistrer dans Fichiers.
+In-app downloads (Library › Downloads, a folder visible in the Files app) exist **on iOS only**; on Android, downloads go through the system download manager. A download started from a **private tab** is neither listed nor saved: the file goes to the app cache (purged by the system) and the toast offers to open it or save it to Files.
 
-## Commandes utiles
+## Useful commands
 
-Depuis la racine du dépôt :
+From the repo root:
 
-| Commande                 | Effet                                                                  |
-| ------------------------ | ---------------------------------------------------------------------- |
-| `npm run mobile`         | Démarre Expo (QR code).                                                |
-| `npm run mobile:ios`     | Démarre Expo et ouvre le simulateur iOS.                               |
-| `npm run mobile:android` | Démarre Expo et ouvre Android.                                         |
-| `npm run typecheck`      | Vérifie les types, mobile compris.                                     |
-| `npm run lint`           | ESLint (mobile compris : `app/mobile/app` et `app/mobile/src`).        |
-| `npm run i18n:check`     | Vérifie les traductions et l'absence de texte en dur (mobile).         |
-| `npm test`               | Tests Vitest (la logique du mobile est testée dans le paquet partagé). |
+| Command                  | Effect                                                           |
+| ------------------------ | ---------------------------------------------------------------- |
+| `npm run mobile`         | Starts Expo (QR code).                                           |
+| `npm run mobile:ios`     | Starts Expo and opens the iOS simulator.                         |
+| `npm run mobile:android` | Starts Expo and opens Android.                                   |
+| `npm run typecheck`      | Checks types, mobile included.                                   |
+| `npm run lint`           | ESLint (mobile included: `app/mobile/app` and `app/mobile/src`). |
+| `npm run i18n:check`     | Checks translations and the absence of hardcoded text (mobile).  |
+| `npm test`               | Vitest tests (the mobile logic is tested in the shared package). |
 
-## Limites connues
+## Known limits
 
-- **Expo Go d'abord.** Préférez les bibliothèques incluses dans Expo Go (`npx expo install` depuis `app/mobile`). Une fonction native hors Expo Go (comme les icônes de l'app) doit se désactiver proprement dans Expo Go. Pas encore de `.apk` ni de publication.
-- **iOS utilise WebKit.** Apple impose son moteur web à tous les navigateurs iOS : les fonctions du bureau qui dépendent de Chromium (extensions, bloqueur de pubs au niveau du moteur…) ne viendront pas telles quelles.
-- **Une seule copie de React.** `metro.config.js` force le bundler à prendre le `react` de l'app mobile (19.3.0, celui qu'Expo attend), et non celui du bureau remonté à la racine par npm. Conséquence : `npx expo-doctor` signale un `react` en double. **C'est attendu**, pas une erreur.
-- **Le flou** de `GlassBar` n'existe que sur iOS ; sous Android, un voile presque opaque le remplace.
+- **Expo Go first.** Prefer libraries included in Expo Go (`npx expo install` from `app/mobile`). A native feature outside Expo Go (like the app icons) must disable itself cleanly in Expo Go. No `.apk` or release yet.
+- **iOS uses WebKit.** Apple forces its web engine on all iOS browsers: desktop features that depend on Chromium (extensions, engine-level ad blocker...) will not come over as they are.
+- **A single copy of React.** `metro.config.js` forces the bundler to use the mobile app's `react` (19.3.0, the one Expo expects), not the desktop one hoisted to the root by npm. Consequence: `npx expo-doctor` reports a duplicate `react`. **This is expected**, not an error.
+- **The blur** of `GlassBar` only exists on iOS; on Android, a nearly opaque veil replaces it.

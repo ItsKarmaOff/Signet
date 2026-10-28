@@ -180,12 +180,10 @@ Run them all from the repository root.
 
 ## Documentation
 
-The in-depth docs are written in French for now.
-
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): map of the code, start here as a new contributor.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): dev scripts, tests, `SIGNET_*` environment variables.
 - [docs/SPEC.md](docs/SPEC.md): expected behavior, version by version.
-- [docs/A-VERIFIER.md](docs/A-VERIFIER.md): what still has to be checked by hand.
+- [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md): what still has to be checked by hand.
 - [app/mobile/README.md](app/mobile/README.md) and [packages/shared/README.md](packages/shared/README.md).
 
 ## Contributing

@@ -1,36 +1,36 @@
 # @signet/shared
 
-Du code TypeScript **sans plateforme**, commun à l'app de bureau (Electron) et à l'app mobile (React Native / Expo). C'est un paquet « source » : pas d'étape de compilation, les apps importent directement les fichiers `.ts`.
+**Platform-free** TypeScript code, shared by the desktop app (Electron) and the mobile app (React Native / Expo). It is a "source" package: no build step, the apps import the `.ts` files directly.
 
-## Ce qu'il y a dedans
+## What's inside
 
-| Module             | Contenu                                                                                                                                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `types/`           | Le modèle de données : onglets, espaces, signets, réglages, historique, mots de passe, outils de développement.                                                                                                                    |
-| `model.ts`         | Fabriques et assainisseurs du modèle (`newSpace`, `newTab`, `cleanSpaceDraft`).                                                                                                                                                    |
-| `tree.ts`          | Utilitaires d'arbre : listes d'onglets, dossiers, vues partagées, groupes.                                                                                                                                                         |
-| `tab-list.ts`      | Réducteur d'une liste d'onglets à plat avec un onglet actif (utilisé par le mobile).                                                                                                                                               |
-| `split.ts`         | Vue partagée : calcul des rectangles et des séparateurs, insertion d'un onglet.                                                                                                                                                    |
-| `urls.ts`          | Saisie vers adresse ou recherche (`toUrl`, `searchUrl`).                                                                                                                                                                           |
-| `site.ts`          | `siteOf` : le domaine d'un site (liste des suffixes publics).                                                                                                                                                                      |
-| `routes.ts`        | Règles d'aiguillage des liens vers un espace.                                                                                                                                                                                      |
-| `feeds.ts`         | Lecture des flux RSS et Atom (dossiers dynamiques).                                                                                                                                                                                |
-| `ids.ts`           | `newId` : un identifiant unique, avec repli si `crypto.randomUUID` manque.                                                                                                                                                         |
-| `i18n.ts`          | Création de l'instance i18next (`createI18n`), choix de la langue (`resolveLocale`).                                                                                                                                               |
-| `mobile/`          | Logique de l'app mobile : `workspace` (espaces et onglets), `history`, `bookmarks`, `settings`, `search`, `suggestions`, `color` (teintes des espaces), `persist` (document enregistré, versions, migrations). Un test par module. |
-| `locales/{en,fr}/` | Les catalogues de textes : `main.json` (bureau, processus principal), `ui.json` (bureau, interface), `mobile.json`.                                                                                                                |
+| Module             | Content                                                                                                                                                                                                     |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types/`           | The data model: tabs, spaces, bookmarks, settings, history, passwords, developer tools.                                                                                                                     |
+| `model.ts`         | Model factories and sanitizers (`newSpace`, `newTab`, `cleanSpaceDraft`).                                                                                                                                   |
+| `tree.ts`          | Tree utilities: tab lists, folders, split views, groups.                                                                                                                                                    |
+| `tab-list.ts`      | Reducer for a flat tab list with an active tab (used by mobile).                                                                                                                                            |
+| `split.ts`         | Split view: computing the rectangles and dividers, inserting a tab.                                                                                                                                         |
+| `urls.ts`          | Input to address or search (`toUrl`, `searchUrl`).                                                                                                                                                          |
+| `site.ts`          | `siteOf`: the domain of a site (public suffix list).                                                                                                                                                        |
+| `routes.ts`        | Rules that route links to a space.                                                                                                                                                                          |
+| `feeds.ts`         | Reading RSS and Atom feeds (dynamic folders).                                                                                                                                                               |
+| `ids.ts`           | `newId`: a unique identifier, with a fallback if `crypto.randomUUID` is missing.                                                                                                                            |
+| `i18n.ts`          | Creating the i18next instance (`createI18n`), picking the language (`resolveLocale`).                                                                                                                       |
+| `mobile/`          | Mobile app logic: `workspace` (spaces and tabs), `history`, `bookmarks`, `settings`, `search`, `suggestions`, `color` (space tints), `persist` (saved document, versions, migrations). One test per module. |
+| `locales/{en,fr}/` | The text catalogs: `main.json` (desktop, main process), `ui.json` (desktop, interface), `mobile.json`.                                                                                                      |
 
-## La règle
+## The rule
 
-- **Ici, seulement du code qui marche partout** : dans le processus principal d'Electron, dans l'interface web, et dans Hermes (le moteur JavaScript de React Native).
-- **Jamais d'import de** `electron`, `node:*`, du DOM (`document`, `window`…), ni de `react-native`. Le `tsconfig` du paquet n'a ni les types DOM ni les types Node (`"types": []`, `lib: ES2023`) : un import interdit fait échouer `npm run typecheck`.
-- **Ne dépend d'aucune app** : ne jamais importer `app/desktop` ni `app/mobile`.
-- **Ce qui est propre à une plateforme est injecté** par l'appelant : les noms par défaut traduits, les identifiants… (voir `newFolder` dans `tree.ts` et `cleanSpaceDraft` dans `model.ts`).
-- **Le seul global hors ECMAScript** dont le paquet a besoin est `URL`. `src/globals.d.ts` le déclare (c'est un fichier de types, il ne change rien à l'exécution). Chez les consommateurs, les types DOM ou Node fournissent déjà `URL` : le bureau exclut donc ce fichier de son `tsconfig.web.json`.
+- **Only code that runs everywhere goes here**: in the Electron main process, in the web interface, and in Hermes (the JavaScript engine of React Native).
+- **Never import** `electron`, `node:*`, the DOM (`document`, `window`…), or `react-native`. The package's `tsconfig` has neither the DOM types nor the Node types (`"types": []`, `lib: ES2023`): a forbidden import makes `npm run typecheck` fail.
+- **Depends on no app**: never import `app/desktop` or `app/mobile`.
+- **Anything platform-specific is injected** by the caller: translated default names, identifiers… (see `newFolder` in `tree.ts` and `cleanSpaceDraft` in `model.ts`).
+- **The only non-ECMAScript global** the package needs is `URL`. `src/globals.d.ts` declares it (it is a types file, it changes nothing at runtime). In consumers, the DOM or Node types already provide `URL`: so the desktop excludes this file from its `tsconfig.web.json`.
 
-## Comment s'en servir
+## How to use it
 
-On importe par sous-chemin, jamais depuis un index général :
+Import by subpath, never from a general index:
 
 ```ts
 import { siteOf } from '@signet/shared/site'
@@ -40,24 +40,24 @@ import { openTab } from '@signet/shared/mobile/workspace'
 import en from '@signet/shared/locales/en/ui.json'
 ```
 
-Les correspondances sont dans `package.json` (`exports`) : `./types` pointe sur `src/types/index.ts`, `./locales/*` sur `src/locales/*`, `./*` sur `src/*.ts`.
+The mappings are in `package.json` (`exports`): `./types` points to `src/types/index.ts`, `./locales/*` to `src/locales/*`, `./*` to `src/*.ts`.
 
-## Ajouter un module
+## Adding a module
 
-1. Créez `src/mon-module.ts`. Il est importable tout de suite sous `@signet/shared/mon-module`.
-2. Écrivez des **fonctions pures** : mêmes entrées, mêmes sorties, rien qui touche au disque, au réseau ou à l'écran.
-3. Écrivez son test à côté : `src/mon-module.test.ts` (Vitest).
-4. Lancez `npm test -w @signet/shared`, puis `npm run typecheck` depuis la racine.
-5. Ajoutez une ligne au tableau ci-dessus.
+1. Create `src/my-module.ts`. It can be imported right away as `@signet/shared/my-module`.
+2. Write **pure functions**: same inputs, same outputs, nothing that touches the disk, the network or the screen.
+3. Write its test next to it: `src/my-module.test.ts` (Vitest).
+4. Run `npm test -w @signet/shared`, then `npm run typecheck` from the root.
+5. Add a row to the table above.
 
-Pour un texte visible, ajoutez la clé dans les **deux** langues, puis lancez `npm run i18n:check`.
+For visible text, add the key in **both** languages, then run `npm run i18n:check`.
 
-## À ne pas confondre
+## Not to be confused with
 
-`app/desktop/src/shared` (alias `@shared/*`) est un **autre** dossier « shared » : il contient le code commun aux processus du **bureau seulement** (contrat IPC, raccourcis, appareils de test, types de fenêtres et d'extensions). Le mobile ne le voit pas. Pour choisir : si le mobile peut en avoir besoin, c'est ici ; sinon, c'est là-bas.
+`app/desktop/src/shared` (alias `@shared/*`) is **another** "shared" folder: it holds the code shared by the processes of the **desktop only** (IPC contract, shortcuts, test fixtures, window and extension types). Mobile does not see it. To choose: if mobile may need it, it goes here; otherwise, it goes there.
 
-Le bureau réexporte les types de ce paquet depuis `@shared/types`, pour que son code continue d'importer tous ses types au même endroit.
+The desktop re-exports this package's types from `@shared/types`, so that its code keeps importing all its types from the same place.
 
 ## Tests
 
-Les tests sont à côté du code (`*.test.ts`). Pour les lancer : `npm test -w @signet/shared`. La carte du code est dans [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).
+Tests sit next to the code (`*.test.ts`). To run them: `npm test -w @signet/shared`. The code map is in [docs/ARCHITECTURE.md](../../docs/ARCHITECTURE.md).

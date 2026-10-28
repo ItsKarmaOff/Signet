@@ -57,6 +57,8 @@ interface Props {
   tabId?: string
   /** Reserves room for the traffic lights (card at the very top left, sidebar hidden). */
   leading?: boolean
+  /** Shows the sidebar toggle (only one bar at a time, the top-left pane's). */
+  sidebarToggle?: boolean
   /** Narrow card: only Reload, padlock and domain. */
   narrow?: boolean
   /** Pane without focus (split view): dimmed content. */
@@ -89,7 +91,15 @@ function deps(s: Snapshot, tabId?: string): unknown[] {
 }
 
 function sameToolbar(a: Props, b: Props): boolean {
-  if (a.tabId !== b.tabId || a.leading !== b.leading || a.narrow !== b.narrow || a.dim !== b.dim || a.floating !== b.floating) return false
+  if (
+    a.tabId !== b.tabId ||
+    a.leading !== b.leading ||
+    a.sidebarToggle !== b.sidebarToggle ||
+    a.narrow !== b.narrow ||
+    a.dim !== b.dim ||
+    a.floating !== b.floating
+  )
+    return false
   if (a.s === b.s) return true
   const x = deps(a.s, a.tabId)
   const y = deps(b.s, b.tabId)
@@ -97,7 +107,7 @@ function sameToolbar(a: Props, b: Props): boolean {
 }
 
 /** A pane's bar: blended into the site (color of the top of the page), actions on the pane's tab. */
-export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, narrow = false, dim = false, floating = false }: Props) {
+export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, sidebarToggle = false, narrow = false, dim = false, floating = false }: Props) {
   const { t, i18n } = useTranslation()
   const signet = window.signet
   const phones = useLinkState()?.active ?? 0
@@ -106,6 +116,7 @@ export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, narrow
   const tab = id ? s.tabs[id] : undefined
   const url = tab?.url ?? ''
   // Current shortcuts (editable in Settings) for the tooltips.
+  const sidebarKeys = shortcutLabel('toggleSidebar', s.settings.shortcuts, IS_MAC)
   const readerKeys = shortcutLabel('reader', s.settings.shortcuts, IS_MAC)
   const bookmarkKeys = shortcutLabel('bookmark', s.settings.shortcuts, IS_MAC)
   // Local name (Settings › Development): shown in place of the host and port.
@@ -156,8 +167,12 @@ export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, narrow
       className={`toolbar${leading ? ' leading' : ''}${floating ? ' floating' : ''}${dim ? ' dim' : ''}`}
       style={floating ? barStyle(tab?.themeColor) : undefined}
     >
-      {leading && !s.sidebarVisible && (
-        <button className="icon" title={t('toolbar.showSidebar')} onClick={() => signet.toggleSidebar()}>
+      {sidebarToggle && (
+        <button
+          className="icon"
+          title={`${s.sidebarVisible ? t('toolbar.hideSidebar') : t('toolbar.showSidebar')}${sidebarKeys ? ` (${sidebarKeys})` : ''}`}
+          onClick={() => signet.toggleSidebar()}
+        >
           {s.settings.sidebarSide === 'right' ? <PanelRight size={17} /> : <PanelLeft size={17} />}
         </button>
       )}

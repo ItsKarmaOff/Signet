@@ -98,13 +98,13 @@
   --s6: 24px;
   --s7: 28px;
   --s8: 32px;
-  --gap: 8px;
+  --gap: 6px;
   --toolbar-h: 44px;
   --row-h: 32px;
 
   /* Radii: each nested level removes the spacing that separates it from its parent */
   --r-window: 16px;
-  --r-card: calc(var(--r-window) - var(--gap) / 2);
+  --r-card: 12px; /* same as the native page views (main/browser/layout.ts) */
   --r-pop: 14px;
   --r-group: 12px;
   --r-tile: 10px;

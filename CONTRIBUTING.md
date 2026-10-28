@@ -2,7 +2,7 @@
 
 Thanks for your interest in Signet. Bug reports, fixes, features, translations and docs are all welcome. This guide covers how to set up the project, how the code is organized, and what a pull request needs before it can be merged.
 
-**Language.** Issues and pull requests can be written in English or French. Code comments, logs and commit messages are in English. The in-depth docs (`docs/`) are still in French for now.
+**Language.** Issues and pull requests can be written in English or French. Code, comments, logs, commit messages and every doc in the repository are in English; the only French file is `README.fr.md`, the French copy of the README.
 
 ## Ways to contribute
 
@@ -120,7 +120,7 @@ Tips:
 - Tab and space rules (`app/desktop/src/main/model/`) are tested without Electron using `model/testkit.ts`.
 - Modules that touch Electron mock it with `vi.mock('electron', …)`.
 - In end-to-end tests, wait with `expect.poll(...)`, never with fixed delays.
-- Some behavior can only be checked by hand (real keyboard, real sites). It's listed in [docs/A-VERIFIER.md](docs/A-VERIFIER.md); add your case there if it applies.
+- Some behavior can only be checked by hand (real keyboard, real sites). It's listed in [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md); add your case there if it applies.
 
 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) describes the `SIGNET_*` environment variables, which seed a sample state, take screenshots and probe the app. Use them with `--user-data-dir=<folder>` so they never touch your real profile.
 
