@@ -101,6 +101,24 @@ describe('History.list / search', () => {
     expect(urls(h.search('doc', new Set(), 5))).toEqual(['https://a.com/1', 'https://a.com/2'])
   })
 
+  it('search: a host prefix beats a match in the path or title, even if less visited', () => {
+    const h = new History()
+    h.record('https://blog.com/why-youtube-is-big', 'Why youtube is big')
+    h.record('https://blog.com/why-youtube-is-big', 'Why youtube is big')
+    h.record('https://blog.com/why-youtube-is-big', 'Why youtube is big')
+    h.record('https://www.youtube.com/', 'YouTube')
+    expect(urls(h.search('yout', new Set(), 5))).toEqual(['https://www.youtube.com/', 'https://blog.com/why-youtube-is-big'])
+  })
+
+  it('search: frequency and recency both count', () => {
+    const h = new History()
+    h.importEntries([
+      { url: 'https://b.com/stale', title: 'doc', visits: 1, lastVisit: Date.now() - 400 * 86_400_000 },
+      { url: 'https://b.com/fresh', title: 'doc', visits: 1, lastVisit: Date.now() }
+    ])
+    expect(urls(h.search('doc', new Set(), 5))).toEqual(['https://b.com/fresh', 'https://b.com/stale'])
+  })
+
   it('update changes the title (search follows) and remove removes', () => {
     const h = new History()
     h.record('https://a.com', 'Ancien')

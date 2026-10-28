@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AppWindow,
@@ -29,6 +29,8 @@ import type { LucideIcon } from 'lucide-react'
 import type { OverlayPayload, PaletteResult, Rect } from '@shared/types'
 import { Favicon } from '../ui/Favicon'
 import { platformKeys } from '@signet/shared/i18n'
+import { highlightRange } from '@shared/highlight'
+import { canComplete, inlineCompletion } from '@shared/inline'
 
 type PalettePayload = Extract<OverlayPayload, { mode: 'palette' }>
 
@@ -52,6 +54,19 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   'js-console': SquareTerminal,
   'toggle-peek-links': Eye,
   'default-browser': Compass
+}
+
+/** Title with the typed part in bold (not for rows whose title is not the page's). */
+function Title({ r, query }: { r: PaletteResult; query: string }) {
+  const range = r.kind === 'tab' || r.kind === 'history' || r.kind === 'archived' || r.kind === 'suggestion' ? highlightRange(r.title, query) : null
+  if (!range) return <>{r.title}</>
+  return (
+    <>
+      {r.title.slice(0, range[0])}
+      <b>{r.title.slice(range[0], range[1])}</b>
+      {r.title.slice(range[1])}
+    </>
+  )
 }
 
 function ResultIcon({ r }: { r: PaletteResult }) {
@@ -104,6 +119,10 @@ export function Palette({ payload }: { payload: PalettePayload }) {
   const [suggestions, setSuggestions] = useState<PaletteResult[]>([])
   const [suggestFor, setSuggestFor] = useState('')
   const [selId, setSelId] = useState<string | null>(null)
+  // Inline completion: what is appended (and selected) after the typed text. `query` stays the typed text only.
+  const [completion, setCompletion] = useState('')
+  const allowCompletion = useRef(false)
+  const composing = useRef(false)
   const seq = useRef(0)
   const lastSent = useRef(-Infinity)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -147,6 +166,12 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     }
   }, [query, mode, signet])
 
+  // Complete only from results for the text currently typed, and only after typing (never after a deletion).
+  useEffect(() => {
+    if (baseFor !== query) return
+    setCompletion(allowCompletion.current ? inlineCompletion(query, base[0]) : '')
+  }, [base, baseFor, query])
+
   // Focus on open (text preselected to edit the address) and when focus returns.
   useEffect(() => {
     const el = inputRef.current
@@ -158,7 +183,7 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     return () => window.removeEventListener('focus', refocus)
   }, [mode])
 
-  // Suggestions are inserted right after the first result.
+  // Engine suggestions go right after the search row (or the first result if it is far down): they never take the top spot.
   const results = useMemo(() => {
     // Suggestions from a previous input: keep only those that still match.
     const q = query.trim().toLowerCase()
@@ -166,7 +191,10 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     if (!current.length) return base
     const seen = new Set(base.map((r) => r.title.toLowerCase()))
     const extra = current.filter((r) => !seen.has(r.title.toLowerCase()))
-    return base.length ? [base[0], ...extra, ...base.slice(1)] : extra
+    if (!base.length) return extra
+    const search = base.findIndex((r) => r.kind === 'search')
+    const at = search >= 0 && search < 3 ? search + 1 : 1
+    return [...base.slice(0, at), ...extra, ...base.slice(at)]
   }, [base, suggestions, suggestFor, query])
 
   const selIndex = Math.max(
@@ -178,6 +206,23 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     listRef.current?.children[selIndex]?.scrollIntoView({ block: 'nearest' })
   }, [selIndex, results])
 
+  // The completion belongs to the top row: moving down the list drops it.
+  const shown = selIndex === 0 ? completion : ''
+  const field = query + shown
+  useLayoutEffect(() => {
+    if (shown) inputRef.current?.setSelectionRange(query.length, field.length)
+  }, [query, shown, field.length])
+
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const ok = canComplete(query, value, (e.nativeEvent as InputEvent).inputType, composing.current)
+    // Typing what the completion already shows keeps the rest of it, so it does not flicker.
+    const typed = value.slice(query.length)
+    setCompletion(ok && completion.toLowerCase().startsWith(typed.toLowerCase()) ? completion.slice(typed.length) : '')
+    allowCompletion.current = ok
+    setQuery(value)
+  }
+
   const run = (r: PaletteResult) => signet.paletteExecute(r, mode)
 
   const onKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
@@ -187,6 +232,18 @@ export function Palette({ payload }: { payload: PalettePayload }) {
       if (!results.length) return
       const step = e.key === 'ArrowDown' ? 1 : -1
       setSelId(results[(selIndex + step + results.length) % results.length].id)
+    } else if (shown && e.key === 'Escape') {
+      // First Escape only removes the completion.
+      e.preventDefault()
+      e.stopPropagation()
+      setCompletion('')
+      allowCompletion.current = false
+    } else if (shown && (e.key === 'ArrowRight' || e.key === 'End') && e.currentTarget.selectionStart === query.length) {
+      e.preventDefault()
+      e.currentTarget.setSelectionRange(field.length, field.length)
+      allowCompletion.current = false
+      setCompletion('')
+      setQuery(field)
     } else if (e.key === 'Enter') {
       e.preventDefault()
       if (baseFor === query) {
@@ -209,9 +266,12 @@ export function Palette({ payload }: { payload: PalettePayload }) {
               <Columns2 size={12} /> {t('palette.splitTag')}
             </span>
           )}
+          <span className="input-ico">
+            {shown ? <Favicon src={'favicon' in results[0] ? results[0].favicon : undefined} size={18} /> : <Search size={17} strokeWidth={1.8} />}
+          </span>
           <input
             ref={inputRef}
-            value={query}
+            value={field}
             placeholder={t(PLACEHOLDERS[mode])}
             spellCheck={false}
             autoComplete="off"
@@ -221,7 +281,9 @@ export function Palette({ payload }: { payload: PalettePayload }) {
             aria-autocomplete="list"
             aria-activedescendant={results.length > 0 ? `palette-opt-${selIndex}` : undefined}
             aria-label={t(PLACEHOLDERS[mode])}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={onChange}
+            onCompositionStart={() => (composing.current = true)}
+            onCompositionEnd={() => (composing.current = false)}
             onKeyDown={onKeyDown}
           />
         </div>
@@ -241,7 +303,9 @@ export function Palette({ payload }: { payload: PalettePayload }) {
                   <ResultIcon r={r} />
                 </span>
                 <span className="text">
-                  <span className="t">{r.title}</span>
+                  <span className="t">
+                    <Title r={r} query={query} />
+                  </span>
                   {r.subtitle && <span className="sub">{r.subtitle}</span>}
                 </span>
                 {r.kind === 'action' && r.shortcut && <kbd>{platformKeys(r.shortcut)}</kbd>}

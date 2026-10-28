@@ -24,7 +24,7 @@ interface Fixture {
   today?: Item[]
   active?: string | null
   archive?: object[]
-  history?: { url: string; title: string; favicon?: string }[]
+  history?: { url: string; title: string; favicon?: string; visits?: number; lastVisit?: number }[]
   settings?: Partial<Settings>
 }
 
@@ -40,7 +40,10 @@ function fake(f: Fixture = {}): Browser {
     link: { canOpenOnPhone: () => false },
     pageTools: { canSave: () => false },
     reader: { canRead: () => false },
-    history: { search: (_q: string, exclude: Set<string>) => (f.history ?? []).filter((e) => !exclude.has(e.url)) }
+    history: {
+      search: (_q: string, exclude: Set<string>) =>
+        (f.history ?? []).filter((e) => !exclude.has(e.url)).map((e) => ({ visits: 1, lastVisit: Date.now(), ...e }))
+    }
   }
   return b as unknown as Browser
 }
@@ -119,8 +122,8 @@ describe('paletteQuery : saisie', () => {
       today: ['a', 'b', 'c'].map((tabId) => ({ kind: 'tab', tabId }) as Item)
     })
     const r = paletteQuery(b, 'cafe', 'default' as never).filter((x) => x.kind === 'tab')
-    expect(r.map((x) => (x.kind === 'tab' ? x.tabId : ''))).toEqual(['a', 'b', 'c'])
-    expect(r[1].title).toBe('Mon CAFÉ')
+    expect(r.map((x) => (x.kind === 'tab' ? x.tabId : ''))).toEqual(['c', 'a', 'b']) // host prefix first, then by match quality
+    expect(r[2].title).toBe('Mon CAFÉ')
   })
 
   it('space tabs and favorites named in the subtitle', () => {
@@ -161,9 +164,11 @@ describe('paletteQuery : saisie', () => {
     expect(r.filter((x) => x.kind === 'history')).toHaveLength(1)
   })
 
-  it('at most 12 results', () => {
+  it('at most 12 results, and 5 past pages', () => {
     const history = Array.from({ length: 30 }, (_, i) => ({ url: `https://h.com/${i}`, title: `h${i}` }))
-    expect(paletteQuery(fake({ history }), 'h', 'default' as never)).toHaveLength(12)
+    const r = paletteQuery(fake({ history }), 'h', 'default' as never)
+    expect(r.length).toBeLessThanOrEqual(12)
+    expect(r.filter((x) => x.kind === 'history')).toHaveLength(5)
   })
 
   it('icon actions only if the input is about icons', () => {
@@ -174,5 +179,84 @@ describe('paletteQuery : saisie', () => {
   it('go to a space', () => {
     const r = paletteQuery(fake(), 'perso', 'default' as never)
     expect(r.some((x) => x.kind === 'action' && x.action === 'space:s1')).toBe(true)
+  })
+})
+
+describe('paletteQuery : ranking', () => {
+  const DAY = 86_400_000
+  const youtube = { url: 'https://www.youtube.com/', title: 'YouTube', visits: 120, lastVisit: Date.now() - DAY }
+  const ids = (r: PaletteResult[]) => r.map((x) => x.id)
+
+  it.each(['you', 'yout', 'youtube'])('"%s": the often visited site comes before the search row, which stays in the list', (q) => {
+    setSearchLanguage('')
+    const r = paletteQuery(fake({ history: [youtube] }), q, 'default' as never)
+    expect(r[0]).toMatchObject({ kind: 'history', url: 'https://www.youtube.com/' })
+    expect(r[1]).toMatchObject({ kind: 'search' })
+  })
+
+  it('a busy site does not push the search row out: it stays second', () => {
+    setSearchLanguage('')
+    const watch = Array.from({ length: 20 }, (_, i) => ({
+      url: `https://www.youtube.com/watch?v=${i}`,
+      title: `Video ${i} - YouTube`,
+      visits: 5,
+      lastVisit: Date.now()
+    }))
+    const r = paletteQuery(fake({ history: [youtube, ...watch] }), 'youtube', 'default' as never)
+    expect(r[0]).toMatchObject({ kind: 'history', url: 'https://www.youtube.com/' })
+    expect(r[1]).toMatchObject({ kind: 'search' })
+    expect(r.filter((x) => x.kind === 'history')).toHaveLength(5)
+  })
+
+  it('a host prefix beats a match in the title or the path', () => {
+    const blog = { url: 'https://blog.com/why-youtube', title: 'Why youtube', visits: 200, lastVisit: Date.now() }
+    const r = paletteQuery(fake({ history: [blog, { ...youtube, visits: 3 }] }), 'youtube', 'default' as never)
+    expect(r[0]).toMatchObject({ url: 'https://www.youtube.com/' })
+  })
+
+  it('a word start in the title beats a mid-word match', () => {
+    const mid = { url: 'https://a.com/1', title: 'Unfoo bar', visits: 5, lastVisit: Date.now() }
+    const start = { url: 'https://b.com/1', title: 'The foo bar', visits: 5, lastVisit: Date.now() }
+    const r = paletteQuery(fake({ history: [mid, start] }), 'foo', 'default' as never).filter((x) => x.kind === 'history')
+    expect(r.map((x) => (x.kind === 'history' ? x.url : ''))).toEqual(['https://b.com/1', 'https://a.com/1'])
+  })
+
+  it('a page seen once long ago does not beat the search row for a generic word', () => {
+    setSearchLanguage('')
+    const old = { url: 'https://recipes.com/', title: 'Recipes', visits: 1, lastVisit: Date.now() - 400 * DAY }
+    const r = paletteQuery(fake({ history: [old] }), 'rec', 'default' as never)
+    expect(kinds(r)).toEqual(['search', 'history'])
+  })
+
+  it('a mid-word match in the title stays below the search row, even when popular', () => {
+    const popular = { url: 'https://a.com/', title: 'Unfoo', visits: 30, lastVisit: Date.now() }
+    expect(kinds(paletteQuery(fake({ history: [popular] }), 'foo', 'default' as never))).toEqual(['search', 'history'])
+  })
+
+  it('no history match: the search row stays first', () => {
+    expect(paletteQuery(fake(), 'youtube', 'default' as never)[0]).toMatchObject({ kind: 'search' })
+  })
+
+  it('a strongly matching open tab comes before the same address in history', () => {
+    const b = fake({
+      tabs: { yt: { title: 'YouTube', url: 'https://www.youtube.com/' } },
+      today: [{ kind: 'tab', tabId: 'yt' }],
+      history: [youtube, { url: 'https://www.youtube.com/feed', title: 'YouTube feed', visits: 50, lastVisit: Date.now() }]
+    })
+    const r = paletteQuery(b, 'you', 'default' as never)
+    expect(r[0]).toMatchObject({ kind: 'tab', tabId: 'yt' })
+    expect(r.filter((x) => x.kind === 'history' && x.url === 'https://www.youtube.com/')).toHaveLength(0)
+  })
+
+  it('a typed address stays first, an exact local name too', () => {
+    setSearchLanguage('')
+    const b = fake({ history: [youtube], settings: { devAliases: [{ name: 'yt', target: 'http://localhost:5000' }] } as Partial<Settings> })
+    expect(paletteQuery(b, 'youtube.com', 'default' as never)[0]).toMatchObject({ kind: 'url', url: 'https://youtube.com' })
+    expect(paletteQuery(b, 'yt', 'default' as never)[0]).toMatchObject({ kind: 'url', url: 'http://localhost:5000' })
+  })
+
+  it('internal addresses stay first', () => {
+    const r = paletteQuery(fake({ history: [{ url: 'https://signet.dev/', title: 'signet settings', visits: 99 }] }), 'signet://sett', 'default' as never)
+    expect(ids(r)[0]).toContain('settings')
   })
 })

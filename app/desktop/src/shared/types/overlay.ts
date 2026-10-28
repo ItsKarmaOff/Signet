@@ -10,7 +10,7 @@ export type PaletteResult =
   | { kind: 'suggestion'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'history'; id: string; title: string; subtitle?: string; url: string; favicon?: string }
   | { kind: 'archived'; id: string; title: string; subtitle?: string; url: string; favicon?: string }
-  | { kind: 'tab'; id: string; title: string; subtitle?: string; tabId: string; favicon?: string }
+  | { kind: 'tab'; id: string; title: string; subtitle?: string; tabId: string; url?: string; favicon?: string }
   | {
       kind: 'action'
       id: string

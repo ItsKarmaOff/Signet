@@ -3,6 +3,7 @@ import { copyFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { AtomicWriter } from './atomic'
 import { fold } from './urls'
+import { historyScore } from './rank'
 
 export interface HistoryEntry {
   url: string
@@ -14,7 +15,6 @@ export interface HistoryEntry {
 
 const MAX_ENTRIES = 5000
 const IGNORED = /^(about|data|devtools):/i
-const DAY = 86_400_000
 const FAVICON_MAX = 200_000
 
 /** Oversized `data:` icons are not kept in the history. */
@@ -168,20 +168,19 @@ export class History {
     if (this.entries.delete(url)) this.schedule()
   }
 
-  /** Entries whose title or URL contains the query, best first. */
+  /** Entries whose title or URL contains the query, best first (match quality weighted by frecency, see `rank.ts`). */
   search(query: string, exclude: Set<string>, limit: number): HistoryEntry[] {
     this.load()
     const q = fold(query)
     const now = Date.now()
-    const score = (e: HistoryEntry) => e.visits + Math.max(0, 10 - (now - e.lastVisit) / DAY)
     // Selects the best `limit` by insertion; on equal score, insertion order is kept (stable sort).
     const top: { e: HistoryEntry; s: number }[] = []
     if (limit <= 0) return []
     for (const e of this.entries.values()) {
       if (exclude.has(e.url)) continue
       const k = this.key(e)
-      if (!k.title.includes(q) && !k.url.includes(q)) continue
-      const s = score(e)
+      const s = historyScore(q, { title: k.title, url: k.url, visits: e.visits, lastVisit: e.lastVisit }, now)
+      if (!s) continue
       if (top.length === limit && s <= top[limit - 1].s) continue
       let i = top.length
       while (i > 0 && top[i - 1].s < s) i--
