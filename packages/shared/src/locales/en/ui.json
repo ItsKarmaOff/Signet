@@ -350,7 +350,26 @@
       "permResetAll": "Reset all",
       "permResetFor": "Forget the choice for {{permission}} on {{origin}}",
       "selectAll": "Select all",
-      "sitePermissions": "Site permissions"
+      "sitePermissions": "Site permissions",
+      "dns": "Secure DNS",
+      "dnsHint": "Looks up site addresses over an encrypted connection (DNS over HTTPS).",
+      "dnsAutomatic": "With your current provider",
+      "dnsOff": "Off",
+      "dnsCustom": "Custom…",
+      "dnsCustomLabel": "Custom DNS over HTTPS server",
+      "dnsCustomPlaceholder": "https://dns.example/dns-query",
+      "dnsCustomInvalid": "Enter an https:// address.",
+      "dnsUse": "Use"
+    },
+    "system": {
+      "gpu": "Use graphics acceleration when available",
+      "gpuHint": "Uses the graphics card to draw pages. Turn it off if pages flicker or show glitches.",
+      "gpuPending": "Relaunch Signet to apply this change.",
+      "gpuPendingDev": "Applied at the next launch.",
+      "relaunch": "Relaunch",
+      "proxy": "Proxy",
+      "proxyHint": "Signet uses your computer's proxy settings.",
+      "proxyOpen": "Open proxy settings"
     },
     "routing": {
       "add": "Add",
@@ -388,7 +407,8 @@
       "backup": "Backup",
       "apps": "Apps",
       "developer": "Developer",
-      "devices": "Devices"
+      "devices": "Devices",
+      "system": "System"
     },
     "shortcuts": {
       "group": {

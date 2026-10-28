@@ -17,6 +17,8 @@ import { applyCleaned, cleanSettings } from '../core/store'
 import { syncQuitHud } from '../app/quit'
 import { pushUi } from '../ipc/push'
 import { downloadDir } from '../web/downloads'
+import { applySecureDns, hasProxySettings, isDnsMode } from '../features/engine'
+import { isDohTemplate } from '@shared/dns'
 
 const SLOW_TTL = 2000
 const KINDS: BrowsingDataKind[] = ['history', 'archive', 'downloads', 'cache', 'cookies', 'permissions']
@@ -143,7 +145,9 @@ export class SettingsWindow {
         permissions: this.b.permissions.listAll().length
       },
       hue: this.b.space.hue,
-      downloadDir: downloadDir(state.settings)
+      downloadDir: downloadDir(state.settings),
+      hardwareAccelerationActive: app.isHardwareAccelerationEnabled(),
+      proxySettings: hasProxySettings()
     }
   }
 
@@ -209,6 +213,16 @@ export class SettingsWindow {
     }
     if (typeof patch.devKeepOutOfHistory === 'boolean') settings.devKeepOutOfHistory = patch.devKeepOutOfHistory
     if (typeof patch.jsonViewer === 'boolean') settings.jsonViewer = patch.jsonViewer
+    // Graphics acceleration: saved here, applied at the next launch (index.ts, before `ready`).
+    if (typeof patch.hardwareAcceleration === 'boolean') {
+      if (patch.hardwareAcceleration) delete settings.hardwareAcceleration
+      else settings.hardwareAcceleration = false
+    }
+    // Secure DNS: applied right away, for the whole app.
+    const dns = JSON.stringify([settings.secureDns, settings.secureDnsServer])
+    if (isDnsMode(patch.secureDns)) settings.secureDns = patch.secureDns
+    if (isDohTemplate(patch.secureDnsServer)) settings.secureDnsServer = patch.secureDnsServer
+    if (JSON.stringify([settings.secureDns, settings.secureDnsServer]) !== dns) applySecureDns(settings)
     if (typeof patch.checkUpdates === 'boolean' && patch.checkUpdates !== (settings.checkUpdates !== false)) {
       settings.checkUpdates = patch.checkUpdates
       this.b.updates.sync()

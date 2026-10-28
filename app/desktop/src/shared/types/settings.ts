@@ -34,4 +34,8 @@ export interface SettingsInfo {
   hue: number
   /** Folder where downloads go (the Settings one, or the system one if unset or no longer there). */
   downloadDir: string
+  /** Graphics acceleration of the running engine: differs from `settings.hardwareAcceleration` until a relaunch. */
+  hardwareAccelerationActive: boolean
+  /** False when no system proxy settings screen is known (some Linux desktops). */
+  proxySettings: boolean
 }

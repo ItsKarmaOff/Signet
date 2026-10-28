@@ -95,6 +95,12 @@ export function startupLanguage(): string {
 
 let startupRaw: unknown
 
+/** Saved settings read by `startupLanguage` (before `ready`), without consuming them. */
+export function startupSettings(): Record<string, unknown> | null {
+  const s = (startupRaw as { settings?: unknown } | undefined)?.settings
+  return s && typeof s === 'object' ? (s as Record<string, unknown>) : null
+}
+
 /** state.json already parsed by `startupLanguage`, to be consumed only once (so the Store avoids a second parse). */
 export function takeStartupState(): unknown {
   const raw = startupRaw

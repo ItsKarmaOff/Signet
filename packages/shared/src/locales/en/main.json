@@ -511,7 +511,8 @@
         "mods": "Settings: interface mods",
         "backup": "Settings: Backup",
         "apps": "Settings: installed apps",
-        "developer": "Settings: developer"
+        "developer": "Settings: developer",
+        "system": "Settings: System"
       },
       "librarySection": {
         "history": "Library: History",

@@ -92,7 +92,19 @@ export interface Settings {
   responsive?: DevResponsive
   /** Location and sizes of the developer tools. Missing = on the right, original sizes. */
   devtools?: DevToolsPrefs
+  /** Graphics acceleration (GPU) when available. Applied at the next launch. Missing = enabled. */
+  hardwareAcceleration?: boolean
+  /** Secure DNS (DNS over HTTPS). Missing = `automatic`. */
+  secureDns?: SecureDnsMode
+  /** DNS over HTTPS server template, used in `secure` mode. */
+  secureDnsServer?: string
 }
+
+/**
+ * Secure DNS: `automatic` upgrades the system's DNS provider to DNS over HTTPS when it supports it, `secure`
+ * only uses the chosen server, `off` never uses DNS over HTTPS.
+ */
+export type SecureDnsMode = 'off' | 'automatic' | 'secure'
 
 /** Reader mode presentation, set from its bar and remembered for all pages. */
 export interface ReaderPrefs {

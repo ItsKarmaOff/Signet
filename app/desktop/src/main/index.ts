@@ -16,6 +16,7 @@ import { IS_MAC } from './app/platform'
 import { reducedUserAgent } from './web/identity'
 import { registerIpc } from './ipc'
 import { setSearchEngine } from './core/urls'
+import { applySecureDns, applyStartupEngine } from './features/engine'
 
 app.setName('Signet')
 // Google refuses sign-in to browsers that identify as Electron.
@@ -23,6 +24,8 @@ app.setName('Signet')
 app.userAgentFallback = reducedUserAgent(app.userAgentFallback)
 // Main language (navigator.language): set before `ready`, effective at next launch if it changes.
 app.commandLine.appendSwitch('lang', startupLanguage())
+// Graphics acceleration turned off in Settings › System: only possible before `ready`.
+applyStartupEngine()
 
 // The `signet` scheme must be declared before `ready`.
 registerInternalScheme()
@@ -134,6 +137,7 @@ function start(): void {
     }
     applyTheme(browser.store.state.settings)
     setSearchEngine(browser.store.state.settings.searchEngine)
+    applySecureDns(browser.store.state.settings)
     registerIpc(browser, !app.isPackaged)
     browser.link.start()
     // The menu is built by Browser's first apply() (triggered by openWindow, on the next tick).
