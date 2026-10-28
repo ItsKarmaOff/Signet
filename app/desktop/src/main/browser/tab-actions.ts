@@ -8,7 +8,7 @@ import type { Model } from '../model'
 import type { OpenOptions } from '../model/opening'
 import { isHorizontal } from '../model/chrome'
 import type { WebApps } from '../features/webapps'
-import { resolveInternal } from '../web/internal'
+import { resolveInternal, refuseEngineInput } from '../web/internal'
 import type { LittleWindows } from '../windows/little'
 import type { PrivateWindows } from '../windows/private'
 import type { Changed } from './broadcast'
@@ -106,7 +106,8 @@ export class TabActions {
     if (tab) this.open(tab.url, { activate: true, afterTabId: tabId })
   }
 
-  openUrl(url: string, mode: PaletteMode): void {
+  openUrl(input: string, mode: PaletteMode): void {
+    const url = refuseEngineInput(input) // explicit user input: chrome:// is refused
     if (this.d.openShortcut(url)) return // Signet screen: no tab
     const active = this.d.model.activeTab()
     if (mode === 'edit-url' && active) this.loadUrl(active.id, url)
@@ -177,7 +178,7 @@ export class TabActions {
     // A local name (`mysite/admin`) takes precedence over everything: otherwise `mysite.test` looks like a domain.
     const aliased = resolveAlias(input, this.d.store.state.settings.devAliases)
     const typed = aliased ? null : toUrl(input)
-    this.loadUrl(tabId, aliased ?? typed ?? engineSearchUrl(input))
+    this.loadUrl(tabId, refuseEngineInput(aliased ?? typed ?? engineSearchUrl(input)))
     if (typed && isUpgradedInput(input, typed)) this.upgraded.set(tabId, typed) // after loadUrl, which clears it
   }
 
