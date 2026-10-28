@@ -38,9 +38,12 @@ describe('seal / unseal', { timeout: 30_000 }, () => {
   })
 
   it('different salt and IV at each encryption', () => {
-    const a = seal(1, 'pw')
-    const b = seal(1, 'pw')
+    // A long value: a 1-byte ciphertext would be identical once in 256 runs.
+    const value = 'the same secret, encrypted twice'
+    const a = seal(value, 'pw')
+    const b = seal(value, 'pw')
     expect(a.salt).not.toBe(b.salt)
+    expect(a.iv).not.toBe(b.iv)
     expect(a.data).not.toBe(b.data)
   })
 })

@@ -28,6 +28,8 @@ export class AtomicWriter {
   private writing = false
   private again = false
   private epoch = 0
+  /** Write loop in progress, if any. */
+  private running: Promise<void> = Promise.resolve()
 
   constructor(
     private file: string,
@@ -42,7 +44,12 @@ export class AtomicWriter {
       return
     }
     this.writing = true
-    void this.pump()
+    this.running = this.pump()
+  }
+
+  /** Resolves once no write is in progress (tests: waiting a fixed delay is not enough on a slow disk). */
+  whenIdle(): Promise<void> {
+    return this.running
   }
 
   /** Cancels any write in progress: it will not be renamed (e.g. file deleted). */
