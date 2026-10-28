@@ -218,6 +218,62 @@ function archiveKey(e: { title: string; url: string }): { title: string; url: st
   return k
 }
 
+/** Parsed web address, or null. */
+function webUrl(url: string | undefined): URL | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u : null
+  } catch {
+    return null
+  }
+}
+
+/** Root of a site: path `/` (or empty), no query, no fragment. */
+const isRootUrl = (u: URL): boolean => u.pathname === '/' && !u.search && !u.hash
+
+/** Host without `www.`, the identity of a site for the root promotion. */
+const siteKey = (u: URL): string => u.host.toLowerCase().replace(/^www\./, '')
+
+/**
+ * Chrome-like host promotion: when the best row is a deep page matched by the start of its host, the
+ * site's root comes first instead, so the row, the inline completion (host only) and Enter all mean the
+ * same thing. The root is an existing row (open tab, history, archive), else a history entry looked up
+ * directly, else a synthesized row. `rows` is sorted best first; returns the list with the root first.
+ */
+function promoteRoot(b: Browser, fq: string, rows: PaletteResult[]): PaletteResult[] {
+  const top = rows[0]
+  if (!top || (top.kind !== 'tab' && top.kind !== 'history' && top.kind !== 'archived')) return rows
+  const deep = webUrl(top.url)
+  if (!deep || isRootUrl(deep) || matchQuality(fq, '', fold(top.url ?? '')) !== 100) return rows
+  const site = siteKey(deep)
+  const existing = rows.findIndex((r) => {
+    if (r.kind !== 'tab' && r.kind !== 'history' && r.kind !== 'archived') return false
+    const u = webUrl(r.url)
+    return !!u && isRootUrl(u) && siteKey(u) === site
+  })
+  if (existing > 0) return [rows[existing], ...rows.slice(0, existing), ...rows.slice(existing + 1)]
+  // Not among the candidates (the history search keeps only a few): look the root up directly.
+  const www = /^www\./i.test(deep.hostname) ? '' : 'www.'
+  const bare = deep.hostname.replace(/^www\./i, '')
+  const hosts = [deep.hostname, www ? `${www}${bare}` : bare]
+  const schemes = [deep.protocol, deep.protocol === 'https:' ? 'http:' : 'https:']
+  const port = deep.port ? `:${deep.port}` : ''
+  let entry: ReturnType<Browser['history']['get']>
+  for (const scheme of schemes) for (const host of hosts) entry ??= b.history.get(`${scheme}//${host}${port}/`)
+  const root = entry
+    ? ({ kind: 'history', id: `history:${entry.url}`, title: entry.title, subtitle: entry.url, url: entry.url, favicon: entry.favicon } as const)
+    : ({
+        kind: 'history',
+        id: `history:${deep.protocol}//${deep.host}/`,
+        title: deep.host.replace(/^www\./i, ''),
+        subtitle: `${deep.protocol}//${deep.host}/`,
+        url: `${deep.protocol}//${deep.host}/`,
+        favicon: top.favicon
+      } as const)
+  return [root, ...rows.filter((r) => r.id !== root.id)]
+}
+
 export function paletteQuery(b: Browser, query: string, mode: PaletteMode): PaletteResult[] {
   const { state } = b.store
   const q = query.trim()
@@ -312,7 +368,9 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
       )
     }
   }
-  const sorted = scored.sort((x, y) => y.s - x.s).map((x) => x.r)
+  let sorted = scored.sort((x, y) => y.s - x.s).map((x) => x.r)
+  // Free text without a typed path: the inline completion only names the host, so Enter must open it too.
+  if (!aliased && !url && !q.includes('/') && !/\s/.test(q) && !/^signet:/i.test(q)) sorted = promoteRoot(b, fq, sorted)
   // Like other browsers, only a few past pages: a busy site must not flood the list.
   let pages = 0
   const list = sorted.filter((r) => (r.kind !== 'history' && r.kind !== 'archived') || ++pages <= MAX_PAGES)
