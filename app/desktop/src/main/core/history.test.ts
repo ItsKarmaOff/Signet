@@ -175,7 +175,7 @@ describe('History: file', () => {
     h.record('https://a.com', 'A')
     vi.advanceTimersByTime(2001)
     vi.useRealTimers()
-    await new Promise((r) => setTimeout(r, 80))
-    expect(existsSync(path())).toBe(true)
+    // The write itself is async: poll for the file instead of a fixed wait.
+    await vi.waitFor(() => expect(existsSync(path())).toBe(true), { timeout: 5000 })
   })
 })
