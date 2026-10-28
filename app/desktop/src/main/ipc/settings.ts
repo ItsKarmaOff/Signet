@@ -1,5 +1,6 @@
 import type { Browser } from '../browser/browser'
 import { setShortcutRecording } from '../app/menu'
+import { openProxySettings, relaunchApp } from '../features/engine'
 import type { Registrar } from './registrar'
 
 /** Settings, backup, import, browsing data. */
@@ -10,6 +11,8 @@ export function registerSettingsIpc(b: Browser, { handle }: Registrar): void {
   handle('setShortcutRecording', (_c, recording) => setShortcutRecording(b, recording))
   handle('setDefaultBrowser', () => b.settings.setDefaultBrowser())
   handle('chooseDownloadDir', () => b.settings.chooseDownloadDir())
+  handle('relaunchApp', () => relaunchApp())
+  handle('openProxySettings', () => openProxySettings())
   handle('runImport', (_c, id, kinds) => b.settings.runImport(id, kinds))
   handle('openWelcome', () => b.welcome.open())
   handle('checkForUpdates', () => b.updates.check(true))

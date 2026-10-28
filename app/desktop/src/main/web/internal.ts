@@ -39,6 +39,7 @@ const SETTINGS_SECTIONS = [
   'shortcuts',
   'mods',
   'developer',
+  'system',
   'about'
 ] as const
 const LIBRARY_SECTIONS = ['history', 'archive', 'downloads', 'spaces'] as const

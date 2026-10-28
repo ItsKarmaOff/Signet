@@ -1099,6 +1099,14 @@ Contract: `DevAlias`, `Settings.devAliases`. Shared functions in app/desktop/src
 - Input (command bar, address field): `name`, `name/path`, `name?query` or `http(s)://name/…` opens the target followed by the rest, before any other interpretation (`mysite.test` would otherwise be taken for an https domain). The command bar also offers the names that start with the input ("Local name → address").
 - Pane bar: a page under a name's target (same origin, equal or deeper path) shows the name instead of the host and port ("mysite / title"); the real address in a tooltip. History and the address field keep the real address.
 
+## v33: engine settings
+
+Electron does not ship Chromium's settings page (`chrome://settings`, `chrome://flags`, `chrome://extensions` all fail with `ERR_INVALID_URL`), so the engine settings that Electron can drive live in Signet's Settings window (`features/engine.ts`):
+
+- **Settings › System › Use graphics acceleration when available** (`settings.hardwareAcceleration`, missing = on): read from `state.json` before `ready` and applied with `app.disableHardwareAcceleration()`, so it takes effect at the next launch. While the saved choice differs from the running engine (`SettingsInfo.hardwareAccelerationActive`), the packaged app offers "Relaunch"; in development the row only says it applies at the next launch (relaunching would detach the app from electron-vite).
+- **Settings › System › Proxy**: Signet follows the system proxy; the button opens the macOS Network settings, Windows `ms-settings:network-proxy`, or on Linux `gnome-control-center network` or the KDE proxy module (row hidden when none is installed).
+- **Settings › Privacy › Secure DNS** (`settings.secureDns`, `settings.secureDnsServer`): with the current provider (`automatic`, the default), off, or a chosen DNS over HTTPS server (Cloudflare, Google, Quad9, NextDNS, CleanBrowsing, or a custom `https://` template, `@shared/dns`). Applied live with `app.configureHostResolver` for the whole app; left to the engine's default until the user chooses.
+
 ## Linux and Windows
 
 Signet is designed for macOS but must work on Linux and Windows (app/desktop/src/main/app/platform.ts).

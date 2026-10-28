@@ -254,6 +254,8 @@ export const IPC = {
   setShortcutRecording: invoke('shortcuts:recording', [bool()]),
   setDefaultBrowser: invoke('settings:default-browser', []),
   chooseDownloadDir: invoke('settings:download-dir', []),
+  relaunchApp: invoke('settings:relaunch', []),
+  openProxySettings: invoke('settings:proxy', []),
   runImport: invoke('settings:import', [str(), arr(importKind)]),
   openWelcome: invoke('welcome:open', []),
   checkForUpdates: invoke('updates:check', []),

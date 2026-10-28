@@ -235,6 +235,10 @@ export interface SignetApi {
   setDefaultBrowser(): Promise<void>
   /** Chooses the downloads folder in a system dialog (cancelled = unchanged). */
   chooseDownloadDir(): Promise<void>
+  /** Relaunches the app (graphics acceleration change). Packaged app only. */
+  relaunchApp(): Promise<void>
+  /** Opens the system's proxy settings. */
+  openProxySettings(): Promise<void>
   /** Starts the import of a source (`importSources[].id`), for the checked data; the summary is shown in a dialog. */
   runImport(sourceId: string, kinds: ImportKind[]): Promise<void>
   openBoost(site: string): Promise<void>
