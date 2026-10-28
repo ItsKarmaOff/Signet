@@ -27,4 +27,4 @@ Closes #
 - [ ] New visible text exists in English and French
 - [ ] macOS-only APIs are guarded (`IS_MAC`, `windowChrome()`)
 - [ ] Tests added or updated where it makes sense
-- [ ] Manual checks added to `docs/A-VERIFIER.md` if the change can't be tested automatically
+- [ ] Manual checks added to `docs/MANUAL-CHECKS.md` if the change can't be tested automatically

@@ -1,91 +1,91 @@
-# Lien entre appareils (sans compte)
+# Link between devices (no account)
 
-Un téléphone s'appaire **une fois** avec un ordinateur en scannant un QR code. Ensuite, quand ils sont sur le même réseau :
+A phone pairs **once** with a computer by scanning a QR code. After that, when they are on the same network:
 
-- `localhost:PORT` tapé sur le téléphone ouvre le serveur de dev de l'ordinateur. L'origine reste `http://localhost:PORT`, donc la page est un « contexte sûr » ; les WebSocket (rechargement auto Vite/Next) et les appels vers d'autres ports locaux marchent aussi ;
-- « Ouvrir sur mon téléphone » (ordinateur → téléphone) et « Ouvrir sur l'ordinateur » (téléphone → ordinateur) ;
-- le téléphone voit la liste des serveurs de dev de l'ordinateur (ports qui écoutent + onglets localhost ouverts).
+- `localhost:PORT` typed on the phone opens the computer's dev server. The origin stays `http://localhost:PORT`, so the page is a "secure context"; WebSockets (Vite/Next auto reload) and calls to other local ports work too;
+- "Open on my phone" (computer → phone) and "Open on the computer" (phone → computer);
+- the phone sees the list of the computer's dev servers (listening ports + open localhost tabs).
 
-Pas de compte, pas de serveur, rien ne passe par Internet. Le code commun est ici (`protocol.ts`, `status.ts`, `loopback.ts`) ; chaque app fait son transport.
+No account, no server, nothing goes through the internet. The shared code is here (`protocol.ts`, `status.ts`, `loopback.ts`); each app does its own transport.
 
-## Interrupteurs (des deux côtés)
+## Switches (on both sides)
 
-- Un **interrupteur général** (« Synchro ») et un **interrupteur par appareil**.
-- Un lien ne fonctionne que si les **quatre** sont sur ON. Couper ne supprime pas le lien (les clés restent).
-- Interrupteur général OFF : ceux des appareils sont grisés mais gardent leur position.
-- **Oublier** un appareil supprime le lien (clés comprises) ; on prévient l'autre (`forget`) s'il est connecté. Sinon, il l'apprendra
-  à la prochaine connexion (`unknown-link`) et affichera « Lien plus valide » avec un bouton pour le supprimer de son côté.
-- Réappairer = nouveau lien = nouvelles clés (certificat et jeton neufs).
-- État affiché : `linkStatus()` dans `status.ts` (Connecté / Connexion… / En pause ici / En pause sur X / Introuvable / Lien plus valide).
+- A **general switch** ("Sync") and a **per-device switch**.
+- A link only works if all **four** are ON. Turning one off does not delete the link (the keys stay).
+- General switch OFF: the device switches are grayed out but keep their position.
+- **Forget** on a device deletes the link (keys included); the other side is told (`forget`) if it is connected. Otherwise, it will find out
+  at the next connection (`unknown-link`) and show "Link no longer valid" with a button to delete it on its side.
+- Pairing again = new link = new keys (fresh certificate and token).
+- Displayed state: `linkStatus()` in `status.ts` (Connected / Connecting… / Paused here / Paused on X / Not found / Link no longer valid).
 
-## Sécurité
+## Security
 
-- **Un certificat TLS par lien** (auto-signé, ECDSA P-256, créé par l'ordinateur à l'appairage). Le téléphone l'épingle : SHA-256 du
-  certificat DER, reçu dans le QR code. Aucune autre vérification (pas d'autorité, pas de nom d'hôte) : seule l'empreinte compte.
-- **SNI** = `serverNameForLink(linkId)`. L'ordinateur choisit le certificat du lien d'après ce nom. Nom inconnu → certificat par défaut
-  de l'installation ; le téléphone voit alors une empreinte différente (`pin-mismatch`). Si ce même ordinateur (même `desktopId` en
-  mDNS) répond ainsi, le lien est considéré comme supprimé de l'autre côté (« Lien plus valide »).
-- **Jeton du lien** : 32 octets aléatoires (base64url, 43 caractères), créés par l'ordinateur et donnés au téléphone dans `paired`.
-  Le téléphone le garde dans le Trousseau / Keystore (expo-secure-store). L'ordinateur ne garde que son SHA-256 et compare en temps constant.
-- **Code d'appairage** : 16 octets aléatoires, usage unique, valable 5 minutes (`PAIRING_TTL_MS`). Un seul QR code actif à la fois.
-- L'ordinateur n'ouvre un tunnel que vers **127.0.0.1:port ou [::1]:port**, jamais ailleurs, et jamais vers son propre port de lien.
-- Interrupteur général OFF sur l'ordinateur : il arrête l'annonce mDNS **et** ferme son port d'écoute. Les connexions ouvertes
-  reçoivent `{"type":"status","paused":true}` puis sont fermées.
+- **One TLS certificate per link** (self-signed, ECDSA P-256, created by the computer at pairing). The phone pins it: SHA-256 of the
+  DER certificate, received in the QR code. No other check (no authority, no host name): only the fingerprint counts.
+- **SNI** = `serverNameForLink(linkId)`. The computer picks the link's certificate from this name. Unknown name → the installation's default
+  certificate; the phone then sees a different fingerprint (`pin-mismatch`). If that same computer (same `desktopId` in
+  mDNS) answers this way, the link is considered deleted on the other side ("Link no longer valid").
+- **Link token**: 32 random bytes (base64url, 43 characters), created by the computer and given to the phone in `paired`.
+  The phone keeps it in the Keychain / Keystore (expo-secure-store). The computer only keeps its SHA-256 and compares in constant time.
+- **Pairing code**: 16 random bytes, single use, valid for 5 minutes (`PAIRING_TTL_MS`). Only one active QR code at a time.
+- The computer only opens a tunnel to **127.0.0.1:port or [::1]:port**, never anywhere else, and never to its own link port.
+- General switch OFF on the computer: it stops the mDNS announcement **and** closes its listening port. Open connections
+  receive `{"type":"status","paused":true}` and are then closed.
 
-## Découverte
+## Discovery
 
-- L'ordinateur s'annonce en mDNS : type `_signet._tcp` (`LINK_SERVICE_TYPE`), nom d'instance = nom de l'ordinateur, TXT
-  `v=1` et `id=<desktopId>`.
-- Il écoute sur toutes les interfaces, port `LINK_DEFAULT_PORT` (47615) s'il est libre, sinon un port libre (annoncé partout).
-- Le téléphone essaie dans l'ordre : adresses vues en mDNS pour ce `desktopId`, puis les dernières adresses qui ont marché, puis
-  celles du QR code. Reconnexion avec attente croissante (1 s → 30 s), seulement app au premier plan.
+- The computer announces itself over mDNS: type `_signet._tcp` (`LINK_SERVICE_TYPE`), instance name = computer name, TXT
+  `v=1` and `id=<desktopId>`.
+- It listens on all interfaces, port `LINK_DEFAULT_PORT` (47615) if it is free, otherwise a free port (announced everywhere).
+- The phone tries in order: addresses seen over mDNS for this `desktopId`, then the last addresses that worked, then
+  those from the QR code. Reconnects with a growing delay (1 s → 30 s), only while the app is in the foreground.
 
-## Connexions et messages
+## Connections and messages
 
-Une connexion TCP + TLS = un rôle. Chaque message est un objet JSON sur une ligne (`\n`), au plus 64 Kio. Types et validation :
-`protocol.ts` (`parseLinkMessage`, `encodeLinkMessage`). Le téléphone parle en premier.
+One TCP + TLS connection = one role. Each message is a JSON object on one line (`\n`), 64 KiB at most. Types and validation:
+`protocol.ts` (`parseLinkMessage`, `encodeLinkMessage`). The phone speaks first.
 
-### Appairage
+### Pairing
 
-1. L'ordinateur crée un lien en attente : `linkId` (8 octets aléatoires en hexadécimal), certificat, code. Il affiche le QR code :
-   `encodePairingUrl(offer)` → `signet://link?d=…` (l'appareil photo d'iOS ouvre aussi l'app avec ce lien).
-2. Le téléphone lit le QR code (`decodePairingUrl`), ouvre une socket épinglée sur `hosts[i]:port` et envoie
+1. The computer creates a pending link: `linkId` (8 random bytes in hexadecimal), certificate, code. It shows the QR code:
+   `encodePairingUrl(offer)` → `signet://link?d=…` (the iOS camera also opens the app with this link).
+2. The phone reads the QR code (`decodePairingUrl`), opens a pinned socket to `hosts[i]:port` and sends
    `{"type":"pair","v":1,"linkId","code","device"}`.
-3. L'ordinateur vérifie le code (temps constant, usage unique, pas expiré), crée le jeton, enregistre le lien (ON par défaut) et répond
-   `{"type":"paired","token","device"}` puis ferme. Erreurs : `bad-code`, `expired`, `unknown-link`, `version`.
-4. Le téléphone enregistre le lien (ON par défaut) puis ouvre la connexion de contrôle.
+3. The computer checks the code (constant time, single use, not expired), creates the token, saves the link (ON by default) and answers
+   `{"type":"paired","token","device"}` then closes. Errors: `bad-code`, `expired`, `unknown-link`, `version`.
+4. The phone saves the link (ON by default) then opens the control connection.
 
-### Contrôle
+### Control
 
-- Téléphone : `{"type":"hello","v":1,"linkId","token","role":"control","device"}`.
-- Ordinateur : `{"type":"welcome","device","paused"}` (`paused` = ce lien est en pause côté ordinateur), ou `error`
-  (`unknown-link`, `bad-token`, `version`) puis fermeture.
-- Ensuite, dans les deux sens : `status`, `open`, `forget`, `ping`/`pong`. L'ordinateur envoie `servers` juste après `welcome` puis à
-  chaque changement (au plus une fois toutes les 2 s), seulement si le lien est actif des deux côtés.
-- `ping` toutes les 20 s par le téléphone ; sans réponse en 10 s, il ferme et se reconnecte.
-- Pause côté ordinateur (interrupteur de l'appareil) : il envoie `status paused:true` et garde la connexion ouverte (il ne répond plus
-  qu'aux `ping` et ne pousse plus rien). Reprise : `status paused:false` puis `servers`.
-- Pause côté téléphone (général ou appareil) : il envoie `status paused:true` puis ferme, et ne se reconnecte plus à cet ordinateur.
-  Reprise : il se reconnecte (le `hello` vaut reprise).
-- `open` n'est accepté que si le lien est actif des deux côtés. URL http(s) seulement.
+- Phone: `{"type":"hello","v":1,"linkId","token","role":"control","device"}`.
+- Computer: `{"type":"welcome","device","paused"}` (`paused` = this link is paused on the computer side), or `error`
+  (`unknown-link`, `bad-token`, `version`) then close.
+- Then, in both directions: `status`, `open`, `forget`, `ping`/`pong`. The computer sends `servers` right after `welcome` then on
+  each change (at most once every 2 s), only if the link is active on both sides.
+- `ping` every 20 s from the phone; with no answer within 10 s, it closes and reconnects.
+- Pause on the computer side (device switch): it sends `status paused:true` and keeps the connection open (it only answers
+  `ping` and no longer pushes anything). Resume: `status paused:false` then `servers`.
+- Pause on the phone side (general or device): it sends `status paused:true` then closes, and no longer reconnects to that computer.
+  Resume: it reconnects (the `hello` counts as a resume).
+- `open` is only accepted if the link is active on both sides. http(s) URLs only.
 
 ### Tunnel (localhost)
 
-- Téléphone : `{"type":"hello","v":1,"linkId","token","role":"tunnel","port":5173}`.
-- Ordinateur : vérifie le jeton et que le lien est ON chez lui, se connecte à `127.0.0.1:port` puis `[::1]:port` (Vite écoute souvent
-  sur `::1` seulement), répond `{"type":"ok"}` puis relaie les octets bruts dans les deux sens jusqu'à la fermeture.
-  Erreurs : `paused`, `port-closed`, `port-refused`, `bad-token`, `unknown-link`.
-- Une connexion TLS par tunnel (le WebView garde ses connexions ouvertes, ça suffit sur un réseau local).
+- Phone: `{"type":"hello","v":1,"linkId","token","role":"tunnel","port":5173}`.
+- Computer: checks the token and that the link is ON on its side, connects to `127.0.0.1:port` then `[::1]:port` (Vite often listens
+  on `::1` only), answers `{"type":"ok"}` then relays the raw bytes in both directions until the connection closes.
+  Errors: `paused`, `port-closed`, `port-refused`, `bad-token`, `unknown-link`.
+- One TLS connection per tunnel (the WebView keeps its connections open, which is enough on a local network).
 
-## Comment le téléphone envoie `localhost` à l'ordinateur
+## How the phone sends `localhost` to the computer
 
-`servers` porte aussi `ports` : tous les ports qui écoutent sur l'ordinateur (pages et API, hors ports système et éphémères). Le
-téléphone écoute lui-même sur son localhost à ces ports (« ports miroirs ») et relaie chaque connexion dans un tunnel : un vrai iPhone
-n'envoie jamais `localhost` à un proxy, et Android fait de même pour rester simple. Détails : `app/mobile/modules/signet-link/README.md`.
+`servers` also carries `ports`: all the ports that listen on the computer (pages and APIs, excluding system and ephemeral ports). The
+phone itself listens on its localhost on these ports ("mirror ports") and relays each connection through a tunnel: a real iPhone
+never sends `localhost` to a proxy, and Android does the same to keep things simple. Details: `app/mobile/modules/signet-link/README.md`.
 
-## Choix de l'ordinateur pour `localhost`
+## Choosing the computer for `localhost`
 
-`pickLocalhostRoute(actifs, choix)` : aucun → `localhost` reste le téléphone ; un seul → lui ; plusieurs sans choix valable → le
-téléphone affiche une fenêtre pour choisir (quand on ouvre une adresse `localhost`), et garde ce choix tant que cet ordinateur est actif.
-Sur le téléphone, les adresses `127.0.0.1`, `[::1]` et `0.0.0.0` sont ramenées sur `localhost` (`toLinkLocalhost`) : seul ce nom
-passe par l'ordinateur.
+`pickLocalhostRoute(activeLinkIds, chosen)`: none → `localhost` stays the phone; just one → that one; several with no valid choice → the
+phone shows a window to choose (when opening a `localhost` address), and keeps that choice as long as that computer is active.
+On the phone, the addresses `127.0.0.1`, `[::1]` and `0.0.0.0` are mapped to `localhost` (`toLinkLocalhost`): only this name
+goes through the computer.

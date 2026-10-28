@@ -181,7 +181,7 @@ Toutes se lancent depuis la racine.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : la carte du code, pour un nouveau contributeur.
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) : scripts de développement, tests, variables `SIGNET_*`.
 - [docs/SPEC.md](docs/SPEC.md) : le comportement attendu, version par version.
-- [docs/A-VERIFIER.md](docs/A-VERIFIER.md) : ce qui se vérifie à la main.
+- [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) : ce qui se vérifie à la main.
 - [app/mobile/README.md](app/mobile/README.md) et [packages/shared/README.md](packages/shared/README.md).
 
 ## Contribuer
