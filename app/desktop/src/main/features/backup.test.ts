@@ -19,7 +19,8 @@ import { Backup, buildItems, cleanTab, itemsData, seal, tabData, unseal, urlsOf 
 
 const tabInfo = (id: string, extra: Partial<TabInfo> = {}): TabInfo => ({ id, url: `https://${id}.com`, title: id.toUpperCase(), ...extra }) as TabInfo
 
-describe('seal / unseal', () => {
+// scrypt with production cost runs twice or more per test: allow for a loaded machine.
+describe('seal / unseal', { timeout: 30_000 }, () => {
   it('round trip with the right password', () => {
     const value = { logins: [{ origin: 'https://a.com', username: 'u', password: 'é€' }] }
     const sealed = seal(value, 'correct horse')
