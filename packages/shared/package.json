@@ -1,6 +1,6 @@
 {
   "name": "@signet/shared",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Platform-neutral TypeScript shared by the desktop (Electron) and mobile (React Native) apps.",
