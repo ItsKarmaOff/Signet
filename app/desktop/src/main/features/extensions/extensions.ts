@@ -140,7 +140,6 @@ export class Extensions {
     this.attached.add(ses)
     if (!ElectronChromeExtensions.fromSession(ses)) {
       new ElectronChromeExtensions({
-        license: 'GPL-3.0',
         session: ses,
         createTab: (details) => this.createTab(ses, details),
         selectTab: (wc) => this.selectCallback(wc),
