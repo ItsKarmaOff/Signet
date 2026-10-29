@@ -88,7 +88,8 @@ describe('Passwords.addMany / list', () => {
     env.dir = dir
     env.encryption = true
   })
-  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+  // A background write may still be finishing: retry the removal.
+  afterEach(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }))
 
   const make = () => new Passwords({ store: { state: { tabs: {}, settings: {} } } } as unknown as Browser)
 

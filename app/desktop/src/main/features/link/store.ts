@@ -146,6 +146,11 @@ export class LinkStore {
     this.writer.flushSync()
   }
 
+  /** Resolves once no background write is in progress (tests: the temporary folder can then be removed). */
+  whenIdle(): Promise<void> {
+    return this.writer.whenIdle()
+  }
+
   get(linkId: string): StoredLink | undefined {
     return this.links.find((l) => l.linkId === linkId)
   }
