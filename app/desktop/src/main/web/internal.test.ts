@@ -6,7 +6,17 @@ vi.mock('electron', () => ({
   webContents: { getAllWebContents: () => [] }
 }))
 
-import { displayUrl, ENGINE_PAGES, guardNavigation, internalSuggestions, isEngineErrorPage, isInternalUrl, openShortcut, resolveInternal } from './internal'
+import {
+  displayUrl,
+  ENGINE_PAGES,
+  guardNavigation,
+  internalSuggestions,
+  isEngineErrorPage,
+  isInternalUrl,
+  openShortcut,
+  resolveInternal,
+  refuseEngineInput
+} from './internal'
 import type { Browser } from '../browser/browser'
 
 const ID = '123e4567-e89b-12d3-a456-426614174000'
@@ -49,7 +59,20 @@ describe("conversion d'adresses", () => {
   })
 })
 
+describe('refuseEngineInput', () => {
+  it('typed chrome:// and chrome-untrusted:// addresses go to not-found', () => {
+    for (const u of ['chrome://settings', 'chrome://gpu', 'CHROME://Flags/', 'chrome-untrusted://x']) expect(refuseEngineInput(u)).toBe('signet://not-found')
+  })
+  it('leaves everything else untouched', () => {
+    expect(refuseEngineInput('https://a.com')).toBe('https://a.com')
+    expect(refuseEngineInput('signet://settings')).toBe('signet://settings')
+  })
+})
+
 describe('internalSuggestions', () => {
+  it('chrome: input suggests nothing internal', () => {
+    expect(internalSuggestions('chrome://set')).toEqual([])
+  })
   it('only for a signet: input', () => {
     expect(internalSuggestions('github')).toEqual([])
     expect(internalSuggestions('')).toEqual([])
@@ -116,9 +139,29 @@ describe('openShortcut / guardNavigation', () => {
     expect(guardNavigation(b, 'https://a.com', 'https://b.com', vi.fn())).toBe(false)
   })
 
-  it('BUG? from an internal page, a chrome:// target is swallowed without navigation (parseSignet does not read it)', () => {
+  it('from an internal page, chrome://gpu navigates to the engine page', () => {
     const navigate = vi.fn()
     expect(guardNavigation(b, 'signet://urls', 'chrome://gpu', navigate)).toBe(true)
+    expect(navigate).toHaveBeenCalledWith('chrome://gpu')
+  })
+
+  it('from an internal page, chrome://GPU/ navigates too (any case, trailing slash)', () => {
+    const navigate = vi.fn()
+    expect(guardNavigation(b, 'chrome://process-internals', 'chrome://GPU/', navigate)).toBe(true)
+    expect(navigate).toHaveBeenCalledWith('chrome://gpu')
+  })
+
+  it('from an internal page, a disallowed chrome:// or chrome-untrusted:// target goes to not-found', () => {
+    for (const target of ['chrome://settings', 'chrome://gpu/extra', 'chrome-untrusted://terminal']) {
+      const navigate = vi.fn()
+      expect(guardNavigation(b, 'signet://urls', target, navigate)).toBe(true)
+      expect(navigate).toHaveBeenCalledWith('signet://not-found')
+    }
+  })
+
+  it('from a web page, chrome://gpu is refused without navigation', () => {
+    const navigate = vi.fn()
+    expect(guardNavigation(b, 'https://a.com', 'chrome://gpu', navigate)).toBe(true)
     expect(navigate).not.toHaveBeenCalled()
   })
 
