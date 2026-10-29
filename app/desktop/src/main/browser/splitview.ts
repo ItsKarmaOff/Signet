@@ -21,13 +21,12 @@ export class SplitView {
     this.d.changed()
   }
 
-  openInSplit(url: string): void {
-    if (!this.d.model.splits.canSplit()) {
-      this.d.tabs.open(url, { activate: true })
-      return
-    }
+  /** Returns the id of the tab opened. */
+  openInSplit(url: string): string {
+    if (!this.d.model.splits.canSplit()) return this.d.tabs.open(url, { activate: true })
     const id = this.d.tabs.open(url)
     this.splitActiveWith(id)
+    return id
   }
 
   unsplit(splitId: string): void {

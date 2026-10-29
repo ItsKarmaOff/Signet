@@ -141,7 +141,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     canGoBack: wc.navigationHistory.canGoBack(),
     canGoForward: wc.navigationHistory.canGoForward()
   })
-  const visited = (realUrl: string) => {
+  const visited = (realUrl: string, committed = false) => {
     if (!info()) return
     // Error or crash page: the tab keeps the original address and the history stays intact.
     const fallback =
@@ -153,7 +153,9 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     const url = displayUrl(realUrl) // the UI never sees the engine's real address
     b.broadcast.patchTab(tabId, { url, ...navState() })
     b.passwords.onNavigate(tabId, url)
-    if (!priv && !b.devMode.keepOutOfHistory(url)) b.history.record(url, wc.getTitle(), info().favicon)
+    // A page committed after a navigation the command bar started counts as typed (private windows record nothing).
+    const typed = committed && b.tabs.takeTyped(tabId)
+    if (!priv && !b.devMode.keepOutOfHistory(url)) b.history.record(url, wc.getTitle(), info().favicon, typed)
     if (b.peek.tabId === tabId) b.peek.refresh()
   }
   // The blocker's counter restarts from zero on each main-frame navigation.
@@ -161,11 +163,13 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
   wc.once('destroyed', () => {
     b.adblock.resetBlocked(wcId)
     b.reader.forget(tabId)
+    b.tabs.forgetTyped(tabId)
     faviconRefreshers.delete(refreshFavicon)
   })
   wc.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) {
       b.adblock.resetBlocked(wc.id)
+      b.tabs.typedStart(tabId, details.url)
       if (!details.url.startsWith('data:')) crashed.delete(wc)
     }
   })
@@ -176,7 +180,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     b.reader.onNavigate(tabId)
     b.translator.onNavigate(tabId)
     b.find.onNavigate(tabId)
-    visited(url)
+    visited(url, true)
     b.views.queueHistory(tabId)
   })
   wc.on('did-navigate-in-page', (_e, url, isMainFrame) => {

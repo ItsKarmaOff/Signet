@@ -17,6 +17,7 @@ import type { Overlay } from './overlay'
 import type { Peek } from './peek'
 import type { Undo } from './undo'
 import type { Views } from './views'
+import { TypedNavigations } from './typed-nav'
 
 /** Interval of the check for today's tabs left too long without activation. */
 const SWEEP_INTERVAL = 5 * 60_000
@@ -36,7 +37,7 @@ export interface TabActionsDeps {
   /** Address that opens an app screen (settings, library…) rather than a tab: handled, nothing to open. */
   openShortcut: (url: string) => boolean
   /** Opens the address in a split view with the active tab. */
-  openInSplit: (url: string) => void
+  openInSplit: (url: string) => string
   /** Tab that sound, the mini player, media or developer tools keep open. */
   busy: (tabId: string) => boolean
 }
@@ -47,6 +48,8 @@ export class TabActions {
   private lastSwitch: { tabId: string; before: string; at: number } | null = null
   /** Addresses typed without a scheme and promoted to https://: http fallback possible if they fail. */
   private upgraded = new Map<string, string>()
+  /** Navigations started from the command bar, counted as typed when they commit. */
+  private typedNav = new TypedNavigations()
 
   constructor(private readonly d: TabActionsDeps) {
     setInterval(() => this.sweepArchive(), SWEEP_INTERVAL).unref()
@@ -106,26 +109,28 @@ export class TabActions {
     if (tab) this.open(tab.url, { activate: true, afterTabId: tabId })
   }
 
-  openUrl(input: string, mode: PaletteMode): void {
+  /** `typed`: the page was chosen in the command bar (not a search results page): its commit counts as a typed visit. */
+  openUrl(input: string, mode: PaletteMode, typed = false): void {
     const url = refuseEngineInput(input) // explicit user input: chrome:// is refused
     if (this.d.openShortcut(url)) return // Signet screen: no tab
     const active = this.d.model.activeTab()
-    if (mode === 'edit-url' && active) this.loadUrl(active.id, url)
-    else if (mode === 'split') this.d.openInSplit(url)
-    else this.openRouted(url, false)
+    if (mode === 'edit-url' && active) {
+      this.loadUrl(active.id, url, typed)
+      return
+    }
+    const id = mode === 'split' ? this.d.openInSplit(url) : this.openRouted(url, false)
+    if (typed) this.typedNav.mark(id, resolveInternal(url))
   }
 
   /** Opens a link in the space designated by a routing rule, otherwise in the active space. */
-  openRouted(url: string, always: boolean): void {
+  openRouted(url: string, always: boolean): string {
     const { store, model } = this.d
     const rule = matchRoute(url, store.state.settings.routes)
     const target = rule && store.state.spaces.find((s) => s.id === rule.spaceId)
-    if (!target || (!always && target.id === model.space.id)) {
-      this.open(url, { activate: true })
-      return
-    }
-    model.opening.openIn(target, url)
+    if (!target || (!always && target.id === model.space.id)) return this.open(url, { activate: true })
+    const id = model.opening.openIn(target, url)
     this.d.changed()
+    return id
   }
 
   /** Link received from outside: routed space in the main window, otherwise Little Signet. */
@@ -153,7 +158,7 @@ export class TabActions {
     this.upgraded.delete(tabId)
     const http = isHttpsFallbackError(code) ? httpFallback(pending, failedUrl) : null
     if (!http) return false
-    this.loadUrl(tabId, http)
+    this.loadUrl(tabId, http, this.typedNav.has(tabId))
     return true
   }
 
@@ -162,11 +167,27 @@ export class TabActions {
     this.upgraded.delete(tabId)
   }
 
-  loadUrl(tabId: string, url: string): void {
+  /** A main-frame navigation starts in the tab (see `TypedNavigations`). */
+  typedStart(tabId: string, url: string): void {
+    this.typedNav.onStart(tabId, url)
+  }
+
+  /** A navigation committed: whether the command bar started it (true only once). */
+  takeTyped(tabId: string): boolean {
+    return this.typedNav.take(tabId)
+  }
+
+  forgetTyped(tabId: string): void {
+    this.typedNav.clear(tabId)
+  }
+
+  loadUrl(tabId: string, url: string, typed = false): void {
     const tab = this.d.store.state.tabs[tabId]
     this.upgraded.delete(tabId)
+    this.typedNav.clear(tabId)
     if (!tab || isUiAddress(url) || this.d.openShortcut(url)) return
     tab.url = url
+    if (typed) this.typedNav.mark(tabId, resolveInternal(url))
     this.d.views
       .viewOf(tabId)
       ?.webContents.loadURL(resolveInternal(url))
@@ -174,6 +195,7 @@ export class TabActions {
     this.d.changed()
   }
 
+  /** Address typed in the toolbar or a private window. */
   navigate(tabId: string, input: string): void {
     // A local name (`mysite/admin`) takes precedence over everything: otherwise `mysite.test` looks like a domain.
     const aliased = resolveAlias(input, this.d.store.state.settings.devAliases)

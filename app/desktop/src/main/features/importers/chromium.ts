@@ -67,14 +67,21 @@ async function query<T>(file: string, sql: string, read: (stmt: StatementSync) =
 }
 
 /** Visited pages, most recent first (hidden pages excluded). */
-export async function readHistory(profile: string): Promise<{ url: string; title: string; visits: number; lastVisit: number }[]> {
+export async function readHistory(profile: string): Promise<{ url: string; title: string; visits: number; typed: number; lastVisit: number }[]> {
   const rows = await query(
     join(profile, 'History'),
-    `SELECT url, title, visit_count, last_visit_time FROM urls WHERE hidden = 0 AND url LIKE 'http%' ORDER BY last_visit_time DESC LIMIT ${HISTORY_LIMIT}`,
-    (s) => s.all() as { url: string; title: string | null; visit_count: number | bigint; last_visit_time: number | bigint }[]
+    `SELECT url, title, visit_count, typed_count, last_visit_time FROM urls WHERE hidden = 0 AND url LIKE 'http%' ORDER BY last_visit_time DESC LIMIT ${HISTORY_LIMIT}`,
+    (s) =>
+      s.all() as { url: string; title: string | null; visit_count: number | bigint; typed_count: number | bigint | null; last_visit_time: number | bigint }[]
   )
   return rows
-    .map((r) => ({ url: String(r.url), title: String(r.title ?? ''), visits: Number(r.visit_count) || 1, lastVisit: chromeTime(r.last_visit_time) }))
+    .map((r) => ({
+      url: String(r.url),
+      title: String(r.title ?? ''),
+      visits: Number(r.visit_count) || 1,
+      typed: Number(r.typed_count) || 0,
+      lastVisit: chromeTime(r.last_visit_time)
+    }))
     .filter((r) => /^https?:\/\//i.test(r.url) && r.lastVisit > 0)
 }
 
