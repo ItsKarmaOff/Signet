@@ -57,6 +57,8 @@ import { Peek } from './peek'
 import { Shell } from './shell'
 import { TabSleep } from './sleep'
 import { SpaceActions } from './space-actions'
+import { HttpsOnly } from './https-only'
+import { PageZoom } from './page-zoom'
 import { SplitView } from './splitview'
 import { TabActions } from './tab-actions'
 import { TabDrag } from './drag'
@@ -113,6 +115,8 @@ export class Browser {
   readonly link = new Link(this)
   readonly updates = new Updates(this)
   readonly permissions: Permissions
+  readonly httpsOnly: HttpsOnly
+  readonly pageZoom: PageZoom
 
   // Core: the state rules, then the pages, the broadcast and the layout
   readonly model: Model
@@ -143,6 +147,7 @@ export class Browser {
   ) {
     this.adblock = new Adblock(store)
     this.permissions = new Permissions(store)
+    this.httpsOnly = new HttpsOnly({ store })
     // The parts use one another: these two shortcuts only read `this.broadcast` when called.
     const changed: Changed = (opts) => this.broadcast.changed(opts)
     const apply = () => this.broadcast.apply()
@@ -164,9 +169,11 @@ export class Browser {
       store,
       window: this,
       create: (tabId, ses) => createTabView(this, tabId, ses),
+      upgradeUrl: (tabId, ses, url) => this.httpsOnly.resolve(tabId, ses, url),
       extensions: this.extensions,
       changed: () => changed()
     })
+    this.pageZoom = new PageZoom({ store, views: this.views, persistent: (ses) => !this.privates.hasSession(ses) })
     // Intended order: the mini player renders the page before sleep forgets the tab.
     this.views.onGone((tabId) => this.pip.onGone(tabId))
     this.sleep = new TabSleep({
@@ -263,6 +270,8 @@ export class Browser {
       store,
       model: this.model,
       views: this.views,
+      httpsOnly: this.httpsOnly,
+      pageZoom: this.pageZoom,
       changed,
       undo: this.undo,
       overlay: this.overlay,

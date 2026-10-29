@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import type { BrowsingDataKind, DevAlias, ImportKind, SettingsInfo } from '@shared/types'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
+import { DEFAULT_FONT_SIZE, DEFAULT_ZOOM, FONT_SIZES, MIN_FONT_SIZES, ZOOM_PERCENTS } from '@shared/pagesettings'
 import { useHue } from '../lib/util'
 import { RoutingSettings } from './RoutingSettings'
 import { DEFAULT_SEARCH_ENGINE, SEARCH_ENGINES, type SearchEngineId } from '@signet/shared/mobile/search'
@@ -551,6 +552,15 @@ function Choice<T extends string>({ value, options, onChange }: { value: T; opti
   )
 }
 
+/** Labels of the default font sizes (same order as `FONT_SIZES`). */
+const FONT_LABELS = [
+  'settings.appearance.fontVerySmall',
+  'settings.appearance.fontSmall',
+  'settings.appearance.fontMedium',
+  'settings.appearance.fontLarge',
+  'settings.appearance.fontVeryLarge'
+] as const
+
 function Appearance({ info }: { info: SettingsInfo }) {
   const { t } = useTranslation()
   const update = window.signet.updateSettings
@@ -660,6 +670,52 @@ function Appearance({ info }: { info: SettingsInfo }) {
           />
         </Row>
       </Group>
+      <h3 className="st-sub">{t('settings.appearance.groupWeb')}</h3>
+      <Group>
+        <Row label={t('settings.appearance.fontSize')} hint={t('settings.appearance.fontSizeHint')}>
+          <select
+            className="st-select"
+            value={settings.fontSize ?? DEFAULT_FONT_SIZE}
+            aria-label={t('settings.appearance.fontSize')}
+            onChange={(e) => update({ fontSize: Number(e.target.value) })}
+          >
+            {FONT_SIZES.map((size, i) => (
+              <option key={size} value={size}>
+                {t(FONT_LABELS[i])}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t('settings.appearance.minFontSize')} hint={t('settings.appearance.minFontSizeHint')}>
+          <select
+            className="st-select"
+            value={settings.minimumFontSize ?? 0}
+            aria-label={t('settings.appearance.minFontSize')}
+            onChange={(e) => update({ minimumFontSize: Number(e.target.value) })}
+          >
+            {MIN_FONT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size === 0 ? t('settings.appearance.minFontNone') : t('settings.appearance.minFontPx', { size })}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t('settings.appearance.defaultZoom')} hint={t('settings.appearance.defaultZoomHint')}>
+          <select
+            className="st-select"
+            value={settings.defaultZoom ?? DEFAULT_ZOOM}
+            aria-label={t('settings.appearance.defaultZoom')}
+            onChange={(e) => update({ defaultZoom: Number(e.target.value) })}
+          >
+            {ZOOM_PERCENTS.map((percent) => (
+              <option key={percent} value={percent}>
+                {t('settings.appearance.defaultZoomPercent', { percent })}
+              </option>
+            ))}
+          </select>
+        </Row>
+      </Group>
+      <p className="st-note">{t('settings.appearance.webNote')}</p>
       {IS_MAC && (
         <>
           <h3 className="st-sub">{t('settings.appearance.icon')}</h3>
@@ -744,6 +800,13 @@ function Privacy({ info }: { info: SettingsInfo }) {
       <Group>
         <Row label={t('settings.privacy.adblock')}>
           <Switch on={info.settings.adblock} label={t('settings.privacy.adblock')} onChange={(on) => window.signet.updateSettings({ adblock: on })} />
+        </Row>
+        <Row label={t('settings.privacy.httpsOnly')} hint={t('settings.privacy.httpsOnlyHint')}>
+          <Switch
+            on={info.settings.httpsOnly === true}
+            label={t('settings.privacy.httpsOnly')}
+            onChange={(on) => window.signet.updateSettings({ httpsOnly: on })}
+          />
         </Row>
       </Group>
       <SecureDns info={info} />

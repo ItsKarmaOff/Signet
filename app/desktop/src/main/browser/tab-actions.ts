@@ -15,6 +15,8 @@ import type { Changed } from './broadcast'
 import { reloadContents } from './tabs'
 import type { Overlay } from './overlay'
 import type { Peek } from './peek'
+import type { HttpsOnly } from './https-only'
+import type { PageZoom } from './page-zoom'
 import type { Undo } from './undo'
 import type { Views } from './views'
 import { TypedNavigations } from './typed-nav'
@@ -26,6 +28,8 @@ export interface TabActionsDeps {
   store: Store
   model: Model
   views: Pick<Views, 'viewOf' | 'tabIdOfContents' | 'dropSession' | 'saveHistory'>
+  httpsOnly: Pick<HttpsOnly, 'resolve' | 'noteTyped' | 'forget'>
+  pageZoom: Pick<PageZoom, 'userZoomed' | 'reset'>
   changed: Changed
   undo: Pick<Undo, 'announce'>
   overlay: Pick<Overlay, 'close'>
@@ -185,13 +189,14 @@ export class TabActions {
     const tab = this.d.store.state.tabs[tabId]
     this.upgraded.delete(tabId)
     this.typedNav.clear(tabId)
+    this.d.httpsOnly.forget(tabId)
     if (!tab || isUiAddress(url) || this.d.openShortcut(url)) return
-    tab.url = url
-    if (typed) this.typedNav.mark(tabId, resolveInternal(url))
-    this.d.views
-      .viewOf(tabId)
-      ?.webContents.loadURL(resolveInternal(url))
-      .catch(() => {})
+    const wc = this.d.views.viewOf(tabId)?.webContents
+    // HTTPS-only mode: an http address opens over https (a tab without a view upgrades when its view is created).
+    const target = wc ? this.d.httpsOnly.resolve(tabId, wc.session, resolveInternal(url)) : resolveInternal(url)
+    tab.url = target === resolveInternal(url) ? url : target
+    if (typed) this.typedNav.mark(tabId, target)
+    wc?.loadURL(target).catch(() => {})
     this.d.changed()
   }
 
@@ -201,7 +206,11 @@ export class TabActions {
     const aliased = resolveAlias(input, this.d.store.state.settings.devAliases)
     const typed = aliased ? null : toUrl(input)
     this.loadUrl(tabId, refuseEngineInput(aliased ?? typed ?? engineSearchUrl(input)))
-    if (typed && isUpgradedInput(input, typed)) this.upgraded.set(tabId, typed) // after loadUrl, which clears it
+    // After loadUrl, which clears it. With HTTPS-only mode, a failure shows the warning page instead of falling back to http.
+    if (typed && isUpgradedInput(input, typed)) {
+      this.upgraded.set(tabId, typed)
+      this.d.httpsOnly.noteTyped(tabId, typed)
+    }
   }
 
   resetPinned(tabId: string): void {
@@ -289,9 +298,12 @@ export class TabActions {
     if (tab) void clipboard.writeText(tab.url)
   }
 
-  /** `delta` in zoom levels; 0 restores the actual size. */
+  /** `delta` in zoom levels; 0 restores the default zoom (Settings › Appearance; 100 % without one). */
   zoom(tabId: string | null, delta: number): void {
     const wc = tabId ? this.d.views.viewOf(tabId)?.webContents : undefined
-    if (wc) wc.setZoomLevel(delta === 0 ? 0 : wc.getZoomLevel() + delta)
+    if (!wc) return
+    if (delta === 0) return this.d.pageZoom.reset(wc)
+    wc.setZoomLevel(wc.getZoomLevel() + delta)
+    this.d.pageZoom.userZoomed(wc) // this site keeps its zoom on top of the default
   }
 }

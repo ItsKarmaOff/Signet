@@ -62,7 +62,7 @@ export class TabSleep {
 
   /** Unloads tabs hidden for a long time; same path as a pinned tab's "Unload", the address and history are kept. */
   private discardIdle(): void {
-    const { store, views } = this.d
+    const { store } = this.d
     if (!this.d.window.win || this.d.paused()) return
     const { state } = store
     // An ongoing download may come from a hidden tab: nothing is unloaded as long as it lasts.
@@ -72,16 +72,36 @@ export class TabSleep {
     if (!Number.isFinite(minutes) || minutes <= 0) return
     const limit = Date.now() - minutes * 60_000
     for (const [id, since] of [...this.hiddenSince]) {
-      const tab = state.tabs[id]
-      const view = views.viewOf(id)
-      if (since > limit || !tab || !view || views.discarding.has(id)) continue
-      // Tabs of other windows (private, apps…): their history is not kept, so we do not unload them.
-      if (store.detached.has(id)) continue
-      if (this.d.shown().includes(id) || id === this.d.peekTabId() || this.d.pip.owns(id) || this.d.devtools.isOpen(id)) continue
-      if (tab.audible || tab.loading || this.d.media.isActive(id) || this.d.permissions.usesDevices(view.webContents)) continue
+      if (since > limit) continue
+      const view = this.sleepable(id)
+      if (!view) continue
       // Development: each sleep in the console, to check the real delay.
-      if (!app.isPackaged) console.log(`[sleep] ${tab.title || tab.url}: hidden for ${Math.round((Date.now() - since) / 60_000)} min`)
+      if (!app.isPackaged) console.log(`[sleep] ${state.tabs[id]?.title || state.tabs[id]?.url}: hidden for ${Math.round((Date.now() - since) / 60_000)} min`)
       this.discard(id, view)
+    }
+  }
+
+  /** The view of a tab that may be put to sleep now (hidden, quiet), otherwise undefined. */
+  private sleepable(id: string): WebContentsView | undefined {
+    const { store, views } = this.d
+    const tab = store.state.tabs[id]
+    const view = views.viewOf(id)
+    if (!tab || !view || views.discarding.has(id)) return undefined
+    // Tabs of other windows (private, apps…): their history is not kept, so we do not unload them.
+    if (store.detached.has(id)) return undefined
+    if (this.d.shown().includes(id) || id === this.d.peekTabId() || this.d.pip.owns(id) || this.d.devtools.isOpen(id)) return undefined
+    if (tab.audible || tab.loading || this.d.media.isActive(id) || this.d.permissions.usesDevices(view.webContents)) return undefined
+    return view
+  }
+
+  /**
+   * Puts every hidden tab that can sleep to sleep now, whatever the delay: they come back, with their history, as new views
+   * (a font size change only reaches views created afterwards). Displayed, busy and other windows' tabs are left alone.
+   */
+  discardHidden(): void {
+    for (const id of [...this.d.views.ids()]) {
+      const view = this.sleepable(id)
+      if (view) this.discard(id, view)
     }
   }
 

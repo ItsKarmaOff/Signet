@@ -571,6 +571,12 @@
       "certificate": "Le certificat de sécurité du site n’est pas fiable.",
       "other": "La page n’a pas pu être chargée."
     },
+    "https": {
+      "title": "Ce site ne prend pas en charge la connexion sécurisée",
+      "text": "Signet est réglé pour n’ouvrir que des connexions sécurisées (https), et ce site n’a pas pu être joint de façon sécurisée. Sur une connexion non sécurisée, d’autres personnes du réseau pourraient lire ou modifier ce que vous envoyez et recevez.",
+      "back": "Retour",
+      "continue": "Continuer vers le site"
+    },
     "crash": {
       "title": "Cette page a planté",
       "text": "Un problème est survenu pendant l’affichage de cette page.",
