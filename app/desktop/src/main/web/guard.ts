@@ -36,6 +36,13 @@ function endDevSession(): void {
 /** Time after which a loaded interface view must have booted (see the `data-boot` marker in renderer main.tsx). */
 export const BOOT_WATCHDOG_MS = 10_000
 
+/**
+ * Time after which an interface page that started loading must have finished loading. Longer than
+ * BOOT_WATCHDOG_MS so that a slow but healthy load (dev server optimizing dependencies, cold disk) is not reloaded;
+ * a load that never ends (module request held by the dev server) fires no event at all and needs this deadline.
+ */
+export const LOAD_DEADLINE_MS = 15_000
+
 /** Name of the interface view for the log (route after `#`). */
 const routeOf = (url: string) => /#([a-z]+)/.exec(url)?.[1] ?? 'main'
 
@@ -45,6 +52,8 @@ const routeOf = (url: string) => /#([a-z]+)/.exec(url)?.[1] ?? 'main'
  * we reload it, with increasing delays (1 s, 2 s, 4 s… 30 s at most), until it loads.
  * A watchdog covers the silent case: the page loads but its script never runs or never finishes booting
  * (module unreadable while the dev server restarts, chunk missing during an update): no error, no event.
+ * A load deadline covers the other silent case: a load that starts and never finishes (no `did-finish-load`, no
+ * `did-fail-load`), including a reload that itself hangs. Each load start re-arms it, the backoff keeps growing.
  */
 function healUiView(wc: WebContents): void {
   let tries = 0
@@ -78,8 +87,16 @@ function healUiView(wc: WebContents): void {
     if (watchdog) clearTimeout(watchdog)
     watchdog = null
   }
+  // Load deadline: armed when an app page starts loading in the main frame, cleared when the load ends.
+  let deadline: NodeJS.Timeout | null = null
+  const stopDeadline = () => {
+    if (deadline) clearTimeout(deadline)
+    deadline = null
+  }
   const checkBoot = async (url: string) => {
-    if (wc.isDestroyed() || devEnded || wc.getURL() !== url || wc.isLoading()) return
+    if (wc.isDestroyed() || devEnded || wc.getURL() !== url) return
+    // Still loading: never call executeJavaScript (it waits for the load and would hang with it).
+    if (wc.isLoading()) return retry('load stuck')
     let boot: unknown
     try {
       boot = await wc.executeJavaScript('document.documentElement.dataset.boot')
@@ -94,8 +111,22 @@ function healUiView(wc: WebContents): void {
     } // 'retrying': the renderer reloads itself
   }
   wc.on('did-start-loading', stopWatchdog)
+  // Main-frame navigation start (not a same-document one) gives the target URL, unlike `did-start-loading`.
+  wc.on('did-start-navigation', (_e, url: string, isInPlace: boolean, isMainFrame: boolean) => {
+    if (!isMainFrame || isInPlace) return
+    stopWatchdog()
+    stopDeadline()
+    if (!isAppUrl(url)) return
+    deadline = setTimeout(() => {
+      deadline = null
+      void checkBoot(wc.getURL())
+    }, LOAD_DEADLINE_MS)
+  })
+  wc.on('did-fail-load', stopDeadline) // the failure handler above retries
+  wc.on('did-stop-loading', stopDeadline)
   wc.on('did-finish-load', () => {
     stopWatchdog()
+    stopDeadline()
     const url = wc.getURL()
     if (!isAppUrl(url)) return
     watchdog = setTimeout(() => {
@@ -105,6 +136,7 @@ function healUiView(wc: WebContents): void {
   })
   wc.once('destroyed', () => {
     stopWatchdog()
+    stopDeadline()
     if (timer) clearTimeout(timer)
   })
 }
