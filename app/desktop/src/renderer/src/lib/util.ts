@@ -183,6 +183,32 @@ export function luminance(hex: string): number | null {
   return 0.2126 * lin(0) + 0.7152 * lin(2) + 0.0722 * lin(4)
 }
 
+/**
+ * Colors of an extension badge, like Chrome: the background the extension chose (a CSS color, or Chrome's
+ * [r, g, b, a] array) and black or white text, whichever contrasts better with it.
+ */
+export function badgeColors(color: unknown): { backgroundColor: string; color: string } | undefined {
+  let rgb: [number, number, number] | null = null
+  if (Array.isArray(color) && color.length >= 3 && color.slice(0, 3).every((c) => typeof c === 'number')) {
+    rgb = [color[0], color[1], color[2]]
+  } else if (typeof color === 'string') {
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color.trim())?.[1]
+    const fn = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(color.trim())
+    if (hex) {
+      const full = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex
+      rgb = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16)) as [number, number, number]
+    } else if (fn) rgb = [Number(fn[1]), Number(fn[2]), Number(fn[3])]
+  }
+  if (!rgb) return undefined
+  const clamp = (c: number) => Math.max(0, Math.min(255, Math.round(c)))
+  const [r, g, b] = rgb.map(clamp)
+  const hex = `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`
+  const l = luminance(hex) ?? 0
+  // Same WCAG rule as `barStyle`: white text only if it contrasts better than black.
+  const white = 1.05 / (l + 0.05) > (l + 0.05) / 0.05
+  return { backgroundColor: hex, color: white ? '#fff' : 'rgb(0 0 0 / .85)' }
+}
+
 /** Bar background = site color; light or dark content depending on contrast. No color: theme tokens. */
 export function barStyle(color: string | undefined): CSSProperties | undefined {
   const l = color ? luminance(color) : null

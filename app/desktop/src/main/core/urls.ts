@@ -48,6 +48,9 @@ export const webauthnPath = join(__dirname, '../preload/webauthn.js')
 /** Page script for notes and Easels (active only on their interface route). */
 export const notesPath = join(__dirname, '../preload/notes.js')
 
+/** Preload for extension contexts (service workers and pages): adds the chrome.* APIs Electron lacks (proxy, privacy, alarms…). */
+export const extensionApisPath = join(__dirname, '../preload/extension-apis.js')
+
 /** Loads the React interface into a webContents, on the given route ('', '#overlay', '#little'). */
 export function loadRoute(wc: WebContents, hash: string): void {
   const dev = process.env.ELECTRON_RENDERER_URL
