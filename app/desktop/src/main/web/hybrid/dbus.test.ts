@@ -75,7 +75,7 @@ function fakeBus(onCall: (m: Message, reply: (m: Partial<Message>) => void) => v
         close: () => {
           sockets.forEach((s) => s.destroy())
           server.close()
-          rmSync(dir, { recursive: true, force: true })
+          rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
         }
       })
     )
@@ -180,6 +180,6 @@ describe.skipIf(process.platform === 'win32')('DBusClient', () => {
     await new Promise<void>((r) => server.listen(path, r))
     await expect(connect(path)).rejects.toThrow(/refused/)
     server.close()
-    rmSync(dir, { recursive: true, force: true })
+    rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
   })
 })
