@@ -32,7 +32,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.useRealTimers()
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) // a background write may still be finishing
 })
 
 const file = (name: string) => join(dir, name)
