@@ -37,6 +37,13 @@ What could not be tested automatically: it needs a real mouse, a real trackpad, 
 - [ ] A gradient space with grain: the grain is visible to the eye.
 - [ ] The hover preview doesn't show for the current tab, nor for the panes of a split view.
 
+## Page settings (Settings › Privacy and Appearance)
+
+- [ ] HTTPS-only on: type `http://example.com` in the command bar, the tab ends on `https://example.com`. A link to an `http://` page, and a bookmark or history entry with `http://`, open over https too. `http://localhost:3000` and `http://192.168.x.x` stay on http.
+- [ ] HTTPS-only on: open a site without https (for example `http://neverssl.com` is upgraded and fails, or a local test server with a self-signed certificate on a public name): the warning "This site doesn't support a secure connection" shows with "Go back" and "Continue to site". Go back returns to the previous page; Continue loads the http page, and the site stays allowed until Signet quits (not in a private window). A DNS error still shows the normal error page.
+- [ ] Font sizes: set Font size to Very large and Minimum font size to 16; open a new tab on a text page: the text is bigger. A tab that was visible keeps its size until reopened; a hidden tab has the new size when you come back to it.
+- [ ] Default zoom: set Page zoom to 150 %; open a site you never zoomed: 150 %. Zoom another site with the zoom shortcut: it keeps its zoom when you change the default again. Actual Size gives the default zoom (150 %), not 100 %. Settings, notes and `signet://` pages are not zoomed. Quit and relaunch Signet: the site you zoomed by hand still has its zoom; after Actual Size it follows the default. A zoom set in a private window is forgotten at relaunch.
+
 ## Interface that disappears
 
 - [ ] If the sidebar and the toolbar disappear: the interface should come back on its own. If not, View › Reload Interface.

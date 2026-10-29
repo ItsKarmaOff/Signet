@@ -179,10 +179,21 @@ export class SettingsWindow {
 
   update(patch: Partial<Settings>): void {
     const { settings } = this.b.store.state
+    const fonts = JSON.stringify([settings.fontSize, settings.minimumFontSize])
+    const zoom = settings.defaultZoom
     // Fields to validate (durations, local names, shortcuts, extensions): see `cleanSettings`.
     applyCleaned(settings, cleanSettings(patch, settings))
     // The search engine (value already validated by `cleanSettings`) is used right away for the next inputs.
     setSearchEngine(settings.searchEngine)
+    // Font sizes only reach new views: hidden tabs go to sleep and come back with them; displayed ones keep theirs until reopened.
+    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.sleep.discardHidden()
+    // Default zoom: open pages follow now (except the sites the user zoomed).
+    if (settings.defaultZoom !== zoom) this.b.pageZoom.applyAll()
+    // HTTPS-only mode applies from the next navigation.
+    if (typeof patch.httpsOnly === 'boolean') {
+      if (patch.httpsOnly) settings.httpsOnly = true
+      else delete settings.httpsOnly
+    }
     if (typeof patch.peekExternalLinks === 'boolean') settings.peekExternalLinks = patch.peekExternalLinks
     if (typeof patch.autoPip === 'boolean') settings.autoPip = patch.autoPip
     if (typeof patch.askDownloadPath === 'boolean') settings.askDownloadPath = patch.askDownloadPath

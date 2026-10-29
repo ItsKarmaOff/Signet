@@ -57,6 +57,9 @@ body { display: flex !important; align-items: center; justify-content: center }
 .signet-error .reason { color: var(--text); margin: 0 0 4px; font-size: 14px }
 .signet-error .code { color: var(--text-3); font-size: 12px; margin: 0 }
 .signet-error .btn { display: inline-block; margin-top: 20px; padding: 6px 16px; border: 0; border-radius: 8px; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 500; cursor: default; text-decoration: none }
+.signet-error .actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 20px }
+.signet-error .actions .btn { margin-top: 0 }
+.signet-error .btn.secondary { background: transparent; color: var(--text); box-shadow: inset 0 0 0 1px var(--text-3) }
 .signet-error .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
 `
 
@@ -81,6 +84,60 @@ export function injectionScript(text: PageErrorText, css: string): string {
   document.body.className = ''
   document.body.replaceChildren(box)
   btn.focus()
+})()`
+}
+
+/** Texts of the HTTPS-only warning page. */
+export interface InsecureSiteText {
+  title: string
+  host: string
+  reason: string
+  back: string
+  continue: string
+}
+
+export function insecureSiteText(url: string): InsecureSiteText {
+  return {
+    title: t('pageError.https.title'),
+    host: hostOf(url),
+    reason: t('pageError.https.text'),
+    back: t('pageError.https.back'),
+    continue: t('pageError.https.continue')
+  }
+}
+
+/**
+ * Script that replaces the engine's error page with the HTTPS-only warning. "Continue to site" cannot navigate (the
+ * http address would be upgraded again) and the page has no bridge to the app: it sets its title to `titlePrefix + token`,
+ * which main reads (see `HttpsOnly.continueFrom`). The token only exists in this script, in the engine's error page,
+ * where no web page runs. "Go back" is only offered when there is a page to go back to.
+ */
+export function insecureSiteScript(text: InsecureSiteText, css: string, token: string, titlePrefix: string, canGoBack: boolean): string {
+  return `(() => {
+  if (location.protocol !== 'chrome-error:') return
+  const d = ${JSON.stringify(text)}
+  const style = document.createElement('style')
+  style.textContent = ${JSON.stringify(css)}
+  const parent = document.head || document.documentElement
+  parent.append(style)
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt) e.textContent = txt; return e }
+  document.title = d.host
+  const box = el('main', 'signet-error')
+  box.append(el('h1', '', d.title), el('p', 'host', d.host), el('p', 'reason', d.reason))
+  const actions = el('div', 'actions')
+  const button = (cls, label, fn) => {
+    const b = el('button', cls, label)
+    b.type = 'button'
+    b.addEventListener('click', fn)
+    return b
+  }
+  const back = ${JSON.stringify(canGoBack)} ? button('btn', d.back, () => history.back()) : null
+  const next = button(back ? 'btn secondary' : 'btn', d.continue, () => { document.title = ${JSON.stringify(titlePrefix + token)} })
+  actions.append(...(back ? [back, next] : [next]))
+  box.append(actions)
+  document.body.className = ''
+  document.body.replaceChildren(box)
+  ;(back || next).focus()
 })()`
 }
 

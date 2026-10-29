@@ -15,6 +15,8 @@ export interface ViewsDeps {
   /** Creates a tab's web view, listeners included (see tabs.ts). */
   create: (tabId: string, ses: Session) => WebContentsView
   extensions: Pick<Extensions, 'track' | 'whenReady'>
+  /** HTTPS-only mode: the address to load for a tab (`url` itself when it stays as is). */
+  upgradeUrl: (tabId: string, ses: Session, url: string) => string
   /** State broadcast (called when a tab is forgotten). */
   changed: () => void
 }
@@ -83,7 +85,7 @@ export class Views {
     view.webContents.setAudioMuted(tab.muted)
     // Isolated partition opened for the first time: its extension scripts must be in place before the page.
     const ready = this.d.extensions.whenReady(ses)
-    const load = () => this.loadTab(view.webContents, store.state.tabs[tabId]?.url ?? tab.url, store.histories.get(tabId))
+    const load = () => this.loadTab(tabId, view.webContents, store.state.tabs[tabId]?.url ?? tab.url, store.histories.get(tabId))
     if (!ready) load()
     else {
       void ready.then(() => {
@@ -96,12 +98,15 @@ export class Views {
   }
 
   /** Restores the history if its active entry matches the tab's URL, otherwise loads the URL alone. */
-  private loadTab(wc: WebContents, tabUrl: string, history?: TabHistory): void {
+  private loadTab(tabId: string, wc: WebContents, tabUrl: string, history?: TabHistory): void {
     // Address saved as signetui: (never legitimate: notes are written as signet://note/…): nothing is loaded.
     const url = tabUrl && !isUiAddress(tabUrl) ? resolveInternal(tabUrl) : ''
+    // HTTPS-only: an http address is opened over https (without restoring its history, which holds the http entry).
+    const target = url ? this.d.upgradeUrl(tabId, wc.session, url) : url
     const plain = () => {
-      if (url && !wc.isDestroyed()) wc.loadURL(url).catch(() => {})
+      if (target && !wc.isDestroyed()) wc.loadURL(target).catch(() => {})
     }
+    if (target !== url) return plain()
     if (!history || history.entries[history.index]?.url !== url) return plain()
     try {
       wc.navigationHistory.restore({ entries: history.entries.map((e) => ({ ...e })), index: history.index }).catch(plain)

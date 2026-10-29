@@ -5,7 +5,7 @@ vi.mock('electron', () => ({
   webContents: { getAllWebContents: () => [] }
 }))
 
-import { crashDocument, injectionScript, loadErrorText } from './errorpage'
+import { crashDocument, ERROR_CSS, injectionScript, insecureSiteScript, insecureSiteText, loadErrorText } from './errorpage'
 
 describe('loadErrorText', () => {
   it('known cause: no raw code', () => {
@@ -47,5 +47,25 @@ describe('injectionScript', () => {
     expect(js).toContain(JSON.stringify(text))
     expect(js).toContain("location.protocol !== 'chrome-error:'")
     expect(() => new Function(js)).not.toThrow()
+  })
+})
+
+describe('insecureSiteScript', () => {
+  it('texts name the host', () => {
+    const text = insecureSiteText('https://example.com:8443/a')
+    expect(text.host).toBe('example.com:8443')
+    expect(text.title).not.toBe('')
+    expect(text.continue).not.toBe(text.back)
+  })
+  it('carries the token and title prefix, only works in the engine error page, no innerHTML', () => {
+    const js = insecureSiteScript(insecureSiteText('https://example.com'), ERROR_CSS, 'tok-123', 'signet-https-continue:', true)
+    expect(js).toContain('signet-https-continue:tok-123')
+    expect(js).toContain("location.protocol !== 'chrome-error:'")
+    expect(js).not.toContain('innerHTML')
+    expect(js).toContain('history.back()')
+  })
+  it('no "Go back" button without history', () => {
+    const js = insecureSiteScript(insecureSiteText('https://example.com'), ERROR_CSS, 't', 'p:', false)
+    expect(js).toContain('false ? button')
   })
 })
