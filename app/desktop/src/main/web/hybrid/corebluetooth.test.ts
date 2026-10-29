@@ -32,7 +32,7 @@ beforeEach(async () => {
 afterEach(async () => {
   vi.useRealTimers()
   vi.restoreAllMocks()
-  await rm(dir, { recursive: true, force: true })
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 function setup(opts: { compile?: ScanDeps['compile'] } = {}) {
