@@ -2,7 +2,16 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { LinkStore, hashToken, newToken, tokenMatches, type StoredLink, type Vault } from './store'
+import { LinkStore as Store, hashToken, newToken, tokenMatches, type StoredLink, type Vault } from './store'
+
+/** Every store a test creates, so `afterEach` can wait for their background writes before removing the folder. */
+const stores: Store[] = []
+class LinkStore extends Store {
+  constructor(...args: ConstructorParameters<typeof Store>) {
+    super(...args)
+    stores.push(this)
+  }
+}
 
 const vault = (available = true): Vault => ({
   available: () => available,
@@ -28,7 +37,11 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'signet-store-'))
   file = join(dir, 'link.json')
 })
-afterEach(() => rmSync(dir, { recursive: true, force: true }))
+afterEach(async () => {
+  // A background write still running would recreate a file while the folder is removed (ENOTEMPTY on slow CI machines).
+  await Promise.all(stores.splice(0).map((s) => s.whenIdle()))
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
+})
 
 describe('token', () => {
   it('32 bytes in base64url; comparison by SHA-256', () => {

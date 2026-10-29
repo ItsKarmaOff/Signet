@@ -9,6 +9,7 @@ import { ARCHIVE_MAX } from '../model/types'
 import { AtomicWriter, writeFileSyncDurable } from './atomic'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
 import { cleanOverrides } from '@shared/shortcuts'
+import { cleanSiteZoom, isFontSize, isMinFontSize, isZoomPercent, type SiteZoom } from '@shared/pagesettings'
 import { pruneBookmarks } from '../features/bookmarks'
 import { defaultLanguages, normalizeLanguages, takeStartupState } from '../web/languages'
 import { initLocale, t } from '../app/i18n'
@@ -110,6 +111,8 @@ export interface State {
   bounds: Rectangle | null
   /** Last size and position of the mini player. */
   pipBounds: Rectangle | null
+  /** Zoom level the user chose per site host (regular windows only; not part of backups). Bounded, see `rememberSiteZoom`. */
+  siteZoom: SiteZoom
 }
 
 export const SIDEBAR_MIN = 180
@@ -154,7 +157,8 @@ function initialState(): State {
     boosts: {},
     sitePermissions: {},
     bounds: null,
-    pipBounds: null
+    pipBounds: null,
+    siteZoom: {}
   }
 }
 
@@ -167,7 +171,10 @@ export const CLEAN_SETTING_KEYS = [
   'extensionOrder',
   'pinnedExtensions',
   'searchEngine',
-  'downloadDir'
+  'downloadDir',
+  'fontSize',
+  'minimumFontSize',
+  'defaultZoom'
 ] as const
 
 /**
@@ -211,6 +218,10 @@ export function cleanSettings(patch: Partial<Settings>, base: Settings): Setting
   // Downloads folder: absolute path; an empty string falls back to the system folder.
   if (patch.downloadDir === '') delete out.downloadDir
   else if (typeof patch.downloadDir === 'string' && isAbsolute(patch.downloadDir) && patch.downloadDir.length < 4096) out.downloadDir = patch.downloadDir
+  // Web pages: values from the choice lists only (see shared/pagesettings.ts); anything else keeps the previous one.
+  if (isFontSize(patch.fontSize)) out.fontSize = patch.fontSize
+  if (isMinFontSize(patch.minimumFontSize)) out.minimumFontSize = patch.minimumFontSize
+  if (isZoomPercent(patch.defaultZoom)) out.defaultZoom = patch.defaultZoom
   return out
 }
 
@@ -246,6 +257,7 @@ function sanitize(raw: Partial<State>): State {
   delete (state as { tabHistory?: unknown }).tabHistory
   if (!APP_ICONS.some((i) => i.id === state.settings.appIcon)) state.settings.appIcon = 'aurore'
   if (!Array.isArray(state.settings.routes)) state.settings.routes = []
+  state.siteZoom = cleanSiteZoom(raw.siteZoom)
   const pb = state.pipBounds as Partial<Rectangle> | null
   if (!pb || ![pb.x, pb.y, pb.width, pb.height].every((n) => Number.isFinite(n))) state.pipBounds = null
   // Migration: without saved languages, follow the system ones.

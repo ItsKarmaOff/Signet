@@ -9,11 +9,8 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'signet-atomic-'))
 })
 afterEach(() => {
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
-
-/** Waits for the asynchronous write to finish. */
-const settle = () => new Promise((r) => setTimeout(r, 50))
 
 describe('writeFileSyncDurable', () => {
   it('writes the content', () => {
@@ -28,7 +25,7 @@ describe('AtomicWriter', () => {
     const f = join(dir, 'state.json')
     const w = new AtomicWriter(f, () => '{"a":1}')
     w.request()
-    await settle()
+    await w.whenIdle()
     expect(readFileSync(f, 'utf8')).toBe('{"a":1}')
     expect(existsSync(f + '.tmp')).toBe(false)
   })
@@ -37,7 +34,7 @@ describe('AtomicWriter', () => {
     const f = join(dir, 'x.json')
     const w = new AtomicWriter(f, () => null)
     w.request()
-    await settle()
+    await w.whenIdle()
     expect(existsSync(f)).toBe(false)
     expect(w.flushSync()).toBe(true)
   })
@@ -49,7 +46,7 @@ describe('AtomicWriter', () => {
     w.request()
     v = 'deux'
     w.request()
-    await settle()
+    await w.whenIdle()
     expect(readFileSync(f, 'utf8')).toBe('deux')
   })
 
@@ -74,7 +71,7 @@ describe('AtomicWriter', () => {
     const onFail = vi.fn()
     const w = new AtomicWriter(join(dir, 'absent', 'x.json'), () => 'a', onFail)
     w.request()
-    await settle()
+    await w.whenIdle()
     expect(onFail).toHaveBeenCalled()
   })
 
@@ -83,7 +80,7 @@ describe('AtomicWriter', () => {
     const w = new AtomicWriter(f, () => 'a')
     w.request()
     w.cancel()
-    await settle()
+    await w.whenIdle()
     expect(existsSync(f)).toBe(false)
     expect(existsSync(f + '.tmp')).toBe(false)
   })

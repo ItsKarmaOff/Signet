@@ -254,6 +254,8 @@ export const IPC = {
   setShortcutRecording: invoke('shortcuts:recording', [bool()]),
   setDefaultBrowser: invoke('settings:default-browser', []),
   chooseDownloadDir: invoke('settings:download-dir', []),
+  relaunchApp: invoke('settings:relaunch', []),
+  openProxySettings: invoke('settings:proxy', []),
   runImport: invoke('settings:import', [str(), arr(importKind)]),
   openWelcome: invoke('welcome:open', []),
   checkForUpdates: invoke('updates:check', []),
@@ -395,5 +397,7 @@ export const PAGE_IPC = {
   'notes:appearance': 'invoke',
   'notes:load': 'invoke',
   'notes:save': 'invoke',
-  'notes:remove': 'invoke'
+  'notes:remove': 'invoke',
+  // Extension API calls (src/preload/extension-apis.ts); handled by features/extensions/apis/router.ts, which checks the sender.
+  'signet-crx': 'invoke'
 } as const satisfies Record<string, 'invoke' | 'send'>

@@ -159,6 +159,22 @@
       "groupLayout": "Layout",
       "groupLook": "Colors",
       "groupText": "Text and density",
+      "groupWeb": "Web pages",
+      "fontSize": "Font size",
+      "fontSizeHint": "Default size of text on websites.",
+      "fontVerySmall": "Very small",
+      "fontSmall": "Small",
+      "fontMedium": "Medium (recommended)",
+      "fontLarge": "Large",
+      "fontVeryLarge": "Very large",
+      "minFontSize": "Minimum font size",
+      "minFontSizeHint": "Text smaller than this is enlarged.",
+      "minFontNone": "None",
+      "minFontPx": "{{size}} px",
+      "defaultZoom": "Page zoom",
+      "defaultZoomHint": "Zoom of sites you haven't zoomed yourself. Reset a site with the actual size shortcut.",
+      "defaultZoomPercent": "{{percent}}%",
+      "webNote": "Font sizes apply to new pages and to tabs reopened after sleeping. Reload open tabs to see them now.",
       "side": "Sidebar position",
       "sideHint": "Which edge of the window the sidebar sits on.",
       "sideLeft": "Left",
@@ -318,6 +334,8 @@
     },
     "privacy": {
       "adblock": "Block ads and trackers",
+      "httpsOnly": "Always use secure connections",
+      "httpsOnlyHint": "Opens http:// sites over https://, and warns you before loading a site that has no secure connection. Local addresses are not affected.",
       "archive": "Archived tabs: {{count}}",
       "cache": "Cache",
       "clear": "Clear",
@@ -350,7 +368,26 @@
       "permResetAll": "Reset all",
       "permResetFor": "Forget the choice for {{permission}} on {{origin}}",
       "selectAll": "Select all",
-      "sitePermissions": "Site permissions"
+      "sitePermissions": "Site permissions",
+      "dns": "Secure DNS",
+      "dnsHint": "Looks up site addresses over an encrypted connection (DNS over HTTPS).",
+      "dnsAutomatic": "With your current provider",
+      "dnsOff": "Off",
+      "dnsCustom": "Custom…",
+      "dnsCustomLabel": "Custom DNS over HTTPS server",
+      "dnsCustomPlaceholder": "https://dns.example/dns-query",
+      "dnsCustomInvalid": "Enter an https:// address.",
+      "dnsUse": "Use"
+    },
+    "system": {
+      "gpu": "Use graphics acceleration when available",
+      "gpuHint": "Uses the graphics card to draw pages. Turn it off if pages flicker or show glitches.",
+      "gpuPending": "Relaunch Signet to apply this change.",
+      "gpuPendingDev": "Applied at the next launch.",
+      "relaunch": "Relaunch",
+      "proxy": "Proxy",
+      "proxyHint": "Signet uses your computer's proxy settings.",
+      "proxyOpen": "Open proxy settings"
     },
     "routing": {
       "add": "Add",
@@ -388,7 +425,8 @@
       "backup": "Backup",
       "apps": "Apps",
       "developer": "Developer",
-      "devices": "Devices"
+      "devices": "Devices",
+      "system": "System"
     },
     "shortcuts": {
       "group": {

@@ -511,7 +511,8 @@
         "mods": "Settings: interface mods",
         "backup": "Settings: Backup",
         "apps": "Settings: installed apps",
-        "developer": "Settings: developer"
+        "developer": "Settings: developer",
+        "system": "Settings: System"
       },
       "librarySection": {
         "history": "Library: History",
@@ -569,6 +570,12 @@
       "unreachable": "The server can't be reached right now.",
       "certificate": "The site's security certificate can't be trusted.",
       "other": "The page could not be loaded."
+    },
+    "https": {
+      "title": "This site doesn't support a secure connection",
+      "text": "Signet is set to open only secure (https) connections, and this site could not be reached securely. On an insecure connection, others on the network could read or change what you send and receive.",
+      "back": "Go back",
+      "continue": "Continue to site"
     },
     "crash": {
       "title": "This page crashed",

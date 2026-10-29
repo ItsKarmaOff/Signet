@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Puzzle } from 'lucide-react'
 import { reducedMotion, rubberband } from '../lib/spring'
+import { badgeColors } from '../lib/util'
 
 // ───────────────────────── Action state (shared between the bars) ─────────────────────────
 
@@ -321,7 +322,7 @@ function slotShift(box: HTMLDivElement | null, d: Drag, i: number): number {
 
 interface ButtonProps {
   id: string
-  info: { title?: string; text?: string; color?: string; iconModified?: number }
+  info: { title?: string; text?: string; color?: unknown; iconModified?: number }
   partition: string
   tabId: number
   mine: boolean
@@ -354,7 +355,7 @@ function ActionButton({ id, info, partition, tabId, mine, settling, shift, ...ha
         <img src={src} alt="" draggable={false} onError={() => setTimeout(() => setTries((n) => n + 1), 400)} />
       )}
       {info.text && (
-        <span className="ext-badge" style={{ backgroundColor: info.color }}>
+        <span className="ext-badge" style={badgeColors(info.color)}>
           {info.text}
         </span>
       )}

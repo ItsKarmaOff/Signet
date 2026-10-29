@@ -5,10 +5,10 @@
 .dl-btn {
   position: relative;
 }
+/* Panel open: same look as hover, not the white tile of a selected tab. */
 .dl-btn.on {
-  background: var(--active);
+  background: var(--surface-2);
   color: var(--text);
-  box-shadow: var(--active-shadow);
 }
 .dl-btn .ring {
   position: absolute;

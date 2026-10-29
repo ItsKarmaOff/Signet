@@ -39,6 +39,7 @@ const SETTINGS_SECTIONS = [
   'shortcuts',
   'mods',
   'developer',
+  'system',
   'about'
 ] as const
 const LIBRARY_SECTIONS = ['history', 'archive', 'downloads', 'spaces'] as const
@@ -86,6 +87,15 @@ export function resolveInternal(url: string): string {
   if (note) return note
   const parsed = parseInternal(url)
   return parsed && isEngine(parsed.name) ? `chrome://${parsed.name}` : url
+}
+
+/**
+ * Address typed by the user (command bar, address bar): Signet only exposes `signet://` addresses, so a typed
+ * `chrome://` or `chrome-untrusted://` address goes to `signet://not-found` instead of the engine's error page.
+ * Only for explicit user input: engine pages stay reachable from internal pages through `guardNavigation`.
+ */
+export function refuseEngineInput(url: string): string {
+  return /^chrome(-untrusted)?:/i.test(url.trim()) ? 'signet://not-found' : url
 }
 
 /** True for a `signet:` address, the app's interface or an internal engine page. */
@@ -180,9 +190,14 @@ export function guardNavigation(b: Browser, from: string, target: string, naviga
   if (!isInternalUrl(target)) return false
   if (!isInternalOrigin(from)) return true // ordinary web page: refused
   if (openShortcut(b, target)) return true
+  const engine = engineName(target.trim())
+  if (engine && /^chrome:\/\/[^/?#]+\/?$/i.test(target.trim())) {
+    navigate(`chrome://${engine}`) // engine page given by its real address (displayed as `signet://<name>`)
+    return true
+  }
   const p = parseInternal(target)
   if (p && ((INFO_PAGES as readonly string[]).includes(p.name) || isEngine(p.name)) && !p.path) navigate(resolveInternal(target))
-  else if (p) navigate('signet://not-found')
+  else navigate('signet://not-found') // unknown signet:// address, or any other chrome:// / chrome-untrusted:// target
   return true
 }
 
@@ -196,6 +211,7 @@ const CSS = `
 * { box-sizing: border-box }
 body { margin: 0; background: var(--bg); color: var(--text); font: 13px/1.5 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; }
 main { max-width: 760px; margin: 0 auto; padding: 40px 24px 64px }
+main.center { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding-block: 24px }
 h1 { font-size: 28px; margin: 0 0 4px; letter-spacing: -.01em }
 h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin: 28px 0 8px }
 p.lead { color: var(--text-2); margin: 0 0 8px; font-size: 14px }
@@ -210,8 +226,9 @@ a { color: var(--accent); text-decoration: none }
 a:hover { text-decoration: underline }
 `
 
-function document(title: string, body: string): string {
-  return `<!doctype html><html lang="${currentLocale()}"><head><meta charset="utf-8"><title>${esc(title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${CSS}</style></head><body><main>${body}</main></body></html>`
+function document(title: string, body: string, layout: 'page' | 'center' = 'page'): string {
+  const main = layout === 'center' ? '<main class="center">' : '<main>'
+  return `<!doctype html><html lang="${currentLocale()}"><head><meta charset="utf-8"><title>${esc(title)}</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>${CSS}</style></head><body>${main}${body}</main></body></html>`
 }
 
 function urlsPage(): string {
@@ -261,7 +278,8 @@ function versionPage(b: Browser, ses: Session): string {
 function notFoundPage(): string {
   return document(
     t('internal.notFound.title'),
-    `<h1>${esc(t('internal.notFound.title'))}</h1><p class="lead">${esc(t('internal.notFound.text'))}</p><p><a href="signet://urls">signet://urls</a></p>`
+    `<h1>${esc(t('internal.notFound.title'))}</h1><p class="lead">${esc(t('internal.notFound.text'))}</p><p><a href="signet://urls">signet://urls</a></p>`,
+    'center' // a message alone: centered in the page
   )
 }
 

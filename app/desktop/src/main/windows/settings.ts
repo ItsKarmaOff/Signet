@@ -17,6 +17,8 @@ import { applyCleaned, cleanSettings } from '../core/store'
 import { syncQuitHud } from '../app/quit'
 import { pushUi } from '../ipc/push'
 import { downloadDir } from '../web/downloads'
+import { applySecureDns, hasProxySettings, isDnsMode } from '../features/engine'
+import { isDohTemplate } from '@shared/dns'
 
 const SLOW_TTL = 2000
 const KINDS: BrowsingDataKind[] = ['history', 'archive', 'downloads', 'cache', 'cookies', 'permissions']
@@ -143,7 +145,9 @@ export class SettingsWindow {
         permissions: this.b.permissions.listAll().length
       },
       hue: this.b.space.hue,
-      downloadDir: downloadDir(state.settings)
+      downloadDir: downloadDir(state.settings),
+      hardwareAccelerationActive: app.isHardwareAccelerationEnabled(),
+      proxySettings: hasProxySettings()
     }
   }
 
@@ -175,10 +179,21 @@ export class SettingsWindow {
 
   update(patch: Partial<Settings>): void {
     const { settings } = this.b.store.state
+    const fonts = JSON.stringify([settings.fontSize, settings.minimumFontSize])
+    const zoom = settings.defaultZoom
     // Fields to validate (durations, local names, shortcuts, extensions): see `cleanSettings`.
     applyCleaned(settings, cleanSettings(patch, settings))
     // The search engine (value already validated by `cleanSettings`) is used right away for the next inputs.
     setSearchEngine(settings.searchEngine)
+    // Font sizes only reach new views: hidden tabs go to sleep and come back with them; displayed ones keep theirs until reopened.
+    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.sleep.discardHidden()
+    // Default zoom: open pages follow now (except the sites the user zoomed).
+    if (settings.defaultZoom !== zoom) this.b.pageZoom.applyAll()
+    // HTTPS-only mode applies from the next navigation.
+    if (typeof patch.httpsOnly === 'boolean') {
+      if (patch.httpsOnly) settings.httpsOnly = true
+      else delete settings.httpsOnly
+    }
     if (typeof patch.peekExternalLinks === 'boolean') settings.peekExternalLinks = patch.peekExternalLinks
     if (typeof patch.autoPip === 'boolean') settings.autoPip = patch.autoPip
     if (typeof patch.askDownloadPath === 'boolean') settings.askDownloadPath = patch.askDownloadPath
@@ -209,6 +224,16 @@ export class SettingsWindow {
     }
     if (typeof patch.devKeepOutOfHistory === 'boolean') settings.devKeepOutOfHistory = patch.devKeepOutOfHistory
     if (typeof patch.jsonViewer === 'boolean') settings.jsonViewer = patch.jsonViewer
+    // Graphics acceleration: saved here, applied at the next launch (index.ts, before `ready`).
+    if (typeof patch.hardwareAcceleration === 'boolean') {
+      if (patch.hardwareAcceleration) delete settings.hardwareAcceleration
+      else settings.hardwareAcceleration = false
+    }
+    // Secure DNS: applied right away, for the whole app.
+    const dns = JSON.stringify([settings.secureDns, settings.secureDnsServer])
+    if (isDnsMode(patch.secureDns)) settings.secureDns = patch.secureDns
+    if (isDohTemplate(patch.secureDnsServer)) settings.secureDnsServer = patch.secureDnsServer
+    if (JSON.stringify([settings.secureDns, settings.secureDnsServer]) !== dns) applySecureDns(settings)
     if (typeof patch.checkUpdates === 'boolean' && patch.checkUpdates !== (settings.checkUpdates !== false)) {
       settings.checkUpdates = patch.checkUpdates
       this.b.updates.sync()

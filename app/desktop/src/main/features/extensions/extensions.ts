@@ -7,6 +7,7 @@ import { installChromeWebStore, installExtension, uninstallExtension } from 'ele
 import { PASSWORD_EXTENSIONS } from '@shared/types'
 import type { ExtensionInfo } from '@shared/types'
 import type { Browser } from '../../browser/browser'
+import { ExtensionApis } from './apis'
 import { peekSession } from '../../web/profiles'
 import { t } from '../../app/i18n'
 import { buildMenu, menuIcon } from '../../app/menuicons'
@@ -129,10 +130,21 @@ export class Extensions {
   private pending = new Map<Session, Promise<unknown>>()
   /** False until the initial load is finished: afterwards, an addition or removal is propagated to the other sessions. */
   private mirroring = false
+  /** Tab last declared active to the library (what Signet displays). */
+  private selected: WebContents | undefined
+  private watched = new WeakSet<WebContents>()
   /** True during our own calls to the library: its callbacks must not change the active tab. */
   private syncing = false
 
+  /** APIs Electron lacks (proxy, privacy, alarms…), injected into extension contexts. */
+  private apis = new ExtensionApis()
+
   constructor(private b: Browser) {}
+
+  /** Channel for extension pages calling the added APIs (see apis/router.ts); registered with the other page channels. */
+  registerPageIpc(): void {
+    this.apis.registerPageIpc()
+  }
 
   /** Enables extensions and the store in a session (called once per session). */
   attach(ses: Session): void {
@@ -140,7 +152,6 @@ export class Extensions {
     this.attached.add(ses)
     if (!ElectronChromeExtensions.fromSession(ses)) {
       new ElectronChromeExtensions({
-        license: 'GPL-3.0',
         session: ses,
         createTab: (details) => this.createTab(ses, details),
         selectTab: (wc) => this.selectCallback(wc),
@@ -149,6 +160,9 @@ export class Extensions {
         removeWindow: (win) => this.removeWindow(win)
       })
     }
+    // After the library: it freezes `chrome` and defines stubs of its own (privacy, downloads); our preload, registered
+    // later, runs later and overrides those namespaces (see src/preload/extension-apis.ts).
+    this.apis.attach(ses)
     // Button icons go through this protocol, served to the interface session.
     if (ses === session.defaultSession) ElectronChromeExtensions.handleCRXProtocol(ses)
 
@@ -194,12 +208,25 @@ export class Extensions {
   track(wc: WebContents, win: BrowserWindow | null): void {
     if (!win || win.isDestroyed() || wc.isDestroyed()) return
     this.run(() => ElectronChromeExtensions.fromSession(wc.session)?.addTab(wc, win))
+    // A tab an extension created and closed right away leaves the library with a destroyed "active tab" (its buttons then
+    // fail with "Unable to get active tab"), because Signet only reports a selection when the displayed tab changes.
+    if (!this.watched.has(wc)) {
+      this.watched.add(wc)
+      wc.once('destroyed', () => this.reselect())
+    }
   }
 
   /** Signals the displayed tab. */
   select(wc: WebContents | undefined): void {
     if (!wc || wc.isDestroyed()) return
+    this.selected = wc
     this.run(() => ElectronChromeExtensions.fromSession(wc.session)?.selectTab(wc))
+  }
+
+  /** Tells the library again which tab is displayed (idempotent). */
+  private reselect(): void {
+    // After the library has handled the removal itself.
+    setTimeout(() => this.select(this.selected), 0)
   }
 
   /** Context menu entries added by extensions. */
@@ -239,6 +266,8 @@ export class Extensions {
     if (space.id !== this.b.space.id) this.b.spaces.switchTo(space.id)
     const id = this.b.tabs.open(details.url ?? '', { activate: details.active !== false })
     const wc = this.b.views.ensureView(id).webContents
+    // The library marks a new tab active even when it is not the displayed one: set the record straight.
+    this.reselect()
     return [wc, this.b.win!]
   }
 

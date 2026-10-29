@@ -13,8 +13,15 @@ import { resolveAlias } from '@shared/devhosts'
 import { internalSuggestions } from '../web/internal'
 import { t } from '../app/i18n'
 import { shortcutLabel } from '@shared/shortcuts'
+import { completable, historyScore, matchQuality } from '../core/rank'
 
 const MAX_RESULTS = 12
+/** History and archive rows together; open tabs are not capped. */
+const MAX_PAGES = 5
+
+// Relevance of the fixed rows. Matches score 0-100 (see core/rank.ts): the search row sits above weak
+// matches (generic word, site seen once long ago) and below strong ones (a site you visit, an open tab).
+const SCORE = { internal: 2000, alias: 1500, typedUrl: 900, aliasPrefix: 115, tabBonus: 10, search: 45, action: 40, archive: 0.4 }
 
 interface ActionDef {
   id: string
@@ -211,6 +218,62 @@ function archiveKey(e: { title: string; url: string }): { title: string; url: st
   return k
 }
 
+/** Parsed web address, or null. */
+function webUrl(url: string | undefined): URL | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u : null
+  } catch {
+    return null
+  }
+}
+
+/** Root of a site: path `/` (or empty), no query, no fragment. */
+const isRootUrl = (u: URL): boolean => u.pathname === '/' && !u.search && !u.hash
+
+/** Host without `www.`, the identity of a site for the root promotion. */
+const siteKey = (u: URL): string => u.host.toLowerCase().replace(/^www\./, '')
+
+/**
+ * Chrome-like host promotion: when the best row is a deep page matched by the start of its host, the
+ * site's root comes first instead, so the row, the inline completion (host only) and Enter all mean the
+ * same thing. The root is an existing row (open tab, history, archive), else a history entry looked up
+ * directly, else a synthesized row. `rows` is sorted best first; returns the list with the root first.
+ */
+function promoteRoot(b: Browser, fq: string, rows: PaletteResult[]): PaletteResult[] {
+  const top = rows[0]
+  if (!top || (top.kind !== 'tab' && top.kind !== 'history' && top.kind !== 'archived')) return rows
+  const deep = webUrl(top.url)
+  if (!deep || isRootUrl(deep) || matchQuality(fq, '', fold(top.url ?? '')) !== 100) return rows
+  const site = siteKey(deep)
+  const existing = rows.findIndex((r) => {
+    if (r.kind !== 'tab' && r.kind !== 'history' && r.kind !== 'archived') return false
+    const u = webUrl(r.url)
+    return !!u && isRootUrl(u) && siteKey(u) === site
+  })
+  if (existing > 0) return [rows[existing], ...rows.slice(0, existing), ...rows.slice(existing + 1)]
+  // Not among the candidates (the history search keeps only a few): look the root up directly.
+  const www = /^www\./i.test(deep.hostname) ? '' : 'www.'
+  const bare = deep.hostname.replace(/^www\./i, '')
+  const hosts = [deep.hostname, www ? `${www}${bare}` : bare]
+  const schemes = [deep.protocol, deep.protocol === 'https:' ? 'http:' : 'https:']
+  const port = deep.port ? `:${deep.port}` : ''
+  let entry: ReturnType<Browser['history']['get']>
+  for (const scheme of schemes) for (const host of hosts) entry ??= b.history.get(`${scheme}//${host}${port}/`)
+  const root = entry
+    ? ({ kind: 'history', id: `history:${entry.url}`, title: entry.title, subtitle: entry.url, url: entry.url, favicon: entry.favicon } as const)
+    : ({
+        kind: 'history',
+        id: `history:${deep.protocol}//${deep.host}/`,
+        title: deep.host.replace(/^www\./i, ''),
+        subtitle: `${deep.protocol}//${deep.host}/`,
+        url: `${deep.protocol}//${deep.host}/`,
+        favicon: top.favicon
+      } as const)
+  return [root, ...rows.filter((r) => r.id !== root.id)]
+}
+
 export function paletteQuery(b: Browser, query: string, mode: PaletteMode): PaletteResult[] {
   const { state } = b.store
   const q = query.trim()
@@ -220,6 +283,7 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
     title: state.tabs[id].customTitle || state.tabs[id].title || state.tabs[id].url,
     subtitle,
     tabId: id,
+    url: state.tabs[id].url,
     favicon: state.tabs[id].favicon
   })
 
@@ -238,61 +302,90 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
     return [...recent, ...actions.map(actionResult)]
   }
 
+  // Every candidate gets a relevance score; the list is sorted on it (stable: ties keep insertion order).
+  const scored: { r: PaletteResult; s: number }[] = []
+  const add = (r: PaletteResult, s: number) => scored.push({ r, s })
   // Input starting with `signet:`: the matching internal addresses come before everything else.
-  const results: PaletteResult[] = internalSuggestions(q)
+  for (const r of internalSuggestions(q)) add(r, SCORE.internal)
   // Local names: the typed name (with a possible path) opens its target; names starting with the input are offered.
   const aliases = state.settings.devAliases ?? []
   const aliased = resolveAlias(q, aliases)
-  if (aliased) results.push({ kind: 'url', id: `url:${aliased}`, title: q.trim(), subtitle: t('palette.openAlias', { url: aliased }), url: aliased })
+  if (aliased) add({ kind: 'url', id: `url:${aliased}`, title: q.trim(), subtitle: t('palette.openAlias', { url: aliased }), url: aliased }, SCORE.alias)
   for (const a of aliases)
     if (a.name.startsWith(q.trim().toLowerCase()) && !aliased?.startsWith(a.target))
-      results.push({ kind: 'url', id: `alias:${a.name}`, title: a.name, subtitle: t('palette.openAlias', { url: a.target }), url: a.target })
+      add({ kind: 'url', id: `alias:${a.name}`, title: a.name, subtitle: t('palette.openAlias', { url: a.target }), url: a.target }, SCORE.aliasPrefix)
+  // An address-like input is a navigation; free text is a search, which strong history matches may outrank.
   const url = aliased ? null : toUrl(q)
   if (url) {
-    if (!results.some((r) => r.kind === 'url' && r.url === url))
-      results.push({ kind: 'url', id: `url:${url}`, title: url, subtitle: t('palette.openAddress'), url })
+    if (!scored.some(({ r }) => r.kind === 'url' && r.url === url))
+      add({ kind: 'url', id: `url:${url}`, title: url, subtitle: t('palette.openAddress'), url }, SCORE.typedUrl)
   } else if (!aliased)
-    results.push({
-      kind: 'search',
-      id: `search:${q}`,
-      title: t('palette.searchWith', { query: q, engine: engineName() }),
-      url: engineSearchUrl(q)
-    })
+    add({ kind: 'search', id: `search:${q}`, title: t('palette.searchWith', { query: q, engine: engineName() }), url: engineSearchUrl(q) }, SCORE.search)
 
   const fq = fold(q)
+  const now = Date.now()
   const opened = openTabs(b)
   // The same address appears only once, tab, history or archive.
   const seen = new Set<string>()
   for (const { id, space } of opened) {
     const tab = state.tabs[id]
-    if (fold(tab.customTitle ?? '').includes(fq) || fold(tab.title).includes(fq) || fold(tab.url).includes(fq)) {
-      seen.add(tab.url)
-      results.push(tabResult(id, t('palette.goToTab', { space })))
-    }
+    const quality = Math.max(matchQuality(fq, fold(tab.customTitle ?? ''), fold(tab.url)), matchQuality(fq, fold(tab.title), fold(tab.url)))
+    if (!quality) continue
+    seen.add(tab.url)
+    // "Switch to tab" beats the same page in history.
+    add(tabResult(id, t('palette.goToTab', { space })), quality + SCORE.tabBonus)
   }
-  for (const a of buildActions(b, q)) if (fold(a.title).includes(fq)) results.push(actionResult(a))
+  for (const a of buildActions(b, q)) {
+    const title = fold(a.title)
+    // Actions stay below the search row: Enter on a word must not run a command by surprise.
+    if (title.includes(fq)) add(actionResult(a), title.startsWith(fq) ? SCORE.action : SCORE.action - 10)
+  }
 
   const openUrls = new Set(opened.map(({ id }) => state.tabs[id].url))
   for (const e of b.history.search(q, openUrls, MAX_RESULTS)) {
     if (seen.has(e.url)) continue
     seen.add(e.url)
-    results.push({ kind: 'history', id: `history:${e.url}`, title: e.title, subtitle: e.url, url: e.url, favicon: e.favicon })
+    add(
+      { kind: 'history', id: `history:${e.url}`, title: e.title, subtitle: e.url, url: e.url, favicon: e.favicon },
+      historyScore(fq, { ...e, title: fold(e.title), url: fold(e.url) }, now)
+    )
   }
   for (const [i, e] of state.archive.entries()) {
     const key = archiveKey(e)
-    if ((key.title.includes(fq) || key.url.includes(fq)) && !seen.has(e.url)) {
+    const quality = matchQuality(fq, key.title, key.url)
+    if (quality && !seen.has(e.url)) {
       seen.add(e.url)
-      results.push({
-        kind: 'archived',
-        id: `archived:${e.id ?? `${e.archivedAt}:${i}`}`,
-        title: e.title || e.url,
-        subtitle: t('palette.archived', { url: e.url }),
-        url: e.url,
-        favicon: e.favicon
-      })
+      add(
+        {
+          kind: 'archived',
+          id: `archived:${e.id ?? `${e.archivedAt}:${i}`}`,
+          title: e.title || e.url,
+          subtitle: t('palette.archived', { url: e.url }),
+          url: e.url,
+          favicon: e.favicon
+        },
+        quality * SCORE.archive
+      )
     }
   }
-  return results.slice(0, MAX_RESULTS)
+  let sorted = scored.sort((x, y) => y.s - x.s).map((x) => x.r)
+  const before = sorted[0]
+  // Free text without a typed path: the inline completion only names the host, so Enter must open it too.
+  if (!aliased && !url && !q.includes('/') && !/\s/.test(q) && !/^signet:/i.test(q)) sorted = promoteRoot(b, fq, sorted)
+  // Like other browsers, only a few past pages: a busy site must not flood the list.
+  let pages = 0
+  const list = sorted.filter((r) => (r.kind !== 'history' && r.kind !== 'archived') || ++pages <= MAX_PAGES)
+  // "Search what you typed" never drops below the second row: it follows the best match.
+  const search = list.findIndex((r) => r.kind === 'search')
+  if (search > 1) list.splice(1, 0, ...list.splice(search, 1))
+  // Like Chrome, the input is only completed to a page typed before or visited often. A promoted root also
+  // qualifies through the deep page that triggered the promotion.
+  const first = list[0]
+  if (first && (first.kind === 'tab' || first.kind === 'history' || first.kind === 'archived')) {
+    const known = (r: PaletteResult | undefined) => completable(r && 'url' in r && r.url ? b.history.get(r.url) : undefined)
+    list[0] = { ...first, inline: known(first) || (first !== before && known(before)) }
+  }
+  return list.slice(0, MAX_RESULTS)
 }
 
 export async function paletteSuggest(query: string): Promise<PaletteResult[]> {
@@ -329,7 +422,11 @@ export function paletteExecute(b: Browser, result: PaletteResult, mode: PaletteM
         .find((a) => a.id === result.action)
         ?.run()
       break
+    case 'search':
+    case 'suggestion':
+      b.tabs.openUrl(result.url, mode) // engine results page: not a typed visit
+      break
     default:
-      b.tabs.openUrl(result.url, mode)
+      b.tabs.openUrl(result.url, mode, true)
   }
 }

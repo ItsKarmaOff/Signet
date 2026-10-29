@@ -8,9 +8,10 @@ export type PaletteResult =
   | { kind: 'url'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'search'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'suggestion'; id: string; title: string; subtitle?: string; url: string }
-  | { kind: 'history'; id: string; title: string; subtitle?: string; url: string; favicon?: string }
-  | { kind: 'archived'; id: string; title: string; subtitle?: string; url: string; favicon?: string }
-  | { kind: 'tab'; id: string; title: string; subtitle?: string; tabId: string; favicon?: string }
+  | { kind: 'history'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
+  | { kind: 'archived'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
+  /** `inline`: set by main on the top row only, when the page was typed or visited enough to complete the input. */
+  | { kind: 'tab'; id: string; title: string; subtitle?: string; tabId: string; url?: string; favicon?: string; inline?: boolean }
   | {
       kind: 'action'
       id: string

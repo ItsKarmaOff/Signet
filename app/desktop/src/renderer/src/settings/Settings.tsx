@@ -23,10 +23,14 @@ import {
   Paintbrush,
   AppWindow,
   Smartphone,
-  SquareTerminal
+  SquareTerminal,
+  Cpu,
+  ExternalLink,
+  RotateCw
 } from 'lucide-react'
 import type { BrowsingDataKind, DevAlias, ImportKind, SettingsInfo } from '@shared/types'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
+import { DEFAULT_FONT_SIZE, DEFAULT_ZOOM, FONT_SIZES, MIN_FONT_SIZES, ZOOM_PERCENTS } from '@shared/pagesettings'
 import { useHue } from '../lib/util'
 import { RoutingSettings } from './RoutingSettings'
 import { DEFAULT_SEARCH_ENGINE, SEARCH_ENGINES, type SearchEngineId } from '@signet/shared/mobile/search'
@@ -42,6 +46,7 @@ import { shortcutLabel } from '@shared/shortcuts'
 import { ModSettings } from './ModSettings'
 import { WebAppSettings } from './WebAppSettings'
 import { DeviceSettings } from './DeviceSettings'
+import { DNS_PROVIDERS, DEFAULT_DNS_SERVER, isDohTemplate } from '@shared/dns'
 
 const REPO = 'https://github.com/ItsKarmaOff/Signet'
 
@@ -61,6 +66,7 @@ const SECTIONS = [
   { id: 'import', group: 'data', label: 'settings.section.import', icon: Download },
   { id: 'mods', group: 'advanced', label: 'settings.section.mods', icon: Paintbrush },
   { id: 'developer', group: 'advanced', label: 'settings.section.developer', icon: SquareTerminal },
+  { id: 'system', group: 'advanced', label: 'settings.section.system', icon: Cpu },
   { id: 'about', group: 'advanced', label: 'settings.section.about', icon: Info }
 ] as const
 type SectionId = (typeof SECTIONS)[number]['id']
@@ -139,6 +145,7 @@ export function Settings() {
               {section === 'shortcuts' && <ShortcutSettings info={info} />}
               {section === 'mods' && <ModSettings />}
               {section === 'developer' && <Developer info={info} />}
+              {section === 'system' && <System info={info} />}
               {section === 'about' && <About info={info} />}
             </>
           )}
@@ -285,6 +292,104 @@ function Developer({ info }: { info: SettingsInfo }) {
         {t('settings.developer.shortcutsHint', { devtools: keys('devTools'), console: keys('jsConsole'), responsive: keys('responsive') })}
       </p>
     </>
+  )
+}
+
+/** System: engine settings (graphics acceleration, proxy). */
+function System({ info }: { info: SettingsInfo }) {
+  const { t } = useTranslation()
+  const on = info.settings.hardwareAcceleration !== false
+  const pending = on !== info.hardwareAccelerationActive
+  return (
+    <Group>
+      <Row
+        label={t('settings.system.gpu')}
+        hint={pending ? t(info.packaged ? 'settings.system.gpuPending' : 'settings.system.gpuPendingDev') : t('settings.system.gpuHint')}
+      >
+        {pending && info.packaged && (
+          <button className="st-btn" onClick={() => void window.signet.relaunchApp()}>
+            <RotateCw size={13} />
+            {t('settings.system.relaunch')}
+          </button>
+        )}
+        <Switch on={on} label={t('settings.system.gpu')} onChange={(hardwareAcceleration) => window.signet.updateSettings({ hardwareAcceleration })} />
+      </Row>
+      {info.proxySettings && (
+        <Row label={t('settings.system.proxy')} hint={t('settings.system.proxyHint')}>
+          <button className="st-btn" onClick={() => void window.signet.openProxySettings()}>
+            <ExternalLink size={13} />
+            {t('settings.system.proxyOpen')}
+          </button>
+        </Row>
+      )}
+    </Group>
+  )
+}
+
+const CUSTOM_DNS = 'custom'
+
+/** Privacy › Secure DNS: off, with the current provider, or with a chosen DNS over HTTPS server. */
+function SecureDns({ info }: { info: SettingsInfo }) {
+  const { t } = useTranslation()
+  const mode = info.settings.secureDns ?? 'automatic'
+  const server = info.settings.secureDnsServer ?? DEFAULT_DNS_SERVER
+  const known = DNS_PROVIDERS.find((p) => p.template === server)
+  const [picked, setPicked] = useState<string>(known?.id ?? CUSTOM_DNS)
+  const [custom, setCustom] = useState(known ? '' : server)
+  const customOk = isDohTemplate(custom.trim())
+  const choice = mode === 'off' ? 'off' : mode === 'automatic' ? 'automatic' : picked
+  const choose = (value: string) => {
+    if (value === 'off' || value === 'automatic') return void window.signet.updateSettings({ secureDns: value })
+    setPicked(value)
+    const p = DNS_PROVIDERS.find((x) => x.id === value)
+    if (p) void window.signet.updateSettings({ secureDns: 'secure', secureDnsServer: p.template })
+    else if (customOk) void window.signet.updateSettings({ secureDns: 'secure', secureDnsServer: custom.trim() })
+  }
+  const applyCustom = () => {
+    if (customOk) void window.signet.updateSettings({ secureDns: 'secure', secureDnsServer: custom.trim() })
+  }
+  return (
+    <Group>
+      <Row label={t('settings.privacy.dns')} hint={t('settings.privacy.dnsHint')}>
+        <select className="st-select" value={choice} onChange={(e) => choose(e.target.value)} aria-label={t('settings.privacy.dns')}>
+          <option value="automatic">{t('settings.privacy.dnsAutomatic')}</option>
+          <option value="off">{t('settings.privacy.dnsOff')}</option>
+          {DNS_PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+          <option value={CUSTOM_DNS}>{t('settings.privacy.dnsCustom')}</option>
+        </select>
+      </Row>
+      {choice === CUSTOM_DNS && (
+        <form
+          className="st-row st-dns-custom"
+          onSubmit={(e) => {
+            e.preventDefault()
+            applyCustom()
+          }}
+        >
+          <input
+            className="st-input"
+            value={custom}
+            placeholder={t('settings.privacy.dnsCustomPlaceholder')}
+            aria-label={t('settings.privacy.dnsCustomLabel')}
+            aria-invalid={!!custom.trim() && !customOk}
+            spellCheck={false}
+            onChange={(e) => setCustom(e.target.value)}
+          />
+          <button className="st-btn" type="submit" disabled={!customOk || (mode === 'secure' && custom.trim() === server)}>
+            {t('settings.privacy.dnsUse')}
+          </button>
+        </form>
+      )}
+      {choice === CUSTOM_DNS && !!custom.trim() && !customOk && (
+        <p className="st-note st-err" role="alert">
+          {t('settings.privacy.dnsCustomInvalid')}
+        </p>
+      )}
+    </Group>
   )
 }
 
@@ -447,6 +552,15 @@ function Choice<T extends string>({ value, options, onChange }: { value: T; opti
   )
 }
 
+/** Labels of the default font sizes (same order as `FONT_SIZES`). */
+const FONT_LABELS = [
+  'settings.appearance.fontVerySmall',
+  'settings.appearance.fontSmall',
+  'settings.appearance.fontMedium',
+  'settings.appearance.fontLarge',
+  'settings.appearance.fontVeryLarge'
+] as const
+
 function Appearance({ info }: { info: SettingsInfo }) {
   const { t } = useTranslation()
   const update = window.signet.updateSettings
@@ -556,6 +670,52 @@ function Appearance({ info }: { info: SettingsInfo }) {
           />
         </Row>
       </Group>
+      <h3 className="st-sub">{t('settings.appearance.groupWeb')}</h3>
+      <Group>
+        <Row label={t('settings.appearance.fontSize')} hint={t('settings.appearance.fontSizeHint')}>
+          <select
+            className="st-select"
+            value={settings.fontSize ?? DEFAULT_FONT_SIZE}
+            aria-label={t('settings.appearance.fontSize')}
+            onChange={(e) => update({ fontSize: Number(e.target.value) })}
+          >
+            {FONT_SIZES.map((size, i) => (
+              <option key={size} value={size}>
+                {t(FONT_LABELS[i])}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t('settings.appearance.minFontSize')} hint={t('settings.appearance.minFontSizeHint')}>
+          <select
+            className="st-select"
+            value={settings.minimumFontSize ?? 0}
+            aria-label={t('settings.appearance.minFontSize')}
+            onChange={(e) => update({ minimumFontSize: Number(e.target.value) })}
+          >
+            {MIN_FONT_SIZES.map((size) => (
+              <option key={size} value={size}>
+                {size === 0 ? t('settings.appearance.minFontNone') : t('settings.appearance.minFontPx', { size })}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label={t('settings.appearance.defaultZoom')} hint={t('settings.appearance.defaultZoomHint')}>
+          <select
+            className="st-select"
+            value={settings.defaultZoom ?? DEFAULT_ZOOM}
+            aria-label={t('settings.appearance.defaultZoom')}
+            onChange={(e) => update({ defaultZoom: Number(e.target.value) })}
+          >
+            {ZOOM_PERCENTS.map((percent) => (
+              <option key={percent} value={percent}>
+                {t('settings.appearance.defaultZoomPercent', { percent })}
+              </option>
+            ))}
+          </select>
+        </Row>
+      </Group>
+      <p className="st-note">{t('settings.appearance.webNote')}</p>
       {IS_MAC && (
         <>
           <h3 className="st-sub">{t('settings.appearance.icon')}</h3>
@@ -641,7 +801,15 @@ function Privacy({ info }: { info: SettingsInfo }) {
         <Row label={t('settings.privacy.adblock')}>
           <Switch on={info.settings.adblock} label={t('settings.privacy.adblock')} onChange={(on) => window.signet.updateSettings({ adblock: on })} />
         </Row>
+        <Row label={t('settings.privacy.httpsOnly')} hint={t('settings.privacy.httpsOnlyHint')}>
+          <Switch
+            on={info.settings.httpsOnly === true}
+            label={t('settings.privacy.httpsOnly')}
+            onChange={(on) => window.signet.updateSettings({ httpsOnly: on })}
+          />
+        </Row>
       </Group>
+      <SecureDns info={info} />
       <h3 className="st-sub">{t('settings.privacy.clearData')}</h3>
       <Group>
         <label className="st-row st-check st-check-all">

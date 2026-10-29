@@ -92,7 +92,30 @@ export interface Settings {
   responsive?: DevResponsive
   /** Location and sizes of the developer tools. Missing = on the right, original sizes. */
   devtools?: DevToolsPrefs
+  /** Graphics acceleration (GPU) when available. Applied at the next launch. Missing = enabled. */
+  hardwareAcceleration?: boolean
+  /** Secure DNS (DNS over HTTPS). Missing = `automatic`. */
+  secureDns?: SecureDnsMode
+  /** DNS over HTTPS server template, used in `secure` mode. */
+  secureDnsServer?: string
+  /**
+   * HTTPS-only mode: http:// pages are opened over https:// (local addresses and sites allowed through the warning
+   * excepted); a site without a secure connection shows a warning page. Missing = off.
+   */
+  httpsOnly?: boolean
+  /** Default font size of web pages in px (9, 12, 16, 20 or 24). Missing = 16. */
+  fontSize?: number
+  /** Minimum font size of web pages in px (0 = none, then 6 to 24). Missing = 0. */
+  minimumFontSize?: number
+  /** Zoom of pages whose site has no zoom chosen with the zoom shortcuts, in percent (25 to 500). Missing = 100. */
+  defaultZoom?: number
 }
+
+/**
+ * Secure DNS: `automatic` upgrades the system's DNS provider to DNS over HTTPS when it supports it, `secure`
+ * only uses the chosen server, `off` never uses DNS over HTTPS.
+ */
+export type SecureDnsMode = 'off' | 'automatic' | 'secure'
 
 /** Reader mode presentation, set from its bar and remembered for all pages. */
 export interface ReaderPrefs {

@@ -11,7 +11,7 @@ beforeEach(() => {
 afterEach(() => {
   const extensions = join(profile, 'Extensions')
   if (existsSync(extensions)) chmodSync(extensions, 0o755)
-  rmSync(profile, { recursive: true, force: true })
+  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 /** An Extensions folder that can't be listed, like another browser's profile protected by macOS. */

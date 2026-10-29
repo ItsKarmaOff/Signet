@@ -3,18 +3,20 @@ import { copyFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { AtomicWriter } from './atomic'
 import { fold } from './urls'
+import { historyScore } from './rank'
 
 export interface HistoryEntry {
   url: string
   title: string
   favicon?: string
   visits: number
+  /** Times the page was reached from the command bar (typed or picked), like Chrome's `typed_count`. Missing = 0. */
+  typed?: number
   lastVisit: number
 }
 
 const MAX_ENTRIES = 5000
 const IGNORED = /^(about|data|devtools):/i
-const DAY = 86_400_000
 const FAVICON_MAX = 200_000
 
 /** Oversized `data:` icons are not kept in the history. */
@@ -79,7 +81,8 @@ export class History {
     this.flush()
   }
 
-  record(url: string, title: string, favicon?: string): void {
+  /** `typed`: the navigation was started from the command bar (see `typed-nav.ts`), which counts as a typed visit. */
+  record(url: string, title: string, favicon?: string, typed = false): void {
     if (!url || IGNORED.test(url)) return
     this.load()
     const previous = this.entries.get(url)
@@ -89,6 +92,7 @@ export class History {
       title: title || previous?.title || url,
       favicon: capIcon(favicon) ?? previous?.favicon,
       visits: (previous?.visits ?? 0) + 1,
+      ...(previous?.typed || typed ? { typed: (previous?.typed ?? 0) + (typed ? 1 : 0) } : {}),
       lastVisit: Date.now()
     })
     if (this.entries.size > MAX_ENTRIES) {
@@ -102,7 +106,7 @@ export class History {
    * Adds another browser's history: an already known page keeps its most recent visit and accumulates visits.
    * Recency order is rebuilt, then only the 5,000 most recent pages are kept. Returns the number of new pages.
    */
-  importEntries(list: { url: string; title: string; visits: number; lastVisit: number }[]): number {
+  importEntries(list: { url: string; title: string; visits: number; typed?: number; lastVisit: number }[]): number {
     this.load()
     let added = 0
     for (const e of list) {
@@ -110,6 +114,7 @@ export class History {
       const known = this.entries.get(e.url)
       if (known) {
         known.visits += Math.max(0, e.visits)
+        if (e.typed && e.typed > 0) known.typed = (known.typed ?? 0) + e.typed
         if (e.lastVisit > known.lastVisit) known.lastVisit = e.lastVisit
         if ((!known.title || known.title === known.url) && e.title) {
           known.title = e.title
@@ -117,7 +122,8 @@ export class History {
         }
         continue
       }
-      this.entries.set(e.url, { url: e.url, title: e.title || e.url, visits: Math.max(1, e.visits), lastVisit: e.lastVisit })
+      const typed = e.typed && e.typed > 0 ? { typed: Math.floor(e.typed) } : {}
+      this.entries.set(e.url, { url: e.url, title: e.title || e.url, visits: Math.max(1, e.visits), ...typed, lastVisit: e.lastVisit })
       added++
     }
     const sorted = [...this.entries.values()].sort((a, b) => a.lastVisit - b.lastVisit).slice(-MAX_ENTRIES)
@@ -163,25 +169,30 @@ export class History {
     return out
   }
 
+  /** The entry of exactly this URL, or undefined. */
+  get(url: string): HistoryEntry | undefined {
+    this.load()
+    return this.entries.get(url)
+  }
+
   remove(url: string): void {
     this.load()
     if (this.entries.delete(url)) this.schedule()
   }
 
-  /** Entries whose title or URL contains the query, best first. */
+  /** Entries whose title or URL contains the query, best first (match quality weighted by frecency, see `rank.ts`). */
   search(query: string, exclude: Set<string>, limit: number): HistoryEntry[] {
     this.load()
     const q = fold(query)
     const now = Date.now()
-    const score = (e: HistoryEntry) => e.visits + Math.max(0, 10 - (now - e.lastVisit) / DAY)
     // Selects the best `limit` by insertion; on equal score, insertion order is kept (stable sort).
     const top: { e: HistoryEntry; s: number }[] = []
     if (limit <= 0) return []
     for (const e of this.entries.values()) {
       if (exclude.has(e.url)) continue
       const k = this.key(e)
-      if (!k.title.includes(q) && !k.url.includes(q)) continue
-      const s = score(e)
+      const s = historyScore(q, { title: k.title, url: k.url, visits: e.visits, typed: e.typed, lastVisit: e.lastVisit }, now)
+      if (!s) continue
       if (top.length === limit && s <= top[limit - 1].s) continue
       let i = top.length
       while (i > 0 && top[i - 1].s < s) i--

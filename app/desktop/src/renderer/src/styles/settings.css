@@ -511,3 +511,8 @@ select option {
 .st-input::placeholder {
   color: var(--text-3);
 }
+/* Privacy › Secure DNS: custom server address. */
+.st-dns-custom .st-input {
+  flex: 1;
+  min-width: 0;
+}

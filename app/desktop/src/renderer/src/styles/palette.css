@@ -45,6 +45,13 @@
   height: 52px;
   padding: 0 var(--s5);
 }
+.palette-input .input-ico {
+  display: flex;
+  flex: none;
+  width: 18px;
+  justify-content: center;
+  color: var(--text-2);
+}
 .palette-input input {
   flex: 1;
   min-width: 0;
@@ -131,6 +138,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.results .t b {
+  font-weight: 650;
 }
 .results .sub {
   font-size: var(--fs-sub);

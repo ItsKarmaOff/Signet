@@ -32,7 +32,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.useRealTimers()
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }) // a background write may still be finishing
 })
 
 const file = (name: string) => join(dir, name)
@@ -224,6 +224,13 @@ describe('Store: normalization', () => {
     expect(s.state.pipBounds).toBeNull()
     write('state.json', { pipBounds: { x: 1, y: 2, width: 3, height: 4 } })
     expect(open().state.pipBounds).toEqual({ x: 1, y: 2, width: 3, height: 4 })
+  })
+
+  it('siteZoom: invalid entries dropped when the state is read', () => {
+    write('state.json', { siteZoom: { 'a.com': 2, 'b.com': 'big', 'c.com': 99 } })
+    expect(open().state.siteZoom).toEqual({ 'a.com': 2 })
+    write('state.json', {})
+    expect(open().state.siteZoom).toEqual({})
   })
 
   it('tabs: only known fields are kept', () => {
@@ -439,6 +446,20 @@ describe('cleanSettings / applyCleaned', () => {
     expect(cleanSettings({ archiveAfterHours: 24 }, base).archiveAfterHours).toBe(24)
     expect(cleanSettings({ tabSleepMinutes: 2.5 }, base).tabSleepMinutes).toBeUndefined()
     expect(cleanSettings({ tabSleepMinutes: 30 }, base).tabSleepMinutes).toBe(30)
+  })
+
+  it('web page settings: only values from the choice lists', () => {
+    expect(cleanSettings({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 }, base)).toMatchObject({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 })
+    const out = cleanSettings({ fontSize: 15, minimumFontSize: 7, defaultZoom: 101 } as Partial<Settings>, base)
+    expect([out.fontSize, out.minimumFontSize, out.defaultZoom]).toEqual([undefined, undefined, undefined])
+    expect(cleanSettings({ fontSize: '20' as never, defaultZoom: null as never }, base).fontSize).toBeUndefined()
+    // an invalid patch keeps the current value
+    const cur = { ...base, fontSize: 24, defaultZoom: 150 } as Settings
+    expect(cleanSettings({ fontSize: 13, defaultZoom: 0 }, cur)).toMatchObject({ fontSize: 24, defaultZoom: 150 })
+    // a value read from disk that is no longer valid is dropped
+    const stored = { ...base, fontSize: 13 } as Settings
+    applyCleaned(stored, cleanSettings(stored, base))
+    expect(stored.fontSize).toBeUndefined()
   })
 
   it('searchEngine: unknown identifier discarded, known one kept', () => {
