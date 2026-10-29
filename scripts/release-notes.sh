@@ -10,6 +10,7 @@
 # Previous release: the closest v… tag before <commit>. A stable release skips the prereleases, so 1.0.0 lists everything
 # since 0.9.0, beta changes included. Without a previous release, the notes say it's the first one.
 # Only the changes users see are listed (feat, fix, perf, security); docs, ci, tests, refactors… are left out.
+# Known limitations come from `Known-limitation:` trailers in any commit of the range (see docs/git/commit-policy.md).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -67,4 +68,10 @@ else
   section "Fixes" "$fix"
   section "Performance" "$perf"
 fi
+# Known limitations: one `Known-limitation: <text>` trailer per limitation, in any commit of the range.
+limitations=''
+while IFS= read -r text; do
+  [[ -n $text ]] && limitations+="- $text"$'\n'
+done <<<"$(git log --no-merges --reverse --format='%(trailers:key=Known-limitation,valueonly)' "$previous..$commit")"
+section "Known limitations" "$limitations"
 echo "**Full changelog**: $repo_url/compare/$previous...$tag"

@@ -88,6 +88,13 @@ feat: mise à jour des onglets (French)
 - The body explains **why**, and the impacts; separate paragraphs with a blank line
 - The footer references issues (`Closes #42`) and breaking changes (`BREAKING CHANGE: …`)
 - No AI attribution or `Co-Authored-By` trailer for tools
+- Known limitations of a change go in `Known-limitation:` trailers, one per limitation, written for users. `scripts/release-notes.sh` lists them under "Known limitations" in the release notes:
+
+```
+feat(desktop): add a default page zoom
+
+Known-limitation: The default zoom applies when the page loads, so it can briefly show at the previous zoom.
+```
 
 ## Atomic Commits
 
