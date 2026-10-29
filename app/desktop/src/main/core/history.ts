@@ -163,6 +163,12 @@ export class History {
     return out
   }
 
+  /** The entry of exactly this URL, or undefined. */
+  get(url: string): HistoryEntry | undefined {
+    this.load()
+    return this.entries.get(url)
+  }
+
   remove(url: string): void {
     this.load()
     if (this.entries.delete(url)) this.schedule()

@@ -41,6 +41,10 @@ function fake(f: Fixture = {}): Browser {
     pageTools: { canSave: () => false },
     reader: { canRead: () => false },
     history: {
+      get: (url: string) => {
+        const e = (f.history ?? []).find((h) => h.url === url)
+        return e && { visits: 1, lastVisit: Date.now(), ...e }
+      },
       search: (_q: string, exclude: Set<string>) =>
         (f.history ?? []).filter((e) => !exclude.has(e.url)).map((e) => ({ visits: 1, lastVisit: Date.now(), ...e }))
     }
@@ -258,5 +262,60 @@ describe('paletteQuery : ranking', () => {
   it('internal addresses stay first', () => {
     const r = paletteQuery(fake({ history: [{ url: 'https://signet.dev/', title: 'signet settings', visits: 99 }] }), 'signet://sett', 'default' as never)
     expect(ids(r)[0]).toContain('settings')
+  })
+
+  describe('root promotion', () => {
+    const watch = { url: 'https://www.youtube.com/watch?v=abc', title: 'A video - YouTube', visits: 30, lastVisit: Date.now() }
+    const q = (history: object[], text: string, extra: Partial<Parameters<typeof fake>[0]> = {}) =>
+      paletteQuery(fake({ history: history as never, ...extra }), text, 'default' as never)
+
+    it('deep pages only: a synthesized root comes first, then the search row', () => {
+      setSearchLanguage('')
+      const r = q([{ ...watch, favicon: 'data:fav' }], 'yout')
+      expect(r[0]).toMatchObject({
+        kind: 'history',
+        title: 'youtube.com',
+        subtitle: 'https://www.youtube.com/',
+        url: 'https://www.youtube.com/',
+        favicon: 'data:fav'
+      })
+      expect(r[1]).toMatchObject({ kind: 'search' })
+      expect(r[2]).toMatchObject({ url: watch.url })
+    })
+
+    it('the root in history (even without www) is moved to the top', () => {
+      setSearchLanguage('')
+      const root = { url: 'https://youtube.com/', title: 'YouTube', visits: 1, lastVisit: Date.now() - 400 * 86_400_000 }
+      const r = q([watch, root], 'yout')
+      expect(r[0]).toMatchObject({ url: 'https://youtube.com/', title: 'YouTube' })
+      expect(ids(r).filter((i) => i === 'history:https://youtube.com/')).toHaveLength(1)
+    })
+
+    it('typing a path does not promote anything', () => {
+      setSearchLanguage('')
+      const r = q([watch], 'youtube.com/wa')
+      expect(r[0]).toMatchObject({ kind: 'url' })
+      expect(r.some((x) => 'url' in x && x.url === 'https://www.youtube.com/')).toBe(false)
+    })
+
+    it('a root already first is unchanged, with no duplicate', () => {
+      setSearchLanguage('')
+      const r = q([youtube, watch], 'yout')
+      expect(r[0]).toMatchObject({ url: 'https://www.youtube.com/' })
+      expect(r.filter((x) => 'url' in x && x.url === 'https://www.youtube.com/')).toHaveLength(1)
+    })
+
+    it('a deep open tab ranking first promotes the root too', () => {
+      setSearchLanguage('')
+      const r = q([], 'yout', { tabs: { yt: { title: 'A video', url: watch.url } }, today: [{ kind: 'tab', tabId: 'yt' }] })
+      expect(r[0]).toMatchObject({ kind: 'history', url: 'https://www.youtube.com/' })
+      expect(r[2]).toMatchObject({ kind: 'tab', tabId: 'yt' })
+    })
+
+    it('a title match on a deep page is not promoted', () => {
+      setSearchLanguage('')
+      const blog = { url: 'https://blog.com/post', title: 'Yout there', visits: 50, lastVisit: Date.now() }
+      expect(q([blog], 'yout')[0]).not.toMatchObject({ title: 'blog.com' })
+    })
   })
 })
