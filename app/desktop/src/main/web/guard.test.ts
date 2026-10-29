@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
 vi.mock('../app/uilog', () => ({ logUiError: vi.fn() }))
 vi.mock('../core/urls', () => ({ isAppUrl: (u: string) => u.startsWith('signetui://app/') || u.startsWith('http://localhost:5174/') }))
 
-import { BOOT_WATCHDOG_MS, guardUiViews, tabContents } from './guard'
+import { BOOT_WATCHDOG_MS, LOAD_DEADLINE_MS, guardUiViews, tabContents } from './guard'
 import { logUiError } from '../app/uilog'
 
 const APP = 'signetui://app/index.html'
@@ -27,6 +27,17 @@ class FakeWc extends EventEmitter {
     if (this.reject) throw new Error('gone')
     return this.boot
   })
+  /** A main-frame load that starts and (until finish() is called) does not end. */
+  start(url = this.url) {
+    this.loading = true
+    this.emit('did-start-loading')
+    this.emit('did-start-navigation', {}, url, false, true)
+  }
+  finish() {
+    this.loading = false
+    this.emit('did-stop-loading')
+    this.emit('did-finish-load')
+  }
   load() {
     this.emit('did-start-loading')
     this.emit('did-finish-load')
@@ -143,6 +154,73 @@ describe('interface boot watchdog', () => {
     wc.load()
     await wait(BOOT_WATCHDOG_MS * 2)
     expect(wc.reload).not.toHaveBeenCalled()
+  })
+
+  describe('load deadline', () => {
+    it('reloads a load that never finishes, logging once, without executeJavaScript', async () => {
+      const wc = make()
+      wc.start()
+      await wait(LOAD_DEADLINE_MS - 1)
+      expect(logUiError).not.toHaveBeenCalled()
+      await wait(1)
+      expect(logUiError).toHaveBeenCalledTimes(1)
+      expect(logUiError).toHaveBeenCalledWith('main', 'load stuck', 'rechargement')
+      await wait(1000)
+      expect(wc.reload).toHaveBeenCalledTimes(1)
+      expect(wc.executeJavaScript).not.toHaveBeenCalled()
+    })
+
+    it('catches a reload that hangs again, with a longer delay and no new log', async () => {
+      const wc = make()
+      wc.start()
+      await wait(LOAD_DEADLINE_MS + 1000)
+      expect(wc.reload).toHaveBeenCalledTimes(1)
+      wc.start() // the reload starts loading and hangs
+      await wait(LOAD_DEADLINE_MS + 1999)
+      expect(wc.reload).toHaveBeenCalledTimes(1) // second delay is 2 s
+      await wait(1)
+      expect(wc.reload).toHaveBeenCalledTimes(2)
+      wc.start()
+      await wait(LOAD_DEADLINE_MS + 3999)
+      expect(wc.reload).toHaveBeenCalledTimes(2) // third delay is 4 s
+      await wait(1)
+      expect(wc.reload).toHaveBeenCalledTimes(3)
+      expect(logUiError).toHaveBeenCalledTimes(1)
+    })
+
+    it('leaves a normal load alone, even a slow one', async () => {
+      const wc = make()
+      wc.boot = 'ready'
+      wc.start()
+      await wait(LOAD_DEADLINE_MS - 1000) // slow but finishes before the deadline
+      wc.finish()
+      await wait(BOOT_WATCHDOG_MS + LOAD_DEADLINE_MS)
+      expect(wc.reload).not.toHaveBeenCalled()
+      expect(logUiError).not.toHaveBeenCalled()
+    })
+
+    it('checks the boot marker if the page finished loading without the deadline noticing', async () => {
+      const wc = make()
+      wc.boot = 'started'
+      wc.start()
+      wc.finish()
+      await wait(BOOT_WATCHDOG_MS + 1000)
+      expect(logUiError).toHaveBeenCalledWith('main', 'boot stuck', 'rechargement')
+    })
+
+    it('ignores same-document, subframe and non-app navigations, and stops on destroy', async () => {
+      const wc = make()
+      wc.emit('did-start-navigation', {}, APP, true, true)
+      wc.emit('did-start-navigation', {}, APP, false, false)
+      wc.emit('did-start-navigation', {}, 'https://example.com/', false, true)
+      await wait(LOAD_DEADLINE_MS * 2)
+      expect(wc.reload).not.toHaveBeenCalled()
+      wc.start()
+      wc.destroyed = true
+      wc.emit('destroyed')
+      await wait(LOAD_DEADLINE_MS * 2)
+      expect(wc.reload).not.toHaveBeenCalled()
+    })
   })
 
   it('no longer reloads once the dev session ended', async () => {
