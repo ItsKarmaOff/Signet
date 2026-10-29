@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(async () => {
   // A background write still running would recreate a file while the folder is removed (ENOTEMPTY on slow CI machines).
   await Promise.all(stores.splice(0).map((s) => s.whenIdle()))
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 describe('token', () => {

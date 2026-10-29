@@ -204,7 +204,7 @@ describe('Backup.parse (reading a .signetbackup file)', () => {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'signet-backup-'))
   })
-  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+  afterEach(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }))
 
   const parse = (path: string) => (new Backup({} as Browser) as unknown as { parse(p: string): unknown }).parse(path)
   const valid = { format: 'signetbackup', version: 1, createdAt: 1, appVersion: '1', sections: { favorites: [] } }
