@@ -13,7 +13,7 @@ import { resolveAlias } from '@shared/devhosts'
 import { internalSuggestions } from '../web/internal'
 import { t } from '../app/i18n'
 import { shortcutLabel } from '@shared/shortcuts'
-import { historyScore, matchQuality } from '../core/rank'
+import { completable, historyScore, matchQuality } from '../core/rank'
 
 const MAX_RESULTS = 12
 /** History and archive rows together; open tabs are not capped. */
@@ -369,6 +369,7 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
     }
   }
   let sorted = scored.sort((x, y) => y.s - x.s).map((x) => x.r)
+  const before = sorted[0]
   // Free text without a typed path: the inline completion only names the host, so Enter must open it too.
   if (!aliased && !url && !q.includes('/') && !/\s/.test(q) && !/^signet:/i.test(q)) sorted = promoteRoot(b, fq, sorted)
   // Like other browsers, only a few past pages: a busy site must not flood the list.
@@ -377,6 +378,13 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
   // "Search what you typed" never drops below the second row: it follows the best match.
   const search = list.findIndex((r) => r.kind === 'search')
   if (search > 1) list.splice(1, 0, ...list.splice(search, 1))
+  // Like Chrome, the input is only completed to a page typed before or visited often. A promoted root also
+  // qualifies through the deep page that triggered the promotion.
+  const first = list[0]
+  if (first && (first.kind === 'tab' || first.kind === 'history' || first.kind === 'archived')) {
+    const known = (r: PaletteResult | undefined) => completable(r && 'url' in r && r.url ? b.history.get(r.url) : undefined)
+    list[0] = { ...first, inline: known(first) || (first !== before && known(before)) }
+  }
   return list.slice(0, MAX_RESULTS)
 }
 
@@ -414,7 +422,11 @@ export function paletteExecute(b: Browser, result: PaletteResult, mode: PaletteM
         .find((a) => a.id === result.action)
         ?.run()
       break
+    case 'search':
+    case 'suggestion':
+      b.tabs.openUrl(result.url, mode) // engine results page: not a typed visit
+      break
     default:
-      b.tabs.openUrl(result.url, mode)
+      b.tabs.openUrl(result.url, mode, true)
   }
 }

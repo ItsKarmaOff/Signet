@@ -31,15 +31,28 @@ export function matchQuality(fq: string, title: string, url: string): number {
   return title.includes(fq) || bare.includes(fq) ? 15 : 0
 }
 
-/** Popularity between 0 and 1: frequency (saturates around 50 visits) and recency (halves every ~10 days). */
-export function frecency(visits: number, lastVisit: number, now: number): number {
+/** Visits needed to inline-complete a page that was never typed (a typed page completes from its first typed visit). */
+export const INLINE_MIN_VISITS = 3
+
+/** Whether the input may be completed to this page, like Chrome: typed at least once, or visited often. */
+export function completable(e: { visits: number; typed?: number } | undefined): boolean {
+  return !!e && ((e.typed ?? 0) >= 1 || e.visits >= INLINE_MIN_VISITS)
+}
+
+/**
+ * Popularity between 0 and 1: visit frequency (saturates around 50 visits, weight 0.4), typed frequency
+ * (visits from the command bar, saturates at 10, weight 0.35: a site you type beats one you only reach
+ * through links) and recency (halves every ~10 days, weight 0.25).
+ */
+export function frecency(visits: number, typed: number, lastVisit: number, now: number): number {
   const freq = Math.min(1, Math.log2(1 + Math.max(0, visits)) / Math.log2(51))
+  const typedFreq = Math.min(1, Math.log2(1 + Math.max(0, typed)) / Math.log2(11))
   const recency = Math.pow(0.5, Math.max(0, now - lastVisit) / DAY / 10)
-  return 0.6 * freq + 0.4 * recency
+  return 0.4 * freq + 0.35 * typedFreq + 0.25 * recency
 }
 
 /** Score of a history entry: the match decides, popularity moves it within 35% to 100% of that. */
-export function historyScore(fq: string, e: { title: string; url: string; visits: number; lastVisit: number }, now: number): number {
+export function historyScore(fq: string, e: { title: string; url: string; visits: number; typed?: number; lastVisit: number }, now: number): number {
   const q = matchQuality(fq, e.title, e.url)
-  return q && q * (0.35 + 0.65 * frecency(e.visits, e.lastVisit, now))
+  return q && q * (0.35 + 0.65 * frecency(e.visits, e.typed ?? 0, e.lastVisit, now))
 }

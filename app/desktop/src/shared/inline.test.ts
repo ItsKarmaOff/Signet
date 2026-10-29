@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { bareUrl, canComplete, inlineCompletion } from './inline'
 
-const page = (url: string, kind = 'history') => ({ kind, url })
+const page = (url: string, kind = 'history', inline = true) => ({ kind, url, inline })
 
 describe('bareUrl', () => {
   it('drops scheme, www and trailing slash', () => {
@@ -26,6 +26,10 @@ describe('inlineCompletion', () => {
     expect(inlineCompletion('yo', page('https://youtube.com', 'tab'))).toBe('utube.com')
     expect(inlineCompletion('yo', page('https://youtube.com', 'archived'))).toBe('utube.com')
     for (const kind of ['search', 'suggestion', 'action', 'url']) expect(inlineCompletion('yo', page('https://youtube.com', kind))).toBe('')
+  })
+  it('nothing when the row is not flagged inline (never typed, rarely visited)', () => {
+    expect(inlineCompletion('yout', page('https://www.youtube.com/', 'history', false))).toBe('')
+    expect(inlineCompletion('yout', { kind: 'history', url: 'https://www.youtube.com/' })).toBe('')
   })
   it('nothing when not a prefix, complete, empty, spaced or not web', () => {
     expect(inlineCompletion('tube', yt)).toBe('')

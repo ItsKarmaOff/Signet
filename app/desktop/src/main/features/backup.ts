@@ -782,6 +782,7 @@ export class Backup {
           title: str(h.title, 1000),
           favicon: str(h.favicon, 200_000) || undefined,
           visits: Math.max(1, Number(h.visits) || 1),
+          ...(Number(h.typed) > 0 ? { typed: Math.floor(Number(h.typed)) } : {}),
           lastVisit: Number(h.lastVisit) || 0
         }
         const mine = byUrl.get(entry.url)
@@ -790,6 +791,7 @@ export class Backup {
           byUrl.set(entry.url, {
             ...mine,
             visits: (Number(mine.visits) || 0) + entry.visits,
+            ...(Number(mine.typed) > 0 || entry.typed ? { typed: (Number(mine.typed) || 0) + (entry.typed ?? 0) } : {}),
             lastVisit: Math.max(Number(mine.lastVisit) || 0, entry.lastVisit)
           })
         else byUrl.set(entry.url, entry)

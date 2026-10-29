@@ -24,7 +24,7 @@ interface Fixture {
   today?: Item[]
   active?: string | null
   archive?: object[]
-  history?: { url: string; title: string; favicon?: string; visits?: number; lastVisit?: number }[]
+  history?: { url: string; title: string; favicon?: string; visits?: number; typed?: number; lastVisit?: number }[]
   settings?: Partial<Settings>
 }
 
@@ -262,6 +262,44 @@ describe('paletteQuery : ranking', () => {
   it('internal addresses stay first', () => {
     const r = paletteQuery(fake({ history: [{ url: 'https://signet.dev/', title: 'signet settings', visits: 99 }] }), 'signet://sett', 'default' as never)
     expect(ids(r)[0]).toContain('settings')
+  })
+
+  describe('typed count', () => {
+    const now = Date.now()
+    const typed = { url: 'https://typed.com/', title: 'Typed', visits: 8, typed: 6, lastVisit: now - 2 * DAY }
+    const links = { url: 'https://typedlinks.com/', title: 'Links', visits: 60, lastVisit: now - 2 * DAY }
+
+    it('a site typed often beats a site visited more through links', () => {
+      setSearchLanguage('')
+      const r = paletteQuery(fake({ history: [links, typed] }), 'typed', 'default' as never)
+      expect(r[0]).toMatchObject({ url: 'https://typed.com/' })
+    })
+
+    it('a typed site beats the search row, a site seen once long ago does not', () => {
+      setSearchLanguage('')
+      const once = { url: 'https://recipes.com/', title: 'x', visits: 1, typed: 1, lastVisit: now - 400 * DAY }
+      expect(kinds(paletteQuery(fake({ history: [once] }), 'rec', 'default' as never))).toEqual(['history', 'search'])
+      const old = { ...once, typed: undefined }
+      expect(kinds(paletteQuery(fake({ history: [old] }), 'rec', 'default' as never))).toEqual(['search', 'history'])
+    })
+
+    it('inline flag: typed once or visited 3 times, otherwise the row has none', () => {
+      const top = (e: object) =>
+        paletteQuery(fake({ history: [{ url: 'https://foo.com/', title: 'Foo', lastVisit: now, ...e }] }), 'foo', 'default' as never)[0]
+      expect(top({ visits: 1, typed: 1 })).toMatchObject({ kind: 'history', inline: true })
+      expect(top({ visits: 3 })).toMatchObject({ kind: 'history', inline: true })
+      expect(top({ visits: 2 })).toMatchObject({ kind: 'history', inline: false })
+    })
+
+    it('a promoted root completes when the deep page qualifies, or the root itself', () => {
+      setSearchLanguage('')
+      const deep = { url: 'https://www.youtube.com/watch?v=abc', title: 'Video', visits: 30, lastVisit: now }
+      expect(paletteQuery(fake({ history: [deep] }), 'yout', 'default' as never)[0]).toMatchObject({ url: 'https://www.youtube.com/', inline: true })
+      const rare = { ...deep, visits: 1 }
+      expect(paletteQuery(fake({ history: [rare] }), 'yout', 'default' as never)[0]).toMatchObject({ url: 'https://www.youtube.com/', inline: false })
+      const root = { url: 'https://www.youtube.com/', title: 'YouTube', visits: 1, typed: 2, lastVisit: now - 400 * DAY }
+      expect(paletteQuery(fake({ history: [rare, root] }), 'yout', 'default' as never)[0]).toMatchObject({ url: 'https://www.youtube.com/', inline: true })
+    })
   })
 
   describe('root promotion', () => {
