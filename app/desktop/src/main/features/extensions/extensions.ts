@@ -155,6 +155,8 @@ export class Extensions {
   /** Tab last declared active to the library (what Signet displays). */
   private selected: WebContents | undefined
   private watched = new WeakSet<WebContents>()
+  /** A session could not load its extensions: nothing may be concluded from what is missing. */
+  private loadFailed = false
   /** True during our own calls to the library: its callbacks must not change the active tab. */
   private syncing = false
 
@@ -328,6 +330,25 @@ export class Extensions {
     this.apis.registerPageIpc()
   }
 
+  /**
+   * Startup, once store and unpacked extensions are loaded: drops persisted data (grants, menus, rules...) of extensions that
+   * are no longer installed. Skipped if any load failed or an unpacked extension could not be loaded: a missing id then
+   * proves nothing.
+   */
+  collectGarbage(): void {
+    if (this.loadFailed || this.mirroring === false || this.b.unpacked.failed().length) return
+    const installed = new Set<string>()
+    for (const ses of this.attached) for (const ext of ses.extensions.getAllExtensions()) installed.add(ext.id)
+    if (!installed.size && this.attached.size) return
+    const gone = this.apis.collectGarbage(installed)
+    if (gone.length) console.log(`[extension-apis] dropped data of removed extensions: ${gone.join(', ')}`)
+  }
+
+  /** An extension was really removed (not just unloaded): its persisted data goes. */
+  forgetData(id: string): void {
+    this.apis.forgetExtension(id)
+  }
+
   /** Enables extensions and the store in a session (called once per session). */
   attach(ses: Session): void {
     if (this.attached.has(ses)) return
@@ -356,7 +377,10 @@ export class Extensions {
     const loaded = installChromeWebStore({
       session: ses,
       beforeInstall: (details) => this.confirm(details)
-    }).catch((e) => console.error('Extensions : boutique indisponible', e))
+    }).catch((e) => {
+      this.loadFailed = true
+      console.error('Extensions : boutique indisponible', e)
+    })
     this.loading.push(loaded)
     this.pending.set(ses, loaded)
     // Unpacked extensions: also loaded in a session opened after startup.
@@ -722,6 +746,7 @@ export class Extensions {
     for (const ses of this.attached) {
       try {
         await uninstallExtension(id, { session: ses })
+        this.apis.forgetExtension(id)
       } catch (e) {
         console.error('Extensions : retrait impossible', e)
       }

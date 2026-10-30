@@ -21,6 +21,7 @@ import { StubRegistry } from './stubs'
 import { PermissionGrants, type PermissionPrompt } from './permissions'
 import { ExtensionCommands, type CommandsDeps } from './commands'
 import { ContextMenus } from './contextmenus'
+import { PersistedData } from './lifecycle'
 import { TabsExtras, type TabLike } from './tabs'
 import { NavigationExtras, type FrameInfo } from './navigation'
 import { ExtensionNotifications, type ShownNotification } from './notifications'
@@ -339,17 +340,35 @@ export class ExtensionApis {
       if (settings.controllerOf('proxy.settings') === ext.id) void ses.setProxy({ mode: 'system' }).catch(() => {})
       // The extension is loaded in every session: it is only really gone once the last one lets go.
       if (this.router.loadedElsewhere(ext.id, ses)) return
+      // An unload is not an uninstall (reload of an unpacked extension, store update): only runtime state goes here.
+      // Grants, saved menus, DNR rules, controlled settings and alarms stay until `forgetExtension`.
       this.commands.unregister(ext.id)
-      this.contextMenus.unload(ext.id)
       this.notifications.unload(ext.id)
       this.tabsExtras.forgetExtension(ext.id)
       this.actions.forgetExtension(ext.id)
-      settings.release(ext.id)
       this.offscreen.closeFor(ext.id)
-      this.dnr?.remove(ext.id)
-      this.grants?.drop(ext.id)
-      alarms.scheduler.remove(ext.id)
+      this.dnr?.clearSession(ext.id)
+      alarms.scheduler.suspend(ext.id)
     })
+  }
+
+  /** Everything kept per extension across runs (storage is Electron's and is left alone). */
+  private persisted = new PersistedData(() => [
+    { knownIds: () => this.contextMenus.knownIds(), forget: (id) => this.contextMenus.unload(id) },
+    ...(this.settings ? [{ knownIds: () => this.settings!.knownIds(), forget: (id: string) => this.settings!.release(id) }] : []),
+    ...(this.dnr ? [{ knownIds: () => this.dnr!.knownIds(), forget: (id: string) => this.dnr!.remove(id) }] : []),
+    ...(this.grants ? [{ knownIds: () => this.grants!.knownIds(), forget: (id: string) => this.grants!.drop(id) }] : []),
+    ...(this.alarms ? [{ knownIds: () => this.alarms!.scheduler.knownIds(), forget: (id: string) => this.alarms!.scheduler.remove(id) }] : [])
+  ])
+
+  /** The extension was uninstalled: everything persisted for it goes. */
+  forgetExtension(id: string): void {
+    this.persisted.forget(id)
+  }
+
+  /** Drops persisted data of extensions that are no longer installed (folder deleted by hand). Call only once loading has finished. */
+  collectGarbage(installed: ReadonlySet<string>): string[] {
+    return this.persisted.collect(installed)
   }
 
   /** The extension's `chrome.*` endpoints for pages of an extension (calls from `chrome-extension://` frames). */

@@ -123,7 +123,17 @@ export class AlarmScheduler {
     for (const alarm of this.alarms.get(id)?.values() ?? []) this.arm(id, alarm)
   }
 
-  /** The extension is gone from every session: forget its alarms (Chrome also drops them on update and uninstall). */
+  /** The extension is unloaded (reload, update): its timers stop, the alarms are kept and armed again when it loads. */
+  suspend(id: string): void {
+    for (const name of this.alarms.get(id)?.keys() ?? []) this.cancel(id, name)
+  }
+
+  /** Ids with alarms. */
+  knownIds(): string[] {
+    return [...this.alarms.keys()]
+  }
+
+  /** The extension is uninstalled: forget its alarms. */
   remove(id: string): void {
     const map = this.alarms.get(id)
     if (!map) return

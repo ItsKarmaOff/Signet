@@ -262,7 +262,12 @@ export class ContextMenus {
     this.emitter.emit(extensionId, MENU_CLICK_EVENT, tab ? [info, tab] : [info], true)
   }
 
-  /** The extension is uninstalled: its items go, on disk too. */
+  /** Ids with items, live or saved. */
+  knownIds(): string[] {
+    return [...new Set([...this.items.keys(), ...this.saved.keys()])]
+  }
+
+  /** The extension is uninstalled: its items go, on disk too. An unload (reload, update) keeps them. */
   unload(extensionId: string): void {
     this.items.delete(extensionId)
     this.saved.delete(extensionId)
