@@ -347,3 +347,22 @@ export function cleanOverrides(value: unknown, mac: boolean): ShortcutOverrides 
   }
   return out
 }
+
+/**
+ * Every shortcut Signet itself uses right now (user overrides, extra shortcuts and reserved ones included), as comparable
+ * keys (see `accelKey`) mapped to an owner label. Extension commands never take these.
+ */
+export function signetAccelKeys(overrides: ShortcutOverrides | undefined, mac: boolean): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const r of reservedShortcuts(mac)) {
+    const key = accelKey(r.accel, mac)
+    if (key) out.set(key, r.label)
+  }
+  for (const def of SHORTCUTS) {
+    for (const accel of shortcutAccels(def.id, overrides, mac)) {
+      const key = accelKey(accel, mac)
+      if (key) out.set(key, def.id)
+    }
+  }
+  return out
+}

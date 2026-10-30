@@ -303,8 +303,8 @@ export function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     installed.push(name)
   }
   // chrome.commands: Electron has none, and some workers read `commands.onCommand` at startup (uBlock Origin Lite crashes
-  // without it). Extension shortcuts are not wired: getAll lists the manifest's commands without a shortcut, onCommand
-  // never fires.
+  // without it). main owns the shortcuts and fires `onCommand` (see features/extensions/apis/commands.ts); getAll asks
+  // main for the real shortcuts and falls back to the manifest's commands (no shortcut) if main cannot answer.
   if (!target.commands?.onCommand) {
     let declared: Record<string, { description?: unknown } | undefined> = {}
     try {
@@ -312,14 +312,19 @@ export function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     } catch {
       // keep none
     }
-    const list = () => Object.entries(declared).map(([name, c]) => ({ name, description: String(c?.description ?? ''), shortcut: '' }))
+    const fallback = () => Object.entries(declared).map(([name, c]) => ({ name, description: String(c?.description ?? ''), shortcut: '' }))
+    const ask = (): Promise<unknown> =>
+      bridge.invoke('commands.getAll', []).then(
+        (r: CrxResult) => (r.ok && Array.isArray(r.value) ? r.value : fallback()),
+        () => fallback()
+      )
     assign(
       target,
       {
         commands: {
           getAll: (callback?: (r: unknown) => void) => {
-            if (typeof callback !== 'function') return Promise.resolve(list())
-            callback(list())
+            if (typeof callback !== 'function') return ask()
+            void ask().then(callback)
           },
           onCommand: event('commands.onCommand')
         }

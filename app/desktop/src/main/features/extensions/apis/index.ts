@@ -1,5 +1,7 @@
 import { app, webContents, WebContentsView, type Session } from 'electron'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { localeCandidates, localizeText, type Messages } from '@shared/extension-commands'
 import type { ExtensionActionCounts } from '@shared/types'
 import { extensionApisPath } from '../../../core/urls'
 import { Alarms } from './alarms'
@@ -16,6 +18,10 @@ import { AUTH_LISTENERS_METHOD, AUTH_RESPONSE_METHOD, INSTALLED_METHOD, SETTING_
 import { extensionOfPage } from './router'
 import { StubRegistry } from './stubs'
 import { PermissionGrants, type PermissionPrompt } from './permissions'
+import { ExtensionCommands, type CommandsDeps } from './commands'
+
+/** What the extension commands need from the rest of the app. */
+export type CommandHooks = Pick<CommandsDeps, 'signetKeys' | 'runAction' | 'activeTab'>
 
 /**
  * Extension APIs that Electron and electron-chrome-extensions lack: `chrome.proxy`, `chrome.privacy`, `chrome.alarms`.
@@ -38,6 +44,32 @@ export class ExtensionApis {
   )
 
   private prompt: PermissionPrompt | null = null
+  readonly commands: ExtensionCommands
+
+  constructor(hooks: CommandHooks) {
+    this.commands = new ExtensionCommands({
+      ...hooks,
+      platform: process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux',
+      emitter: this.router,
+      localize: (id, text) => this.localize(id, text),
+      log: (m) => !app.isPackaged && console.log(m)
+    })
+  }
+
+  /** Text from an extension's manifest in the app's language (`__MSG_key__` read from its `_locales` folder). */
+  private localize(id: string, text: string): string {
+    const ext = [...this.sessions].map((s) => s.extensions.getExtension(id)).find(Boolean)
+    if (!ext) return text
+    const load = (locale: string): Messages | null => {
+      try {
+        return JSON.parse(readFileSync(join(ext.path, '_locales', locale, 'messages.json'), 'utf8')) as Messages
+      } catch {
+        return null
+      }
+    }
+    const defaultLocale = (ext.manifest as { default_locale?: string }).default_locale
+    return localizeText(text, localeCandidates(app.getLocale(), defaultLocale), load)
+  }
 
   /** The dialog shown when an extension asks for optional permissions (needs the window, so it comes from the app). */
   setPermissionPrompt(prompt: PermissionPrompt): void {
@@ -68,6 +100,7 @@ export class ExtensionApis {
       if (this.prompt) grants.prompt = this.prompt
       for (const [method, fn] of Object.entries({ ...this.dnr.methods(), ...engine.methods() }))
         this.router.register(['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'], method, fn)
+      for (const [method, fn] of Object.entries(this.commands.methods())) this.router.register('', method, fn)
       this.router.register('offscreen', 'offscreen.createDocument', ({ ses, extensionId }, params) => this.offscreen.create(ses, extensionId, params))
       this.router.register('offscreen', 'offscreen.closeDocument', ({ extensionId }) => this.offscreen.close(extensionId))
       this.router.register('offscreen', 'offscreen.hasDocument', ({ extensionId }) => this.offscreen.has(extensionId))
@@ -180,9 +213,13 @@ export class ExtensionApis {
     }
     this.router.attach(ses)
     this.dnrEngine?.attach(ses)
-    for (const ext of ses.extensions.getAllExtensions()) this.grants?.reconcile(ext.id, ext.manifest)
+    for (const ext of ses.extensions.getAllExtensions()) {
+      this.grants?.reconcile(ext.id, ext.manifest)
+      this.commands.register(ext.id, ext.name, ext.manifest)
+    }
     ses.extensions.on('extension-loaded', (_e, ext) => {
       this.grants?.reconcile(ext.id, ext.manifest)
+      this.commands.register(ext.id, ext.name, ext.manifest)
       settings.reapply(ses, ext.id)
       alarms.scheduler.activate(ext.id)
     })
@@ -191,6 +228,7 @@ export class ExtensionApis {
       if (settings.controllerOf('proxy.settings') === ext.id) void ses.setProxy({ mode: 'system' }).catch(() => {})
       // The extension is loaded in every session: it is only really gone once the last one lets go.
       if (this.router.loadedElsewhere(ext.id, ses)) return
+      this.commands.unregister(ext.id)
       settings.release(ext.id)
       this.offscreen.closeFor(ext.id)
       this.dnr?.remove(ext.id)

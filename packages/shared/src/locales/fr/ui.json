@@ -431,6 +431,10 @@
       "system": "Système"
     },
     "shortcuts": {
+      "extensions": "Extensions",
+      "extensionsHint": "Raccourcis déclarés par vos extensions. Ils ne se modifient pas ici, et les raccourcis de Signet l’emportent en cas de conflit.",
+      "activateExtension": "Activer l’extension",
+      "notSet": "Non défini",
       "group": {
         "navigation": "Navigation",
         "search": "Recherche",

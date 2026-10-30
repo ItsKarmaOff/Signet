@@ -180,6 +180,7 @@ export function ShortcutSettings({ info }: { info: SettingsInfo }) {
   const nameOf = (id: string) => label(shortcutDef(id)?.label ?? id)
   const keysText = (accels: string[]) => accels.map((a) => accelLabel(a, IS_MAC)).join(' · ')
   const modified = Object.keys(overrides).length > 0
+  const extensionsWithCommands = info.extensions.filter((e) => e.commands?.length)
 
   return (
     <>
@@ -292,6 +293,25 @@ export function ShortcutSettings({ info }: { info: SettingsInfo }) {
           </div>
         </section>
       ))}
+      {extensionsWithCommands.length > 0 && (
+        <section>
+          <h3 className="st-sub">{t('settings.shortcuts.extensions')}</h3>
+          <p className="st-note">{t('settings.shortcuts.extensionsHint')}</p>
+          <div className="st-group">
+            {extensionsWithCommands.flatMap((ext) =>
+              (ext.commands ?? []).map((c) => (
+                <div key={`${ext.id}/${c.name}`} className="st-row">
+                  <div className="st-label">
+                    <span>{c.description || (c.name.startsWith('_execute_') ? t('settings.shortcuts.activateExtension') : c.name)}</span>
+                    <span className="st-hint">{ext.name}</span>
+                  </div>
+                  <kbd className={`st-keys fixed${c.shortcut ? '' : ' none'}`}>{c.shortcut || t('settings.shortcuts.notSet')}</kbd>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
     </>
   )
 }

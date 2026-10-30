@@ -11,4 +11,5 @@ export function registerExtensionsIpc(b: Browser, { handle }: Registrar): void {
   handle('showExtensionMenu', (_c, id) => b.extensions.showMenu(id))
   handle('showExtensionsMenu', () => b.extensions.showListMenu())
   handle('getExtensionActionCounts', () => b.extensions.actionCounts())
+  handle('ackExtensionAction', (_c, token) => b.extensions.ackAction(token))
 }
