@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Puzzle } from 'lucide-react'
+import type { ExtensionActionCounts } from '@shared/types'
 import { reducedMotion, rubberband } from '../lib/spring'
 import { badgeColors } from '../lib/util'
 
@@ -76,6 +77,43 @@ function useActionState(partition: string): BrowserActionState | undefined {
   return useSyncExternalStore(subscribeTo(partition), () => states.get(partition))
 }
 
+// ───────────────────────── Blocked-request counts (declarativeNetRequest action count) ─────────────────────────
+
+let counts: ExtensionActionCounts = {}
+const countSubscribers = new Set<() => void>()
+let stopCounts: (() => void) | null = null
+
+function setCounts(next: ExtensionActionCounts): void {
+  if (JSON.stringify(next) === JSON.stringify(counts)) return
+  counts = next
+  countSubscribers.forEach((fn) => fn())
+}
+
+function subscribeCounts(fn: () => void): () => void {
+  countSubscribers.add(fn)
+  if (countSubscribers.size === 1) {
+    stopCounts = window.signet.onExtensionActionCounts(setCounts)
+    void window.signet.getExtensionActionCounts().then(setCounts, () => {})
+  }
+  return () => {
+    countSubscribers.delete(fn)
+    if (countSubscribers.size === 0) {
+      stopCounts?.()
+      stopCounts = null
+    }
+  }
+}
+
+function useActionCounts(): ExtensionActionCounts {
+  return useSyncExternalStore(subscribeCounts, () => counts)
+}
+
+/** Badge text for a count, as Chrome writes it: the number, 999+ beyond. */
+export function countText(n: number | undefined): string {
+  if (!n || n < 1) return ''
+  return n > 999 ? '999+' : `${Math.floor(n)}`
+}
+
 // ───────────────────────── Buttons ─────────────────────────
 
 interface Props {
@@ -103,6 +141,7 @@ const THRESHOLD = 4
 export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, onMenu }: Props) {
   const { t } = useTranslation()
   const state = useActionState(partition)
+  const actionCounts = useActionCounts()
   const [local, setLocal] = useState<string[] | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const press = useRef<{ id: string; x: number; pointer: number; slots: { left: number; width: number }[]; index: number; started: boolean } | null>(null)
@@ -277,6 +316,8 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
         {shown.map((id, i) => {
           const a = state.actions.find((x) => x.id === id)!
           const info = { ...a, ...(tabId > -1 ? a.tabs[tabId] : undefined) }
+          // The extension's own badge text wins; otherwise the blocked-request count of the tab shown by this bar.
+          if (!info.text) info.text = countText(actionCounts[tabId]?.[id])
           const mine = drag?.id === id
           return (
             <ActionButton

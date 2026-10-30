@@ -9,8 +9,9 @@ import type { Session } from 'electron'
 /** Run order of the blocking consumers (lower runs first). Gaps are left on purpose. */
 export const NetworkOrder = {
   httpsOnly: 50,
+  // Extensions' rules before the built-in blocker: what the user installed decides first (and counts its blocks).
+  dnr: 80,
   adblock: 100,
-  dnr: 200,
   headers: 300,
   devmode: 900
 } as const

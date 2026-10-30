@@ -83,12 +83,26 @@ describe('DnrStore', () => {
     expect(DNR_ENUMS.DomainType.THIRD_PARTY).toBe('thirdParty')
   })
 
-  it('logs once per extension that rules are not enforced', () => {
-    const log = vi.fn()
-    const s = new DnrStore(join(dir, 'd.json'), log)
-    s.update('dynamic', A, { addRules: [rule(1)] })
-    s.update('dynamic', A, { addRules: [rule(2)] })
-    expect(log).toHaveBeenCalledOnce()
-    expect(log.mock.calls[0][0]).toMatch(/NOT enforced/)
+  it('notifies changes and remembers the enabled rulesets per extension version', () => {
+    const s = new DnrStore(join(dir, 'd.json'))
+    const changed = vi.fn()
+    s.onChange(changed)
+    s.update('session', A, { addRules: [rule(1)] })
+    s.setEnabledRulesets(A, '1.0', ['x'])
+    expect(changed).toHaveBeenCalledTimes(2)
+    expect(s.enabledRulesets(A, '1.0')).toEqual(['x'])
+    expect(s.enabledRulesets(A, '1.1')).toBeUndefined()
+    s.remove(A)
+    expect(s.enabledRulesets(A, '1.0')).toBeUndefined()
+    expect(changed).toHaveBeenCalledTimes(3)
+  })
+
+  it('checks regular expressions', () => {
+    const s = new DnrStore(join(dir, 'd.json'))
+    const check = s.methods()['declarativeNetRequest.isRegexSupported']
+    const ctx = { ses: {}, extensionId: A, context: { kind: 'worker', id: 'w', url: '', onGone: () => {} } } as never
+    expect(check(ctx, { regex: '^https://a\\.com/' })).toEqual({ isSupported: true })
+    expect(check(ctx, { regex: '(' })).toMatchObject({ isSupported: false, reason: 'syntaxError' })
+    expect(check(ctx, { regex: '(?=a)b' })).toMatchObject({ isSupported: false })
   })
 })

@@ -1,15 +1,16 @@
 // Only file (with the preload) that knows the extension libraries; the interface stays neutral.
-import { BrowserWindow, dialog, nativeImage, session, type ContextMenuParams, type MenuItem, type Session, type WebContents } from 'electron'
+import { BrowserWindow, dialog, nativeImage, session, webContents, type ContextMenuParams, type MenuItem, type Session, type WebContents } from 'electron'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 import { installChromeWebStore, installExtension, uninstallExtension } from 'electron-chrome-web-store'
 import { PASSWORD_EXTENSIONS } from '@shared/types'
-import type { ExtensionInfo } from '@shared/types'
+import type { ExtensionActionCounts, ExtensionInfo } from '@shared/types'
 import type { Browser } from '../../browser/browser'
 import { ExtensionApis } from './apis'
 import { peekSession } from '../../web/profiles'
-import { t } from '../../app/i18n'
+import { isUiContents, t } from '../../app/i18n'
+import { pushUi } from '../../ipc/push'
 import { buildMenu, menuIcon } from '../../app/menuicons'
 
 const STORE_URL = 'https://chromewebstore.google.com/'
@@ -139,7 +140,16 @@ export class Extensions {
   /** APIs Electron lacks (proxy, privacy, alarms…), injected into extension contexts. */
   private apis = new ExtensionApis()
 
-  constructor(private b: Browser) {}
+  constructor(private b: Browser) {
+    this.apis.onActionCounts((counts) => {
+      for (const wc of webContents.getAllWebContents()) if (isUiContents(wc)) pushUi(wc, 'extensions:action-counts', counts)
+    })
+  }
+
+  /** Blocked-request counts per tab and extension (action count badge). */
+  actionCounts(): ExtensionActionCounts {
+    return this.apis.actionCounts()
+  }
 
   /** Channel for extension pages calling the added APIs (see apis/router.ts); registered with the other page channels. */
   registerPageIpc(): void {

@@ -313,7 +313,7 @@ function installApis(plan: Plan): Omit<InstallReport, 'context'> {
       closeDocument: method('offscreen.closeDocument'),
       hasDocument: method('offscreen.hasDocument')
     },
-    // Rules are stored (dynamic ones persist) but not enforced on the network yet, see the main side.
+    // Real implementation in main (dnr.ts, dnr-engine.ts): rules are stored and enforced through the network hub.
     declarativeNetRequest: {
       ...plan.dnrConstants,
       ...plan.dnrEnums,
@@ -327,7 +327,9 @@ function installApis(plan: Plan): Omit<InstallReport, 'context'> {
           'updateEnabledRulesets',
           'getAvailableStaticRuleCount',
           'isRegexSupported',
-          'getMatchedRules'
+          'getMatchedRules',
+          'testMatchOutcome',
+          'setExtensionActionOptions'
         ].map((m) => [m, method(`declarativeNetRequest.${m}`)])
       )
     }
@@ -394,6 +396,32 @@ function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     assign(target, { [name]: api }, '')
     installed.push(name)
   }
+  // chrome.commands: Electron has none, and some workers read `commands.onCommand` at startup (uBlock Origin Lite crashes
+  // without it). Extension shortcuts are not wired: getAll lists the manifest's commands without a shortcut, onCommand
+  // never fires.
+  if (!target.commands?.onCommand) {
+    let declared: Record<string, { description?: unknown } | undefined> = {}
+    try {
+      declared = target.runtime?.getManifest?.()?.commands ?? {}
+    } catch {
+      // keep none
+    }
+    const list = () => Object.entries(declared).map(([name, c]) => ({ name, description: String(c?.description ?? ''), shortcut: '' }))
+    assign(
+      target,
+      {
+        commands: {
+          getAll: (callback?: (r: unknown) => void) => {
+            if (typeof callback !== 'function') return Promise.resolve(list())
+            callback(list())
+          },
+          onCommand: event('commands.onCommand')
+        }
+      },
+      ''
+    )
+    installed.push('commands')
+  }
   // Electron's native runtime.getContexts breaks in Chromium's runtime API ("Unexpected view type"): ours answers from main.
   // `chrome.runtime` is native (and spread into the library's own object), so on a copy we wrap it in a new object that
   // keeps every descriptor and only replaces getContexts.
@@ -416,7 +444,23 @@ function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     console.warn('[signet] extension APIs: cannot override runtime.getContexts', e)
   }
 
-  if (!frozen) return { namespaces: installed, mode: 'first' }
+  // Chromium also exposes a native `browser` namespace, a separate object with only the native APIs. Extensions that read
+  // `self.browser || self.chrome` (uBlock Origin Lite) would miss everything added here: point it at the same object.
+  const aliasBrowser = (): void => {
+    if (g.browser === undefined || g.browser === target) return
+    try {
+      Object.defineProperty(g, 'browser', { value: target, writable: true, configurable: true, enumerable: true })
+    } catch {
+      // checked below
+    }
+    if (g.browser === target) installed.push('browser')
+    else console.warn('[signet] extension APIs: globalThis.browser cannot be replaced, extensions using it miss these APIs')
+  }
+
+  if (!frozen) {
+    aliasBrowser()
+    return { namespaces: installed, mode: 'first' }
+  }
 
   // Same as the library: nobody changes `chrome` afterwards. Then swap the global for our copy.
   Object.freeze(target)
@@ -436,6 +480,7 @@ function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     console.warn('[signet] extension APIs: chrome is frozen and the global cannot be replaced, APIs unavailable')
     return { namespaces: [], mode: 'failed', error: 'globalThis.chrome cannot be replaced' }
   }
+  aliasBrowser()
   return { namespaces: installed, mode: 'replaced-frozen' }
   /* eslint-enable @typescript-eslint/no-explicit-any */
 }
