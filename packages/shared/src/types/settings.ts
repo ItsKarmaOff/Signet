@@ -103,6 +103,11 @@ export interface Settings {
    * excepted); a site without a secure connection shows a warning page. Missing = off.
    */
   httpsOnly?: boolean
+  /**
+   * Global Privacy Control: every http(s) request carries `Sec-GPC: 1` and pages see `navigator.globalPrivacyControl === true`.
+   * Extensions can no longer observe request headers while it is on. Missing = off.
+   */
+  globalPrivacyControl?: boolean
   /** Default font size of web pages in px (9, 12, 16, 20 or 24). Missing = 16. */
   fontSize?: number
   /** Minimum font size of web pages in px (0 = none, then 6 to 24). Missing = 0. */

@@ -808,6 +808,13 @@ function Privacy({ info }: { info: SettingsInfo }) {
             onChange={(on) => window.signet.updateSettings({ httpsOnly: on })}
           />
         </Row>
+        <Row label={t('settings.privacy.gpc')} hint={t('settings.privacy.gpcHint')}>
+          <Switch
+            on={info.settings.globalPrivacyControl === true}
+            label={t('settings.privacy.gpc')}
+            onChange={(on) => window.signet.updateSettings({ globalPrivacyControl: on })}
+          />
+        </Row>
       </Group>
       <SecureDns info={info} />
       <h3 className="st-sub">{t('settings.privacy.clearData')}</h3>

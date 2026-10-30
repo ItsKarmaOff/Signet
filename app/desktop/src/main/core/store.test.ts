@@ -448,6 +448,17 @@ describe('cleanSettings / applyCleaned', () => {
     expect(cleanSettings({ tabSleepMinutes: 30 }, base).tabSleepMinutes).toBe(30)
   })
 
+  it('Global Privacy Control: true is kept, false removes it, anything else keeps the previous value', () => {
+    const on = { ...base, globalPrivacyControl: true } as Settings
+    expect(cleanSettings({ globalPrivacyControl: true }, base).globalPrivacyControl).toBe(true)
+    expect(cleanSettings({ globalPrivacyControl: false }, on).globalPrivacyControl).toBeUndefined()
+    expect(cleanSettings({ globalPrivacyControl: 'yes' as never }, on).globalPrivacyControl).toBe(true)
+    expect(cleanSettings({ globalPrivacyControl: 1 as never }, base).globalPrivacyControl).toBeUndefined()
+    const target = { ...on } as Settings
+    applyCleaned(target, cleanSettings({ globalPrivacyControl: false }, on))
+    expect('globalPrivacyControl' in target).toBe(false)
+  })
+
   it('web page settings: only values from the choice lists', () => {
     expect(cleanSettings({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 }, base)).toMatchObject({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 })
     const out = cleanSettings({ fontSize: 15, minimumFontSize: 7, defaultZoom: 101 } as Partial<Settings>, base)
