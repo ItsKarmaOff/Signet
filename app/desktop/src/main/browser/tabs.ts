@@ -190,11 +190,6 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
       b.adblock.resetBlocked(wc.id)
       b.tabs.typedStart(tabId, details.url)
       if (!details.url.startsWith('data:')) crashed.delete(wc)
-      // HTTPS-only safety net for what bypasses `will-navigate` (back/forward to an http entry, restored history).
-      if (/^http:/i.test(details.url)) {
-        const https = b.httpsOnly.resolve(tabId, wc.session, details.url)
-        if (https !== details.url) wc.loadURL(https).catch(() => {})
-      }
     }
   })
   wc.on('did-navigate', (_e, url) => {
@@ -260,7 +255,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
       b.webApps.openLink(tabId, url)
     } else if (b.store.detached.has(tabId)) {
       // Peek and Little Signet have no tabs around them: we navigate in place.
-      wc.loadURL(b.httpsOnly.resolve(tabId, wc.session, resolveInternal(url))).catch(() => {})
+      wc.loadURL(resolveInternal(url)).catch(() => {})
     } else if (disposition === 'new-window') {
       b.peek.open(url, tabId, lastPoint)
     } else {
@@ -283,15 +278,9 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
   wc.on('will-frame-navigate', (details) => {
     if (!details.isMainFrame) guard(details)
   })
-  // HTTPS-only mode: a main-frame navigation or redirect to http:// goes to https:// instead (the load failure shows the warning page).
-  const upgradeToHttps = (details: { url: string; preventDefault: () => void }) => {
-    const https = b.httpsOnly.resolve(tabId, wc.session, details.url)
-    if (https === details.url) return
-    details.preventDefault()
-    wc.loadURL(https).catch(() => {})
-  }
+  // HTTPS-only mode is not decided here: the request itself is upgraded (see HttpsOnly.sync).
   wc.on('will-redirect', (details) => {
-    if (details.isMainFrame && !guard(details, true)) upgradeToHttps(details)
+    if (details.isMainFrame) guard(details, true)
   })
 
   // Last click in the page: without a recent click, the navigation comes from a script (SSO, redirect) and is not intercepted.
@@ -322,7 +311,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     if (peeks) {
       details.preventDefault()
       b.peek.open(details.url, tabId, lastPoint)
-    } else upgradeToHttps(details) // the Peek, if any, upgrades when it loads
+    }
   })
 
   wc.on('before-input-event', (event, input) => {
