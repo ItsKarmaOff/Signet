@@ -41,16 +41,11 @@
   }
 
   /** Exercises an event object. Returns 'ok' or a list of the failing methods. */
-  // Touching these in the service worker kills the whole Signet process (SIGSEGV in main, macOS, Electron 45.1): the native
-  // implementations need hardware services Electron never starts. They are reported as skipped unless probe-config.json lists them
-  // in `unsafe` (calls by label, events as `event:<namespace>.<name>`). SIGNET_PROBE_UNSAFE=a,b feeds that list in the e2e spec.
-  const CRASHERS = {
-    'system.cpu.getInfo': 'native system.cpu crashes the browser process',
-    'system.memory.getInfo': 'native system.memory crashes the browser process',
-    'system.display.getInfo': 'native system.display crashes the browser process',
-    'system.storage.getInfo': 'native system.storage crashes the browser process'
-  }
-  const EVENT_CRASHERS = ['system.storage.', 'printerProvider.']
+  // Native members that killed the whole Signet process when touched (SIGSEGV, macOS, Electron 45.1) are now replaced by the safety net
+  // (catalog `crashes`), so the probe exercises them by default: a crash here means a regression of the safety net. To skip one again,
+  // list it here (calls by label) or in EVENT_CRASHERS (events by path prefix); `unsafe` in probe-config.json re-enables a skipped one.
+  const CRASHERS = {}
+  const EVENT_CRASHERS = []
   let unsafe = []
 
   function probeEvent(ev, path) {

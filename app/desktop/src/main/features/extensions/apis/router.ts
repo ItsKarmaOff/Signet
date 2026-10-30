@@ -83,14 +83,23 @@ export class ApiRouter implements ExtensionEmitter {
     if (!app.isPackaged && method !== INSTALLED_METHOD) console.log(`[extension-apis] ${extensionId} ${String(method)} ${outcome}`.slice(0, 300))
   }
 
-  /** Extension pages: only the main frame of a chrome-extension:// page, whose URL names the extension. */
+  /**
+   * Extension pages: any frame whose URL is chrome-extension://<id>/ (the page itself, or a frame of the same extension
+   * inside it); the id comes from the frame's URL, which Chromium sets. Sandboxed pages never get the bridge (preload).
+   */
   registerPageIpc(): void {
     ipcMain.handle(CRX_INVOKE, (e, method: unknown, args: unknown): Promise<CrxResult> => {
       const frame = e.senderFrame
-      const id = frame && frame === e.sender.mainFrame ? extensionOfPage(frame.url) : null
+      const id = frame ? extensionOfPage(frame.url) : null
       if (!id) return Promise.resolve({ ok: false, error: 'Access to extension API denied.' })
       const wc = e.sender
-      const context: ApiContext = { kind: 'page', id: `page-${wc.id}`, url: frame!.url, onGone: (fn) => wc.once('destroyed', fn) }
+      const main = frame === wc.mainFrame
+      const context: ApiContext = {
+        kind: 'page',
+        id: main ? `page-${wc.id}` : `frame-${wc.id}-${frame!.processId}-${frame!.routingId}`,
+        url: frame!.url,
+        onGone: (fn) => wc.once('destroyed', fn)
+      }
       return this.dispatch(wc.session, id, method, args, context)
     })
   }
@@ -158,7 +167,15 @@ export class ApiRouter implements ExtensionEmitter {
       for (const { worker } of running) worker.send(CRX_EVENT, name, args)
       if (!running.length && wake) this.wakeAndSend(ses, extensionId, name, args, queue)
       for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed() && wc.session === ses && extensionOfPage(wc.getURL()) === extensionId) wc.send(CRX_EVENT, name, args)
+        if (wc.isDestroyed() || wc.session !== ses) continue
+        if (extensionOfPage(wc.getURL()) === extensionId) wc.send(CRX_EVENT, name, args)
+        // `wc.send` reaches the main frame only: frames of the extension inside it (or inside a web page) get it directly.
+        try {
+          for (const frame of wc.mainFrame?.framesInSubtree ?? [])
+            if (frame !== wc.mainFrame && extensionOfPage(frame.url) === extensionId) frame.send(CRX_EVENT, name, args)
+        } catch {
+          // frame gone meanwhile
+        }
       }
     }
   }

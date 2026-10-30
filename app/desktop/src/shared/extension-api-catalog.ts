@@ -21,6 +21,11 @@ export interface NamespaceSpec {
   classes?: string[]
   /** Sub-namespaces: `system.cpu`, `storage.managed`, `devtools.panels`. */
   children?: Record<string, NamespaceSpec>
+  /**
+   * Members (methods or events) whose NATIVE implementation kills the whole browser process in Electron (it needs hardware
+   * services Electron never starts). The safety net replaces them with inert stubs even though they exist natively.
+   */
+  crashes?: string[]
   /** Signet will not provide this namespace (see docs/EXTENSION-APIS.md); a stub is still fine. */
   unsupported?: true
   /** Only exists in content scripts, never stub it from the extension preload. */
@@ -474,7 +479,9 @@ export const EXTENSION_API_CATALOG: Record<string, NamespaceSpec> = {
   power: ns({ permissions: ['power'], methods: ['releaseKeepAwake', 'requestKeepAwake', 'reportActivity'] }),
   printerProvider: ns({
     permissions: ['printerProvider'],
-    events: ['onGetCapabilityRequested', 'onGetPrintersRequested', 'onGetUsbPrinterInfoRequested', 'onPrintRequested']
+    events: ['onGetCapabilityRequested', 'onGetPrintersRequested', 'onGetUsbPrinterInfoRequested', 'onPrintRequested'],
+    // Adding a listener to these crashed the process in the API probe (onGetUsbPrinterInfoRequested measured, the others by precaution).
+    crashes: ['onGetCapabilityRequested', 'onGetPrintersRequested', 'onGetUsbPrinterInfoRequested', 'onPrintRequested']
   }),
   // Added in Chrome 153; member names unverified (the probe reports what Chromium 156 exposes).
   publicSuffix: ns({ permissions: ['publicSuffix'] }),
@@ -517,7 +524,10 @@ export const EXTENSION_API_CATALOG: Record<string, NamespaceSpec> = {
       storage: ns({
         permissions: ['system.storage'],
         methods: ['ejectDevice', 'getAvailableCapacity', 'getInfo'],
-        events: ['onAttached', 'onDetached']
+        soft: { getInfo: [] },
+        events: ['onAttached', 'onDetached'],
+        // Adding a listener to onAttached / onDetached segfaulted the process in the API probe; the calls are replaced too (unmeasured).
+        crashes: ['ejectDevice', 'getAvailableCapacity', 'getInfo', 'onAttached', 'onDetached']
       })
     }
   }),
