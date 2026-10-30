@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-// Page script for notes and Easels (registered on the tabs' sessions, all frames).
+// Page script for notes and Easels (registered on the tabs' sessions, main frame only).
 // It only activates in the main frame of an app interface page opened on a document's route
 // (`#note/<id>`, `#easel/<id>`); the main process rechecks everything (tab, main frame, address) and takes the id from the address.
 import { contextBridge, ipcRenderer } from 'electron'

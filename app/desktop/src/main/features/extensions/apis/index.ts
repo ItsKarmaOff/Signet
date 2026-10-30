@@ -209,7 +209,9 @@ export class ExtensionApis {
  * with the tab logic, so it cannot appear, take focus or become a tab.
  */
 function openOffscreenPage(ses: Session): OffscreenPage {
-  const view = new WebContentsView({ webPreferences: { session: ses, sandbox: true, contextIsolation: true, backgroundThrottling: false } })
+  const view = new WebContentsView({
+    webPreferences: { session: ses, sandbox: true, contextIsolation: true, nodeIntegrationInSubFrames: true, backgroundThrottling: false }
+  })
   const wc = view.webContents
   const id = wc.id
   return {

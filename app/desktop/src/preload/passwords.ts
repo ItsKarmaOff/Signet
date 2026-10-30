@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-// Page script: passwords from Signet's password vault (all frames, preload's isolated world).
+// Page script: passwords from Signet's password vault (main frame only, preload's isolated world).
 // Offers the site's accounts when a login field is touched (never silent filling),
 // and tells the main process which credentials were submitted so it can offer to save them.
 // The origin is determined by the main process (sending frame): the page cannot make it believe anything.
@@ -10,7 +10,8 @@ interface Account {
   username: string
 }
 
-if (/^https?:$/.test(location.protocol)) start()
+// Main frame only (the preload also runs in subframes).
+if (process.isMainFrame && /^https?:$/.test(location.protocol)) start()
 
 function start(): void {
   const fr = /^fr\b/i.test(navigator.language)
