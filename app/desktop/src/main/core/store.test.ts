@@ -233,6 +233,16 @@ describe('Store: normalization', () => {
     expect(open().state.siteZoom).toEqual({})
   })
 
+  it('siteZoomBySpace: cleaned when read, written back, empty by default', () => {
+    write('state.json', { siteZoomBySpace: { s1: { 'a.com': 2, 'b.com': 'big' }, s2: {}, s3: 5 } })
+    const store = open()
+    expect(store.state.siteZoomBySpace).toEqual({ s1: { 'a.com': 2 } })
+    store.state.siteZoomBySpace.s9 = { 'z.com': 1 }
+    expect(JSON.parse(JSON.stringify(store.state)).siteZoomBySpace).toEqual({ s1: { 'a.com': 2 }, s9: { 'z.com': 1 } })
+    write('state.json', {})
+    expect(open().state.siteZoomBySpace).toEqual({})
+  })
+
   it('tabs: only known fields are kept', () => {
     write('state.json', {
       tabs: {

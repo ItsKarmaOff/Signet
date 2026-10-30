@@ -64,6 +64,7 @@ async function wipePending(spaces: Space[]): Promise<void> {
   const names = await readdir(dir).catch(() => [] as string[])
   for (const id of ids) {
     if (alive.has(id)) continue // space came back (backup restored…): keep its data
+    if (browser && delete browser.store.state.siteZoomBySpace[id]) browser.store.schedule()
     const target = `space-${id}`.toLowerCase()
     for (const name of names) if (name.toLowerCase() === target) await rm(join(dir, name), { recursive: true, force: true }).catch(() => {})
   }
@@ -79,6 +80,14 @@ export function sessionFor(spaceId: string | null): Session {
   const ses = space && isIsolated(space) ? session.fromPartition(partitionOf(space.id)) : session.defaultSession
   configureSession(ses)
   return ses
+}
+
+/** Id of the isolated space whose partition this session is, null for any other session. */
+export function isolatedSpaceOf(ses: Session): string | null {
+  for (const space of browser?.store.state.spaces ?? []) {
+    if (isIsolated(space) && session.fromPartition(partitionOf(space.id)) === ses) return space.id
+  }
+  return null
 }
 
 /** `window.chrome` as in Chrome, in all frames: without it, Google refuses the sign-in. */

@@ -37,6 +37,14 @@ export function fontPreferences(settings: { fontSize?: unknown; minimumFontSize?
   }
 }
 
+/**
+ * The `webPreferences` page fields of a tab's view: fonts, and the default zoom as the page's first zoom so that a new
+ * page paints at it (no zoom field when no default is chosen). They can only be given at creation.
+ */
+export function pagePreferences(settings: { fontSize?: unknown; minimumFontSize?: unknown; defaultZoom?: unknown }): FontPreferences & { zoomFactor?: number } {
+  return { ...fontPreferences(settings), ...(isZoomPercent(settings.defaultZoom) && { zoomFactor: settings.defaultZoom / 100 }) }
+}
+
 /** Host whose zoom Chromium shares between tabs: the host name of an http(s) page, null for anything else (internal pages, files, PDFs). */
 export function zoomHost(url: string): string | null {
   try {
@@ -66,6 +74,24 @@ export function cleanSiteZoom(raw: unknown): SiteZoom {
       e[0].length > 0 && e[0].length <= 253 && typeof e[1] === 'number' && Number.isFinite(e[1]) && e[1] >= ZOOM_LEVEL_MIN && e[1] <= ZOOM_LEVEL_MAX
   )
   return Object.fromEntries(entries.slice(-SITE_ZOOM_MAX))
+}
+
+/** Most isolated spaces whose zoom memory is kept. */
+const SITE_ZOOM_SPACES_MAX = 200
+
+/** Zoom memory of each isolated space (key: space id), like Arc profiles; normal spaces share `siteZoom`. */
+export type SiteZoomBySpace = Record<string, SiteZoom>
+
+/** Per-space zoom memory read from disk: cleaned maps only, empty ones dropped. */
+export function cleanSiteZoomBySpace(raw: unknown): SiteZoomBySpace {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: SiteZoomBySpace = {}
+  for (const [id, map] of Object.entries(raw as Record<string, unknown>)) {
+    if (!id || id.length > 100) continue
+    const clean = cleanSiteZoom(map)
+    if (Object.keys(clean).length) out[id] = clean
+  }
+  return Object.fromEntries(Object.entries(out).slice(-SITE_ZOOM_SPACES_MAX))
 }
 
 /** Remembers a host's zoom level as the most recent one, within the bound. Mutates and returns `map`. */
