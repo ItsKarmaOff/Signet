@@ -15,3 +15,10 @@ export interface ExtensionInfo {
 
 /** Blocked-request counts shown on extension buttons: tab (webContents id), then extension id, then count (always above 0). */
 export type ExtensionActionCounts = Record<number, Record<string, number>>
+
+/** Toolbar button state set by `action.enable/disable/setBadgeTextColor`: global values and per-tab ones (tab = webContents id). Only what differs from the defaults. */
+export interface ExtensionActionState {
+  enabled?: boolean
+  textColor?: unknown
+}
+export type ExtensionActionStates = Record<string, ExtensionActionState & { tabs?: Record<number, ExtensionActionState> }>

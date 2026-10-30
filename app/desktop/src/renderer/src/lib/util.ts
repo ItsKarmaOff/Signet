@@ -187,7 +187,7 @@ export function luminance(hex: string): number | null {
  * Colors of an extension badge, like Chrome: the background the extension chose (a CSS color, or Chrome's
  * [r, g, b, a] array) and black or white text, whichever contrasts better with it.
  */
-export function badgeColors(color: unknown): { backgroundColor: string; color: string } | undefined {
+export function badgeColors(color: unknown, textColor?: unknown): { backgroundColor: string; color: string } | undefined {
   let rgb: [number, number, number] | null = null
   if (Array.isArray(color) && color.length >= 3 && color.slice(0, 3).every((c) => typeof c === 'number')) {
     rgb = [color[0], color[1], color[2]]
@@ -206,7 +206,19 @@ export function badgeColors(color: unknown): { backgroundColor: string; color: s
   const l = luminance(hex) ?? 0
   // Same WCAG rule as `barStyle`: white text only if it contrasts better than black.
   const white = 1.05 / (l + 0.05) > (l + 0.05) / 0.05
-  return { backgroundColor: hex, color: white ? '#fff' : 'rgb(0 0 0 / .85)' }
+  const auto = white ? '#fff' : 'rgb(0 0 0 / .85)'
+  return { backgroundColor: hex, color: cssColor(textColor) ?? auto }
+}
+
+/** A color given to `setBadgeTextColor` as CSS: `[r, g, b, a]` (a: 0 to 255) or a hex, rgb() or named color. */
+export function cssColor(value: unknown): string | undefined {
+  if (Array.isArray(value) && value.length >= 3 && value.slice(0, 3).every((c) => typeof c === 'number')) {
+    const alpha = typeof value[3] === 'number' ? Math.max(0, Math.min(1, value[3] / 255)) : 1
+    const [r, g, b] = value.slice(0, 3).map((c) => Math.max(0, Math.min(255, Math.round(c))))
+    return `rgb(${r} ${g} ${b} / ${Math.round(alpha * 100) / 100})`
+  }
+  if (typeof value === 'string' && /^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%/]+\)|[a-z]+)$/i.test(value.trim())) return value.trim()
+  return undefined
 }
 
 /** Bar background = site color; light or dark content depending on contrast. No color: theme tokens. */
