@@ -56,7 +56,7 @@ Absent (calling any member throws a TypeError): `userScripts`, `bookmarks`, `his
 3. `storage.managed` must be an empty read-only area; `storage.sync` should be separate from `local`.
 4. Library events: `hasListener` / `hasListeners` exceptions. The probe records `ev!` per event in the report; not reproduced here (not measured in this document).
 5. `downloads` is a stub resolving `undefined`; `action.isEnabled` is always false.
-6. Optional permissions path (`permissions.contains` for an optional permission reports false; grants are not persisted).
+6. Optional permissions path (the library's `permissions.contains` reported false for an optional permission and grants were not persisted): replaced, see "chrome.permissions" below.
 
 ## Surprises
 
@@ -74,3 +74,17 @@ Status: implemented and unit-tested, **not yet re-measured** by the probe (the n
 - **storage.managed** is an empty read-only area in every context. `storage.sync` is unchanged (still an alias of local).
 - **Subframes**: the preload and the call router accept any `chrome-extension://` frame (not only the top frame), except sandboxed pages (opaque origin). The iframe context should now match the others, with `browser === chrome`. Electron only runs frame preloads in subframes when the webContents has `nodeIntegrationInSubFrames: true` (it does not enable Node), so tabs and offscreen documents now set it; before that, the preload never ran in iframes, which is why the iframe context was unprotected. This is not yet measured: the probe has to be run once to confirm that the iframe context now gets Signet's APIs and no longer crashes.
 - **Unpacked extensions**: reloads are now conditional on a real file change, serialised and preceded by a clean unload (see SPEC.md). The probe still loads its extension directly.
+
+## chrome.permissions (implemented after the safety net)
+
+Status: implemented and unit-tested, **not yet measured** by the probe (the probe only checked that optional permissions were reported as missing; it has to be run again).
+
+Signet replaces the whole `permissions` namespace (`request`, `contains`, `getAll`, `remove`, `onAdded`, `onRemoved`) in every extension context; the library's in-memory implementation, which auto-granted everything and never fired events, is no longer used. `addHostAccessRequest` and `removeHostAccessRequest` stay placeholders. Code: `apis/permissions.ts`.
+
+- **Store**: optional grants given at runtime are kept in `<userData>/extension-permissions.json` as `{ [extensionId]: { permissions, origins } }` (atomic, debounced write). The effective permissions of an extension are `permissions` + `host_permissions` of the manifest plus its grants.
+- **request**: each permission must be in `permissions` or `optional_permissions`, each origin must be covered by a pattern of `host_permissions` or `optional_host_permissions`; otherwise it rejects with "Only permissions specified in the manifest may be requested." If everything is held already it resolves `true` without a dialog. Otherwise one native dialog lists only the new items (Allow / Deny). Allow stores the grant, fires `permissions.onAdded` in every context of the extension in every session and resolves `true`; Deny resolves `false`. Requests of one extension are served one after the other, and each one asks only for what is still missing. A request containing only low-risk permissions (the quiet list of the install dialog, such as `storage`) is granted without a dialog. Signet does not require a user gesture.
+- **contains / getAll**: use the effective set; an origin counts when a held pattern covers it.
+- **remove**: rejects with "You cannot remove required permissions." for manifest permissions and hosts; optional grants are deleted (`onRemoved` fires) and it resolves `true`. Removing something not held resolves `true` (not confirmed against Chrome). Only the exact granted pattern can be removed, not a part of a broader one.
+- **Applied everywhere**: the call router (so an optional permission gives access once granted, without a reload; before that the call fails with "the '<name>' permission is required") and the lookup of extensions holding a permission use the effective permissions. The namespaces of optional permissions are installed from the start, so feature detection keeps working. The `declarativeNetRequest` engine now counts `optional_host_permissions` only once granted (before, they counted as granted because there was no prompt) and recomputes when grants change.
+- **Lifecycle**: grants are dropped when the extension is uninstalled (unloaded from the last session), and items the manifest no longer lists as optional are dropped when it loads.
+- **Not honoured**: an optional `nativeMessaging` permission granted at runtime. The library checks `manifest.permissions` itself for `runtime.connectNative` and `sendNativeMessage`, so honouring the grant would need patching the library or proxying native ports; extensions that link to a desktop app must declare it as required.

@@ -15,6 +15,7 @@ import { ChromeSettings, type SettingDef } from './settings'
 import { AUTH_LISTENERS_METHOD, AUTH_RESPONSE_METHOD, INSTALLED_METHOD, SETTING_METHODS, type InstallReport } from '@shared/extension-apis'
 import { extensionOfPage } from './router'
 import { StubRegistry } from './stubs'
+import { PermissionGrants, type PermissionPrompt } from './permissions'
 
 /**
  * Extension APIs that Electron and electron-chrome-extensions lack: `chrome.proxy`, `chrome.privacy`, `chrome.alarms`.
@@ -27,6 +28,7 @@ export class ExtensionApis {
   private alarms: Alarms | null = null
   private sessions = new Set<Session>()
   private stubs = new StubRegistry()
+  private grants: PermissionGrants | null = null
   private dnr: DnrStore | null = null
   private dnrEngine: DnrEngine | null = null
   private countListeners = new Set<(counts: ExtensionActionCounts) => void>()
@@ -34,6 +36,14 @@ export class ExtensionApis {
     (ses) => openOffscreenPage(ses as Session),
     (m) => console.log(m)
   )
+
+  private prompt: PermissionPrompt | null = null
+
+  /** The dialog shown when an extension asks for optional permissions (needs the window, so it comes from the app). */
+  setPermissionPrompt(prompt: PermissionPrompt): void {
+    this.prompt = prompt
+    if (this.grants) this.grants.prompt = prompt
+  }
 
   /** Persistent state is created on first use: `userData` is only reliable once the app is ready. */
   private init(): { settings: ChromeSettings; alarms: Alarms } {
@@ -44,12 +54,18 @@ export class ExtensionApis {
       this.alarms = new Alarms(join(dir, 'extension-alarms.json'), this.router)
       for (const def of defs) for (const m of SETTING_METHODS) this.registerSetting(this.settings, def, m)
       for (const [method, fn] of Object.entries(this.alarms.methods())) this.router.register('alarms', method, fn)
+      const grants = (this.grants = new PermissionGrants(join(dir, 'extension-permissions.json'), this.router))
+      this.router.useGrants((id) => grants.permissionsOf(id))
+      for (const [method, fn] of Object.entries(grants.methods())) this.router.register('', method, fn)
       this.dnr = new DnrStore(join(dir, 'extension-dnr.json'), (m) => !app.isPackaged && console.log(m))
       const engine = (this.dnrEngine = new DnrEngine(this.dnr, {
         log: (m) => !app.isPackaged && console.log(m),
         watchTab: (id, fn) => webContents.fromId(id)?.once('destroyed', fn),
-        onCounts: (counts) => this.countListeners.forEach((l) => l(counts))
+        onCounts: (counts) => this.countListeners.forEach((l) => l(counts)),
+        grants: { permissionsOf: (id) => grants.permissionsOf(id), originsOf: (id) => grants.originsOf(id) }
       }))
+      grants.onChange((id) => engine.refreshAccess(id))
+      if (this.prompt) grants.prompt = this.prompt
       for (const [method, fn] of Object.entries({ ...this.dnr.methods(), ...engine.methods() }))
         this.router.register(['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'], method, fn)
       this.router.register('offscreen', 'offscreen.createDocument', ({ ses, extensionId }, params) => this.offscreen.create(ses, extensionId, params))
@@ -164,7 +180,9 @@ export class ExtensionApis {
     }
     this.router.attach(ses)
     this.dnrEngine?.attach(ses)
+    for (const ext of ses.extensions.getAllExtensions()) this.grants?.reconcile(ext.id, ext.manifest)
     ses.extensions.on('extension-loaded', (_e, ext) => {
+      this.grants?.reconcile(ext.id, ext.manifest)
       settings.reapply(ses, ext.id)
       alarms.scheduler.activate(ext.id)
     })
@@ -176,6 +194,7 @@ export class ExtensionApis {
       settings.release(ext.id)
       this.offscreen.closeFor(ext.id)
       this.dnr?.remove(ext.id)
+      this.grants?.drop(ext.id)
       alarms.scheduler.remove(ext.id)
     })
   }
@@ -200,6 +219,7 @@ export class ExtensionApis {
     this.settings?.flush()
     this.alarms?.flush()
     this.dnr?.flush()
+    this.grants?.flush()
   }
 }
 

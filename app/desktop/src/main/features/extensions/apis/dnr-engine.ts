@@ -62,6 +62,7 @@ interface ExtState {
   hosts: ((url: string) => boolean)[]
   sessions: Set<Session>
   rulesets: Map<string, StaticRuleset>
+  manifest: Record<string, unknown>
 }
 
 interface FrameLike {
@@ -89,6 +90,8 @@ export interface EngineDeps {
   watchTab?: (id: number, fn: () => void) => void
   /** Receives the action counts (see `actionCounts`) after they changed, at most every 250 ms. */
   onCounts?: (counts: ExtensionActionCounts) => void
+  /** Permissions and host patterns the user granted at runtime (optional ones), on top of the manifest's. */
+  grants?: { permissionsOf(id: string): readonly string[]; originsOf(id: string): readonly string[] }
 }
 
 interface MatchLog {
@@ -98,9 +101,9 @@ interface MatchLog {
   time: number
 }
 
-const hasPermission = (manifest: unknown, permission: string): boolean => {
+const hasPermission = (manifest: unknown, permission: string, granted: readonly string[]): boolean => {
   const list = (manifest as { permissions?: unknown }).permissions
-  return Array.isArray(list) && list.includes(permission)
+  return (Array.isArray(list) && list.includes(permission)) || granted.includes(permission)
 }
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 const ids = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
@@ -166,7 +169,8 @@ export class DnrEngine {
         feedback: false,
         hosts: [],
         sessions: x?.sessions ?? new Set(),
-        rulesets: new Map()
+        rulesets: new Map(),
+        manifest
       }
       this.exts.set(ext.id, x)
       for (const r of manifest.declarative_net_request?.rule_resources ?? []) {
@@ -174,20 +178,35 @@ export class DnrEngine {
           x.rulesets.set(r.id, { id: r.id, path: r.path, enabledByDefault: r.enabled === true, rules: null })
       }
     }
-    const perms = Array.isArray(manifest.permissions) ? manifest.permissions.map(String) : []
-    x.active = hasPermission(manifest, 'declarativeNetRequest') || hasPermission(manifest, 'declarativeNetRequestWithHostAccess')
-    x.hostOnly = !hasPermission(manifest, 'declarativeNetRequest')
-    x.feedback = hasPermission(manifest, 'declarativeNetRequestFeedback')
-    // Optional host permissions count as granted: Signet has no prompt to grant them later (uBlock Origin Lite asks for
-    // all sites that way, and its redirect and parameter rules need it).
+    x.manifest = manifest
+    this.deriveAccess(x)
+    x.sessions.add(ses)
+    this.schedule()
+  }
+
+  /** Permissions and host access from the manifest plus the runtime grants. */
+  private deriveAccess(x: ExtState): void {
+    const m = x.manifest as { permissions?: unknown; host_permissions?: unknown }
+    const granted = this.deps.grants?.permissionsOf(x.id) ?? []
+    const has = (p: string) => hasPermission(m, p, granted)
+    x.active = has('declarativeNetRequest') || has('declarativeNetRequestWithHostAccess')
+    x.hostOnly = !has('declarativeNetRequest')
+    x.feedback = has('declarativeNetRequestFeedback')
+    // Optional host permissions only count once the user granted them (chrome.permissions.request).
     const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : [])
     const patterns = [
-      ...list(manifest.host_permissions),
-      ...list(manifest.optional_host_permissions),
-      ...perms.filter((p) => p.includes('://') || p === '<all_urls>')
+      ...list(m.host_permissions),
+      ...(this.deps.grants?.originsOf(x.id) ?? []),
+      ...list(m.permissions).filter((p) => p.includes('://') || p === '<all_urls>')
     ]
     x.hosts = patterns.map(compilePattern).filter((t): t is (url: string) => boolean => t !== null)
-    x.sessions.add(ses)
+  }
+
+  /** The extension's grants changed: its access is recomputed and the rules rebuilt. */
+  refreshAccess(id: string): void {
+    const x = this.exts.get(id)
+    if (!x) return
+    this.deriveAccess(x)
     this.schedule()
   }
 

@@ -321,6 +321,28 @@ describe('hub wiring', () => {
   })
 })
 
+describe('runtime grants', () => {
+  it('optional host permissions and permissions only count once granted', () => {
+    const granted = { perms: [] as string[], origins: [] as string[] }
+    const grants = { permissionsOf: () => granted.perms, originsOf: () => granted.origins }
+    const e = writeExt('one', { permissions: [], optional_permissions: ['declarativeNetRequestWithHostAccess'], optional_host_permissions: ['<all_urls>'] }, {})
+    const t = setup(e, [], { grants })
+    t.store.update('session', ID, { addRules: [block(1, '||ads.example^')] })
+    const outcome = () => t.call('testMatchOutcome', { url: 'https://ads.example/x', type: 'script' })
+    t.engine.rebuild()
+    expect(t.engine.actionCounts()).toEqual({})
+    expect(outcome()).toEqual({ matchedRules: [] })
+    granted.perms = ['declarativeNetRequestWithHostAccess']
+    t.engine.refreshAccess(ID)
+    t.engine.rebuild()
+    expect(outcome()).toEqual({ matchedRules: [] })
+    granted.origins = ['https://ads.example/*']
+    t.engine.refreshAccess(ID)
+    t.engine.rebuild()
+    expect(outcome()).toEqual({ matchedRules: [{ ruleId: 1, rulesetId: '_session' }] })
+  })
+})
+
 describe('action count badge', () => {
   const MAIN = { resourceType: 'mainFrame', referrer: '' }
   const bare = () => writeExt('one', { host_permissions: ['<all_urls>'] }, {})

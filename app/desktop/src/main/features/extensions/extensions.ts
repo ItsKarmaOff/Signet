@@ -89,6 +89,12 @@ function describePermissions(manifest: chrome.runtime.Manifest): string[] {
   const names = (m.permissions ?? []).map(String)
   const patterns = new Set<string>([...(m.host_permissions ?? []).map(String), ...names.filter((p) => p.includes('://') || p === '<all_urls>')])
   for (const cs of m.content_scripts ?? []) for (const p of cs.matches ?? []) patterns.add(String(p))
+  return describeAccess(names, [...patterns])
+}
+
+/** The same sentences for a list of permission names and host match patterns. */
+function describeAccess(names: string[], patternList: string[]): string[] {
+  const patterns = new Set(patternList)
   const out: string[] = []
   if ([...patterns].some((p) => ALL_SITES.has(p))) out.push(t('dialog.extension.perm.allSites'))
   else if (patterns.size) {
@@ -141,6 +147,7 @@ export class Extensions {
   private apis = new ExtensionApis()
 
   constructor(private b: Browser) {
+    this.apis.setPermissionPrompt((caller, wanted) => this.askPermissions(caller.ses, caller.extensionId, wanted))
     this.apis.onActionCounts((counts) => {
       for (const wc of webContents.getAllWebContents()) if (isUiContents(wc)) pushUi(wc, 'extensions:action-counts', counts)
     })
@@ -328,6 +335,25 @@ export class Extensions {
     const parent = details.browserWindow ?? this.b.win ?? undefined
     const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options)
     return { action: response === 0 ? 'allow' : 'deny' }
+  }
+
+  /** Dialog for `chrome.permissions.request`: lists only what is new; true when the user allows it. */
+  private async askPermissions(ses: Session, id: string, wanted: { permissions: string[]; origins: string[] }): Promise<boolean> {
+    const lines = describeAccess(wanted.permissions, wanted.origins)
+    // Nothing worth warning about (quiet permissions only): granted without a dialog.
+    if (!lines.length) return true
+    const shown = lines.length > MAX_LINES ? [...lines.slice(0, MAX_LINES - 1), t('dialog.extension.more', { count: lines.length - MAX_LINES + 1 })] : lines
+    const options: Electron.MessageBoxOptions = {
+      type: 'question',
+      buttons: [t('dialog.extension.request.allow'), t('dialog.extension.request.deny')],
+      defaultId: 1,
+      cancelId: 1,
+      message: t('dialog.extension.request.message', { name: ses.extensions.getExtension(id)?.name ?? id }),
+      detail: t('dialog.extension.request.detail', { permissions: shown.map((l) => `• ${l}`).join('\n') })
+    }
+    const parent = this.b.win ?? undefined
+    const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options)
+    return response === 0
   }
 
   openStore(): void {

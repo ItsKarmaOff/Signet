@@ -65,6 +65,10 @@ describe('helpers', () => {
     expect(hasPermission({ host_permissions: ['alarms'] }, 'alarms')).toBe(false)
     expect(hasPermission(undefined, 'alarms')).toBe(false)
   })
+  it('hasPermission also counts permissions granted at runtime', () => {
+    expect(hasPermission({ optional_permissions: ['alarms'] }, 'alarms')).toBe(false)
+    expect(hasPermission({ optional_permissions: ['alarms'] }, 'alarms', ['alarms'])).toBe(true)
+  })
 })
 
 describe('ApiRouter.dispatch', () => {
@@ -111,6 +115,22 @@ describe('ApiRouter.dispatch', () => {
     const { ses } = fakeSession({ [A]: { permissions: ['alarms'] } })
     router.attach(ses)
     expect(await router.dispatch(ses, A, 'alarms.get', [])).toMatchObject({ ok: false })
+  })
+})
+
+describe('runtime grants', () => {
+  it('refuses an optional permission until it is granted, then lets the call through without a reload', async () => {
+    const router = new ApiRouter()
+    router.register('alarms', 'alarms.get', () => 'ok')
+    const granted = new Map<string, string[]>()
+    router.useGrants((id) => granted.get(id) ?? [])
+    const { ses } = fakeSession({ [A]: { permissions: [], optional_permissions: ['alarms'] } as never })
+    router.attach(ses)
+    expect(await router.dispatch(ses, A, 'alarms.get', [])).toMatchObject({ ok: false, error: expect.stringMatching(/'alarms' permission is required/) })
+    expect(router.extensionsWith('alarms')).toEqual([])
+    granted.set(A, ['alarms'])
+    expect(await router.dispatch(ses, A, 'alarms.get', [])).toEqual({ ok: true, value: 'ok' })
+    expect(router.extensionsWith('alarms')).toEqual([A])
   })
 })
 

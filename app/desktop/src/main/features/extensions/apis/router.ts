@@ -48,11 +48,18 @@ export class ApiRouter implements ExtensionEmitter {
   /** Events that could not reach a worker that failed to start, per session then extension. */
   private queued = new Map<Session, Map<string, Queued>>()
   private handled = new WeakSet<ServiceWorkerMain>()
+  /** Permissions granted at runtime (chrome.permissions.request), on top of the manifest's. */
+  private granted: (extensionId: string) => readonly string[] = () => []
 
   /** Declares `method` (e.g. `alarms.create`), usable by extensions with `permission`. */
   register(permission: string | string[], method: string, fn: ApiHandler): void {
     if (this.handlers.has(method)) throw new Error(`Extension API ${method} already registered`)
     this.handlers.set(method, { permissions: ([] as string[]).concat(permission).filter(Boolean), fn })
+  }
+
+  /** Where the permissions granted at runtime come from (see permissions.ts). */
+  useGrants(granted: (extensionId: string) => readonly string[]): void {
+    this.granted = granted
   }
 
   // ───────────────────────── Calls ─────────────────────────
@@ -64,7 +71,7 @@ export class ApiRouter implements ExtensionEmitter {
       if (!entry) throw new ApiError(`Unknown Extension API - ${String(method)}`)
       const ext = ses.extensions.getExtension(extensionId)
       if (!ext) throw new ApiError('Extension is not loaded.')
-      if (entry.permissions.length && !entry.permissions.some((p) => hasPermission(ext.manifest, p))) {
+      if (entry.permissions.length && !entry.permissions.some((p) => hasPermission(ext.manifest, p, this.granted(extensionId)))) {
         throw new ApiError(`Access to extension API denied: the '${entry.permissions.join("' or '")}' permission is required.`)
       }
       if (!Array.isArray(args)) throw new ApiError('Invalid arguments.')
@@ -231,7 +238,8 @@ export class ApiRouter implements ExtensionEmitter {
 
   extensionsWith(permission: string): string[] {
     const ids = new Set<string>()
-    for (const ses of this.sessions) for (const ext of ses.extensions.getAllExtensions()) if (hasPermission(ext.manifest, permission)) ids.add(ext.id)
+    for (const ses of this.sessions)
+      for (const ext of ses.extensions.getAllExtensions()) if (hasPermission(ext.manifest, permission, this.granted(ext.id))) ids.add(ext.id)
     return [...ids]
   }
 
@@ -242,7 +250,8 @@ export class ApiRouter implements ExtensionEmitter {
   }
 }
 
-export function hasPermission(manifest: unknown, permission: string): boolean {
+/** Declared in the manifest `permissions`, or among the `granted` ones (optional permissions the user allowed). */
+export function hasPermission(manifest: unknown, permission: string, granted: readonly string[] = []): boolean {
   const list = (manifest as { permissions?: unknown } | undefined)?.permissions
-  return Array.isArray(list) && list.includes(permission)
+  return (Array.isArray(list) && list.includes(permission)) || granted.includes(permission)
 }

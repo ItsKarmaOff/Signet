@@ -57,6 +57,16 @@ function install(manifest: Record<string, unknown>, extra: Record<string, unknow
   return { report, c: g.chrome, nativeAdd }
 }
 
+describe('chrome.permissions', () => {
+  it('is installed for every extension, with the Signet members, and keeps optional namespaces for feature detection', () => {
+    const { report, c } = install({ permissions: ['storage'], optional_permissions: ['proxy'] })
+    expect(report.namespaces).toEqual(expect.arrayContaining(['permissions', 'proxy']))
+    for (const m of ['request', 'contains', 'getAll', 'remove']) expect(typeof c.permissions[m]).toBe('function')
+    for (const e of ['onAdded', 'onRemoved']) expect(typeof c.permissions[e].addListener).toBe('function')
+    expect(c.privacy).toBeUndefined()
+  })
+})
+
 afterEach(() => {
   delete g.chrome
   delete g.browser
