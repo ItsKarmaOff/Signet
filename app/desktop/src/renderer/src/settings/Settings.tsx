@@ -26,14 +26,17 @@ import {
   SquareTerminal,
   Cpu,
   ExternalLink,
-  RotateCw
+  RotateCw,
+  Search
 } from 'lucide-react'
 import type { BrowsingDataKind, DevAlias, ImportKind, SettingsInfo } from '@shared/types'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
 import { DEFAULT_FONT_SIZE, DEFAULT_ZOOM, FONT_SIZES, MIN_FONT_SIZES, ZOOM_PERCENTS } from '@shared/pagesettings'
 import { useHue } from '../lib/util'
 import { RoutingSettings } from './RoutingSettings'
-import { DEFAULT_SEARCH_ENGINE, SEARCH_ENGINES, type SearchEngineId } from '@signet/shared/mobile/search'
+import { SearchSettings } from './SearchSettings'
+import { DEFAULT_SEARCH_ENGINE } from '@signet/shared/mobile/search'
+import { resolveEngines } from '@signet/shared/searchengines'
 import { LanguageSettings } from './LanguageSettings'
 import { ExtensionSettings } from './ExtensionSettings'
 import { ShortcutSettings } from './ShortcutSettings'
@@ -53,6 +56,7 @@ const REPO = 'https://github.com/ItsKarmaOff/Signet'
 const SECTIONS = [
   { id: 'general', group: 'basics', label: 'settings.section.general', icon: Cog },
   { id: 'appearance', group: 'basics', label: 'settings.section.appearance', icon: Palette },
+  { id: 'search', group: 'basics', label: 'settings.section.search', icon: Search },
   { id: 'shortcuts', group: 'basics', label: 'settings.section.shortcuts', icon: Keyboard },
   { id: 'boosts', group: 'browsing', label: 'settings.section.boosts', icon: Rocket },
   { id: 'routing', group: 'browsing', label: 'settings.section.routing', icon: Signpost },
@@ -142,6 +146,7 @@ export function Settings() {
               {section === 'extensions' && <ExtensionSettings info={info} />}
               {section === 'apps' && <WebAppSettings />}
               {section === 'devices' && <DeviceSettings />}
+              {section === 'search' && <SearchSettings info={info} />}
               {section === 'shortcuts' && <ShortcutSettings info={info} />}
               {section === 'mods' && <ModSettings />}
               {section === 'developer' && <Developer info={info} />}
@@ -421,13 +426,15 @@ function General({ info }: { info: SettingsInfo }) {
           <select
             className="st-select"
             value={settings.searchEngine ?? DEFAULT_SEARCH_ENGINE}
-            onChange={(e) => signet.updateSettings({ searchEngine: e.target.value as SearchEngineId })}
+            onChange={(e) => signet.updateSettings({ searchEngine: e.target.value })}
           >
-            {SEARCH_ENGINES.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
+            {resolveEngines(settings, i18n.language)
+              .filter((e) => e.enabled)
+              .map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
           </select>
         </Row>
       </Group>

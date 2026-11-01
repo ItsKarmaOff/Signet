@@ -1,6 +1,7 @@
 import type { SiteInfo } from './permissions'
 import type { Rect } from '@signet/shared/types'
 import type { IconTarget } from './tabs'
+import type { KeywordInfo } from '@signet/shared/searchengines'
 
 export type PaletteMode = 'new-tab' | 'edit-url' | 'split'
 
@@ -8,6 +9,8 @@ export type PaletteResult =
   | { kind: 'url'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'search'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'suggestion'; id: string; title: string; subtitle?: string; url: string }
+  /** "Press Tab to search …": offered when the typed text is exactly a keyword. Handled by the bar itself, never executed. */
+  | { kind: 'keyword'; id: string; title: string; subtitle?: string; keyword: KeywordInfo }
   | { kind: 'history'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
   | { kind: 'archived'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
   /** `inline`: set by main on the top row only, when the page was typed or visited enough to complete the input. */
@@ -25,7 +28,7 @@ export type PaletteResult =
 
 /** What the main window's overlay must show. Pushed on `overlay:show`. */
 export type OverlayPayload =
-  | { mode: 'palette'; paletteMode: PaletteMode; initial: string; hue: number; anchor?: Rect }
+  | { mode: 'palette'; paletteMode: PaletteMode; initial: string; hue: number; keywords: KeywordInfo[]; anchor?: Rect }
   | { mode: 'peek'; tabId: string; url: string; title: string; card: Rect; origin?: { x: number; y: number } }
   /** Site panel, anchored under the toolbar's padlock. */
   | { mode: 'site'; info: SiteInfo; anchor: Rect }

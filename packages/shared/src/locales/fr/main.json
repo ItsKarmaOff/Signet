@@ -362,6 +362,7 @@
     "goToTab": "Aller à l'onglet · {{space}}",
     "openAddress": "Ouvrir cette adresse",
     "searchWith": "Rechercher « {{query}} » sur {{engine}}",
+    "keywordHint": "Appuyez sur Tab pour rechercher sur {{engine}}",
     "archived": "Archivé · {{url}}",
     "subtitle": {
       "on": "Activé",

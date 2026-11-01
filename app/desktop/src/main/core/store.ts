@@ -13,7 +13,7 @@ import { cleanSiteZoom, cleanSiteZoomBySpace, isFontSize, isMinFontSize, isZoomP
 import { pruneBookmarks } from '../features/bookmarks'
 import { defaultLanguages, normalizeLanguages, takeStartupState } from '../web/languages'
 import { initLocale, t } from '../app/i18n'
-import { isSearchEngineId } from '@signet/shared/mobile/search'
+import { cleanDefaultEngine, cleanEngineConfig, resolveEngines } from '@signet/shared/searchengines'
 
 export interface ArchivedTab {
   /** Unique identifier (absent from archives predating its addition). */
@@ -174,6 +174,8 @@ export const CLEAN_SETTING_KEYS = [
   'extensionOrder',
   'pinnedExtensions',
   'searchEngine',
+  'searchEngines',
+  'searchKeywords',
   'downloadDir',
   'fontSize',
   'minimumFontSize',
@@ -217,8 +219,21 @@ export function cleanSettings(patch: Partial<Settings>, base: Settings): Setting
   if (order) out.extensionOrder = order
   const pinned = ids(patch.pinnedExtensions)
   if (pinned) out.pinnedExtensions = pinned
-  // Search engine: known identifier only; otherwise keep the one from `base` (absent = Google).
-  if (isSearchEngineId(patch.searchEngine)) out.searchEngine = patch.searchEngine
+  // Search engines: custom ones and keyword overrides cleaned together (invalid entries dropped, the first duplicate keyword wins).
+  if (patch.searchEngines !== undefined || patch.searchKeywords !== undefined) {
+    const cfg = cleanEngineConfig({
+      searchEngines: patch.searchEngines !== undefined ? patch.searchEngines : base.searchEngines,
+      searchKeywords: patch.searchKeywords !== undefined ? patch.searchKeywords : base.searchKeywords
+    })
+    if (cfg.searchEngines.length) out.searchEngines = cfg.searchEngines
+    else delete out.searchEngines
+    if (Object.keys(cfg.searchKeywords).length) out.searchKeywords = cfg.searchKeywords
+    else delete out.searchKeywords
+  }
+  // Default engine: an existing, enabled one (built-in, preset or custom); a deleted one falls back to Google (absent).
+  const engines = resolveEngines(out)
+  out.searchEngine = cleanDefaultEngine(patch.searchEngine, engines) ?? cleanDefaultEngine(out.searchEngine, engines)
+  if (out.searchEngine === undefined) delete out.searchEngine
   // Downloads folder: absolute path; an empty string falls back to the system folder.
   if (patch.downloadDir === '') delete out.downloadDir
   else if (typeof patch.downloadDir === 'string' && isAbsolute(patch.downloadDir) && patch.downloadDir.length < 4096) out.downloadDir = patch.downloadDir

@@ -43,7 +43,7 @@ export function resolveInput(input: string, engine: SearchEngineId = DEFAULT_SEA
 // ───────────── Search suggestions from the engine (network) ─────────────
 
 /** Address of each engine's suggestions API (`%s` = encoded query). All answer in JSON without an API key. */
-const SUGGEST_TEMPLATES: Record<SearchEngineId, string> = {
+export const SUGGEST_TEMPLATES: Record<SearchEngineId, string> = {
   google: 'https://suggestqueries.google.com/complete/search?client=firefox&q=%s',
   duckduckgo: 'https://duckduckgo.com/ac/?q=%s&type=list',
   bing: 'https://api.bing.com/osjson.aspx?query=%s',
@@ -83,8 +83,8 @@ const clean = (list: unknown[], query: string, limit: number): string[] => {
   return out
 }
 
-/** OpenSearch format: `["query", ["s1", "s2", …]]` (Google, Bing, DuckDuckGo with `type=list`, Brave, Ecosia). */
-function parseOpenSearch(json: unknown, query: string, limit: number): string[] {
+/** OpenSearch format: `["query", ["s1", "s2", …]]` (Google, Bing, DuckDuckGo with `type=list`, Brave, Ecosia, custom engines). */
+export function parseOpenSearch(json: unknown, query: string, limit: number): string[] {
   return Array.isArray(json) && Array.isArray(json[1]) ? clean(json[1], query, limit) : []
 }
 
@@ -100,8 +100,8 @@ function parseDuckDuckGo(json: unknown, query: string, limit: number): string[] 
   return parseOpenSearch(json, query, limit)
 }
 
-/** Suggestions (text only, no duplicates, without the query itself) from a JSON response of engine `id`. Unexpected response: empty list. */
-export function parseSuggestions(id: SearchEngineId, json: unknown, query: string, limit = SUGGESTION_LIMIT): string[] {
+/** Suggestions (text only, no duplicates, without the query itself) from a JSON response of engine `id`. Unexpected response: empty list. Any id but Qwant and DuckDuckGo (including custom engines) is read as OpenSearch. */
+export function parseSuggestions(id: string, json: unknown, query: string, limit = SUGGESTION_LIMIT): string[] {
   try {
     if (id === 'qwant') return parseQwant(json, query, limit)
     if (id === 'duckduckgo') return parseDuckDuckGo(json, query, limit)

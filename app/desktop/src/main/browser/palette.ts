@@ -7,8 +7,18 @@ import type { Browser } from './browser'
 import { boostActions } from '../features/boost/boost'
 import { availableSources } from '../features/importers'
 import { itemTabIds } from '../core/store'
-import { engineName, engineSearchUrl, engineSuggestions, fold, toUrl } from '../core/urls'
-import { parseSuggestions } from '@signet/shared/mobile/search'
+import {
+  engineName,
+  engineSearchUrl,
+  engineSuggestions,
+  fold,
+  keywordHintFor,
+  keywordList,
+  keywordSearch,
+  parseSuggestions,
+  searchUrlAt,
+  toUrl
+} from '../core/urls'
 import { resolveAlias } from '@shared/devhosts'
 import { internalSuggestions } from '../web/internal'
 import { t } from '../app/i18n'
@@ -287,6 +297,15 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
     favicon: state.tabs[id].favicon
   })
 
+  // `keyword query`: only that engine's search row (nothing yet while the query is empty).
+  const kw = keywordSearch(q)
+  if (kw) {
+    if (!kw.query) return []
+    return [
+      { kind: 'search', id: `search:${kw.engine.id}:${kw.query}`, title: t('palette.searchWith', { query: kw.query, engine: kw.engine.name }), url: kw.url }
+    ]
+  }
+
   if (!q) {
     if (mode === 'edit-url') return []
     const space = b.space
@@ -385,6 +404,16 @@ export function paletteQuery(b: Browser, query: string, mode: PaletteMode): Pale
     const known = (r: PaletteResult | undefined) => completable(r && 'url' in r && r.url ? b.history.get(r.url) : undefined)
     list[0] = { ...first, inline: known(first) || (first !== before && known(before)) }
   }
+  // The typed text is exactly a keyword: hint to press Tab, right after the top row (Enter still does what it did).
+  const hint = keywordHintFor(q)
+  const info = hint && keywordList().find((k) => k.id === hint.id)
+  if (info)
+    list.splice(Math.min(1, list.length), 0, {
+      kind: 'keyword',
+      id: `keyword:${info.id}`,
+      title: t('palette.keywordHint', { engine: info.name }),
+      keyword: info
+    })
   return list.slice(0, MAX_RESULTS)
 }
 
@@ -392,13 +421,18 @@ export async function paletteSuggest(query: string): Promise<PaletteResult[]> {
   const q = query.trim()
   if (!q) return []
   try {
-    const { id, url } = engineSuggestions(q)
-    const res = await net.fetch(url)
-    return parseSuggestions(id, await res.json(), q, 4).map((s) => ({
+    const kw = keywordSearch(q)
+    if (kw && !kw.query) return []
+    const engine = kw?.engine
+    const text = kw ? kw.query : q
+    const req = engine ? engineSuggestions(text, engine) : engineSuggestions(text)
+    if (!req) return []
+    const res = await net.fetch(req.url)
+    return parseSuggestions(req.id, await res.json(), text, 4).map((s) => ({
       kind: 'suggestion' as const,
       id: `suggestion:${s}`,
       title: s,
-      url: engineSearchUrl(s)
+      url: engine ? searchUrlAt(engine, s) : engineSearchUrl(s)
     }))
   } catch {
     return []
@@ -421,6 +455,8 @@ export function paletteExecute(b: Browser, result: PaletteResult, mode: PaletteM
       buildActions(b)
         .find((a) => a.id === result.action)
         ?.run()
+      break
+    case 'keyword':
       break
     case 'search':
     case 'suggestion':

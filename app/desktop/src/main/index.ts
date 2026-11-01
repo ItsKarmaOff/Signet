@@ -4,7 +4,7 @@ import { History } from './core/history'
 import { applyAppIcon, warmIconPreviews } from './app/appicon'
 import { buildAppMenu } from './app/menu'
 import { Store } from './core/store'
-import { broadcastLocale, onLocaleChange } from './app/i18n'
+import { broadcastLocale, currentLocale, onLocaleChange } from './app/i18n'
 import { applyTheme } from './app/appearance'
 import { startupLanguage } from './web/languages'
 import { registerInternalScheme } from './web/internal'
@@ -15,7 +15,7 @@ import { LAUNCH_ARG } from './features/webapps'
 import { IS_MAC } from './app/platform'
 import { reducedUserAgent } from './web/identity'
 import { registerIpc } from './ipc'
-import { setSearchEngine } from './core/urls'
+import { setSearchEngine, setSearchEngines, setSearchLocale } from './core/urls'
 import { applySecureDns, applyStartupEngine } from './features/engine'
 
 app.setName('Signet')
@@ -137,12 +137,15 @@ function start(): void {
     }
     applyTheme(browser.store.state.settings)
     setSearchEngine(browser.store.state.settings.searchEngine)
+    setSearchEngines(browser.store.state.settings)
+    setSearchLocale(currentLocale())
     applySecureDns(browser.store.state.settings)
     registerIpc(browser, !app.isPackaged)
     browser.link.start()
     // The menu is built by Browser's first apply() (triggered by openWindow, on the next tick).
     // Language change: menu, window titles, then all UI views.
-    onLocaleChange(() => {
+    onLocaleChange((locale) => {
+      setSearchLocale(locale)
       if (!browser) return
       buildAppMenu(browser)
       browser.settings.retitle()

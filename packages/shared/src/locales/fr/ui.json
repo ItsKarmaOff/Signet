@@ -135,7 +135,9 @@
   "palette": {
     "editUrl": "Modifier l’adresse",
     "splitPlaceholder": "Choisir la page à ouvrir en vue partagée",
-    "splitTag": "Vue partagée"
+    "splitTag": "Vue partagée",
+    "searchSite": "Rechercher sur {{engine}}",
+    "keywordPlaceholder": "Saisissez votre recherche"
   },
   "peek": {
     "openInTab": "Ouvrir en onglet"
@@ -417,6 +419,7 @@
       "appearance": "Apparence",
       "boosts": "Boosts",
       "extensions": "Extensions",
+      "search": "Moteurs de recherche",
       "general": "Général",
       "import": "Import",
       "privacy": "Confidentialité",
@@ -627,6 +630,34 @@
       "confirm": "Désinstaller « {{name}} » ? Son lanceur sera supprimé.",
       "space": "espace {{space}}",
       "noLauncher": "lanceur supprimé"
+    },
+    "search": {
+      "intro": "Saisissez un mot-clé puis appuyez sur Tab ou Espace dans la barre de commande pour chercher directement sur un site, par exemple « yt chats ».",
+      "engines": "Moteurs",
+      "keyword": "Mot-clé",
+      "keywordFor": "Mot-clé de {{name}}",
+      "enabledFor": "Utiliser {{name}}",
+      "default": "Par défaut",
+      "builtin": "Intégré",
+      "preset": "Recherche de site",
+      "custom": "Personnalisé",
+      "add": "Ajouter un moteur de recherche",
+      "edit": "Modifier",
+      "remove": "Supprimer",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "name": "Nom",
+      "namePlaceholder": "Mon moteur",
+      "url": "Adresse de recherche",
+      "urlPlaceholder": "https://exemple.com/search?q=%s",
+      "suggestUrl": "Adresse des suggestions (facultatif)",
+      "suggestPlaceholder": "https://exemple.com/suggest?q=%s",
+      "formHint": "Mettez %s là où va le texte recherché. Les suggestions doivent répondre au format JSON OpenSearch.",
+      "errorName": "Saisissez un nom de 60 caractères au maximum.",
+      "errorKeyword": "Le mot-clé est obligatoire, sans espace, et fait 32 caractères au maximum.",
+      "errorKeywordTaken": "Ce mot-clé est déjà utilisé par un autre moteur.",
+      "errorTemplate": "L’adresse de recherche doit commencer par http:// ou https:// et contenir %s.",
+      "errorSuggest": "L’adresse des suggestions doit commencer par http:// ou https:// et contenir %s."
     },
     "developer": {
       "devMode": "Mode développeur",
