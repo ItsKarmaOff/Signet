@@ -47,6 +47,8 @@ export type OverlayPayload =
       origin: string
       username: string
       update: boolean
+      /** Autofill offer: `username` then holds the summary (address line or masked card). Missing = a password. */
+      kind?: 'address' | 'card'
       card: Rect
       /** Opened from the key button: card under it. */
       anchor?: Rect

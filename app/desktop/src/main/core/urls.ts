@@ -101,6 +101,9 @@ export const gpcPath = join(__dirname, '../preload/gpc.js')
 /** Password page script: on-demand filling and login detection (main frame only). */
 export const passwordsPath = join(__dirname, '../preload/passwords.js')
 
+/** Autofill page script: addresses and payment cards under the field being filled (main frame only). */
+export const autofillPath = join(__dirname, '../preload/autofill.js')
+
 /** Page script that fills `window.chrome` like Chrome (without it, Google refuses sign-in; all frames). */
 export const identityPath = join(__dirname, '../preload/identity.js')
 

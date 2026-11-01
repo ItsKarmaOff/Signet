@@ -1,6 +1,8 @@
 // Backup and restore of the configuration: a `.signetbackup` file (compressed JSON) whose parts can each be ticked.
 // Passwords, optional, are encrypted in it with a backup password (scrypt + AES-256-GCM).
 // Import works on the profile files then restarts the app: nothing in memory can overwrite it.
+// autofill.json (addresses, encrypted cards) is deliberately left out, like the passwords file in a safety copy: card
+// numbers are encrypted by this machine's keychain and must not leave it in a file; an import never touches it.
 import { app, BrowserWindow, dialog, safeStorage, shell, type WebContents } from 'electron'
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scryptSync } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'

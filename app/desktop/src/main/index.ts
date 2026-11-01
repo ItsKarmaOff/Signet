@@ -83,6 +83,7 @@ function flushAll(): void {
   browser?.store.flush()
   browser?.history.flush()
   browser?.passwords.flush()
+  browser?.autofill.flush()
   browser?.notes.flush()
   browser?.mods.flush()
   browser?.webApps.flush()

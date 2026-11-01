@@ -8,7 +8,7 @@ import { applyLanguages, applySpellcheck } from './languages'
 import { webauthnInterceptEnabled } from './webauthn'
 import { attachInternal } from './internal'
 import { attachUiProtocol } from '../browser/uiprotocol'
-import { identityPath, notesPath, passwordsPath, swipePath, webauthnPath } from '../core/urls'
+import { autofillPath, identityPath, notesPath, passwordsPath, swipePath, webauthnPath } from '../core/urls'
 
 let browser: Browser | null = null
 const configured = new WeakSet<Session>()
@@ -137,6 +137,11 @@ export function configureSession(ses: Session): void {
   } catch (e) {
     console.error('Mots de passe : script de page indisponible', e)
   }
+  try {
+    ses.registerPreloadScript({ id: 'signet-autofill', type: 'frame', filePath: autofillPath })
+  } catch (e) {
+    console.error('Autofill: page script unavailable', e)
+  }
   // Notes and Easels: not in private windows (nothing is saved there).
   try {
     ses.registerPreloadScript({ id: 'signet-notes', type: 'frame', filePath: notesPath })
@@ -176,6 +181,11 @@ export function configurePrivateSession(ses: Session): void {
     ses.registerPreloadScript({ id: 'signet-passwords', type: 'frame', filePath: passwordsPath })
   } catch (e) {
     console.error('Mots de passe : script de page indisponible', e)
+  }
+  try {
+    ses.registerPreloadScript({ id: 'signet-autofill', type: 'frame', filePath: autofillPath })
+  } catch (e) {
+    console.error('Autofill: page script unavailable', e)
   }
 }
 

@@ -511,6 +511,13 @@ select option {
 .st-input::placeholder {
   color: var(--text-3);
 }
+/* Autofill: street, several lines. */
+.st-input.st-area {
+  height: auto;
+  min-height: 56px;
+  padding: var(--s2) var(--s3);
+  resize: vertical;
+}
 /* Privacy › Secure DNS: custom server address. */
 .st-dns-custom .st-input {
   flex: 1;

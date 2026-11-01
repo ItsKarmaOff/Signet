@@ -179,6 +179,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     const url = displayUrl(realUrl) // the UI never sees the engine's real address
     b.broadcast.patchTab(tabId, { url, ...navState() })
     b.passwords.onNavigate(tabId, url)
+    b.autofill.onNavigate(tabId, url)
     // A page committed after a navigation the command bar started counts as typed (private windows record nothing).
     const typed = committed && b.tabs.takeTyped(tabId)
     if (!priv && !b.devMode.keepOutOfHistory(url)) b.history.record(url, wc.getTitle(), info().favicon, typed)

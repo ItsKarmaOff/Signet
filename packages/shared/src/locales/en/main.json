@@ -616,6 +616,35 @@
       "noUsername": "No username"
     }
   },
+  "autofill": {
+    "card": "Card",
+    "authCard": "fill your payment card on {{site}}",
+    "authReveal": "show your card number",
+    "authEdit": "change your card number",
+    "menu": {
+      "addressesTitle": "Signet addresses",
+      "cardsTitle": "Signet cards",
+      "manageAddresses": "Manage addresses…",
+      "manageCards": "Manage cards…",
+      "expires": "exp {{date}}"
+    },
+    "error": {
+      "encryption": "Encryption isn’t available on this system, so cards can’t be saved.",
+      "empty": "Fill in at least one field.",
+      "missing": "This item no longer exists.",
+      "number": "Enter a valid card number.",
+      "expiry": "Enter a valid expiry date.",
+      "duplicateCard": "This card is already saved.",
+      "duplicateAddress": "An address with the same name and street is already saved.",
+      "auth": "Authentication failed."
+    },
+    "prompt": {
+      "saveAddressTitle": "Save this address from {{site}}?",
+      "updateAddressTitle": "Update this address from {{site}}?",
+      "saveCardTitle": "Save this card from {{site}}?",
+      "updateCardTitle": "Update this card from {{site}}?"
+    }
+  },
   "pageTools": {
     "savePdfTitle": "Export as PDF",
     "savePageTitle": "Save page",

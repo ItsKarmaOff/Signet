@@ -6,6 +6,7 @@
 export * from '@signet/shared/types'
 
 export * from './api'
+export * from './autofill'
 export * from './data'
 export * from './devtools'
 export * from './extensions'
