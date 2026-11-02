@@ -283,6 +283,8 @@ export const IPC = {
   showExtensionsMenu: invoke('extension:list-menu', []),
   getExtensionActionCounts: invoke('extensions:get-action-counts', []),
   onExtensionActionCounts: event('extensions:action-counts'),
+  onRunExtensionAction: event('extensions:run-action'),
+  ackExtensionAction: invoke('extensions:ack-action', [id]),
   showAppMenu: invoke('app:menu', []),
 
   // Passwords

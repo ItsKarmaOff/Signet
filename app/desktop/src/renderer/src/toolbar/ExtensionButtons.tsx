@@ -273,9 +273,8 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
     else if (press.current?.pointer === e.pointerId) press.current = null
   }
 
-  const activate = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
-    if (skipClick.current) return
-    const r = e.currentTarget.getBoundingClientRect()
+  /** What a click does, for a click, the Extensions menu and a keyboard shortcut: popup (or click event) under `r`. */
+  const launch = (id: string, r: DOMRect) => {
     focusTab()
     // -1: the window's active tab, already updated by focusTab.
     void window.browserAction?.activate(partition, {
@@ -287,25 +286,44 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
     })
   }
 
+  const activate = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    if (skipClick.current) return
+    launch(id, e.currentTarget.getBoundingClientRect())
+  }
+
+  // Keyboard shortcut of an extension (`_execute_action`): under its button, or under the Extensions button when the
+  // extension is not pinned. Without either, main gets no answer and opens the popup on its own.
+  const listButton = useRef<HTMLButtonElement>(null)
+  const shortcut = useRef<(id: string) => DOMRect | null>(() => null)
+  const launcher = useRef(launch)
+  launcher.current = launch
+  shortcut.current = (id) => {
+    const own = box.current?.querySelector(`[data-ext="${id}"]`)
+    return (own ?? listButton.current)?.getBoundingClientRect() ?? null
+  }
+  useEffect(
+    () =>
+      window.signet.onRunExtensionAction((token, id) => {
+        const r = shortcut.current(id)
+        if (!r) return
+        // Several toolbars can be mounted: the first to be acknowledged opens it.
+        void window.signet.ackExtensionAction(token).then((taken) => taken && launcher.current(id, r))
+      }),
+    []
+  )
+
   /** Extensions button: menu of all extensions; the chosen one opens under this button. */
   const openList = async (e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     focusTab()
     const id = await window.signet.showExtensionsMenu()
-    if (!id) return
-    void window.browserAction?.activate(partition, {
-      eventType: 'click',
-      extensionId: id,
-      tabId: -1,
-      alignment: 'bottom left',
-      anchorRect: { x: r.left, y: r.top, width: r.width, height: r.height }
-    })
+    if (id) launch(id, r)
   }
 
   if (!state || state.actions.length === 0) return null
   const tabId = state.activeTabId ?? -1
   const list = (
-    <button className="icon ext-list" title={t('toolbar.extensions')} aria-label={t('toolbar.extensions')} onClick={(e) => void openList(e)}>
+    <button ref={listButton} className="icon ext-list" title={t('toolbar.extensions')} aria-label={t('toolbar.extensions')} onClick={(e) => void openList(e)}>
       <Puzzle size={15} />
     </button>
   )

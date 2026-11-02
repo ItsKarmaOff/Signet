@@ -264,6 +264,10 @@ export interface SignetApi {
   /** Counts of requests blocked per tab and extension (`declarativeNetRequest` action count badge). */
   getExtensionActionCounts(): Promise<ExtensionActionCounts>
   onExtensionActionCounts(cb: (counts: ExtensionActionCounts) => void): () => void
+  /** An extension shortcut asks the toolbar to open an extension's button (token to acknowledge, extension id). */
+  onRunExtensionAction(cb: (token: string, extensionId: string) => void): () => void
+  /** The toolbar takes the request; false if it was already taken or main gave up waiting. */
+  ackExtensionAction(token: string): Promise<boolean>
 
   // Passwords (Settings › Passwords; never a password without `revealPassword`)
   listPasswords(): Promise<PasswordsInfo>

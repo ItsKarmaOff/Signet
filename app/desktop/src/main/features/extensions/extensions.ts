@@ -8,6 +8,9 @@ import { PASSWORD_EXTENSIONS } from '@shared/types'
 import type { ExtensionActionCounts, ExtensionInfo } from '@shared/types'
 import type { Browser } from '../../browser/browser'
 import { ExtensionApis } from './apis'
+import { ActionRelay } from './action-relay'
+import type { CommandBinding } from './apis/commands'
+import { signetAccelKeys } from '@shared/shortcuts'
 import { peekSession } from '../../web/profiles'
 import { isUiContents, t } from '../../app/i18n'
 import { pushUi } from '../../ipc/push'
@@ -144,13 +147,92 @@ export class Extensions {
   private syncing = false
 
   /** APIs Electron lacks (proxy, privacy, alarms…), injected into extension contexts. */
-  private apis = new ExtensionApis()
+  private apis: ExtensionApis
+  /** Opens an extension's popup under its toolbar button when a shortcut asks for it. */
+  private relay = new ActionRelay({ send: (token, id) => this.askToolbar(token, id) })
 
   constructor(private b: Browser) {
+    this.apis = new ExtensionApis({
+      signetKeys: () => signetAccelKeys(this.b.store.state.settings.shortcuts, process.platform === 'darwin'),
+      runAction: (id, target) => this.relay.request(id, () => this.clickAction(id, target as WebContents | undefined)),
+      activeTab: (target) => this.tabDetails(target as WebContents | undefined)
+    })
     this.apis.setPermissionPrompt((caller, wanted) => this.askPermissions(caller.ses, caller.extensionId, wanted))
     this.apis.onActionCounts((counts) => {
       for (const wc of webContents.getAllWebContents()) if (isUiContents(wc)) pushUi(wc, 'extensions:action-counts', counts)
     })
+  }
+
+  // ───────────────────────── Keyboard shortcuts (chrome.commands) ─────────────────────────
+
+  /** Shortcuts of extension commands to register in the application menu. */
+  commandBindings(): CommandBinding[] {
+    return this.apis.commands.bindings()
+  }
+
+  /** Changes when the extension shortcuts do (the menu is rebuilt then). */
+  commandsKey(): string {
+    return this.apis.commands.key()
+  }
+
+  /** A shortcut of an extension was pressed on the tab `tabId` (the window's active tab). */
+  runCommand(extensionId: string, name: string, tabId: string | null): void {
+    const wc = tabId ? this.b.views.viewOf(tabId)?.webContents : undefined
+    this.apis.commands.run(extensionId, name, wc && !wc.isDestroyed() ? wc : undefined)
+  }
+
+  /** The library's internals we reuse (private in its types): its popup/click path and its `tabs.Tab` builder. */
+  private libraryOf(wc: WebContents): {
+    api?: { browserAction?: { activateClick?: (d: unknown) => void }; tabs?: { getTabDetails?: (wc: WebContents) => unknown } }
+  } {
+    return (ElectronChromeExtensions.fromSession(wc.session) ?? {}) as ReturnType<Extensions['libraryOf']>
+  }
+
+  /** The tab in Chrome's `tabs.Tab` shape, as the library builds it for `chrome.tabs`. */
+  private tabDetails(wc: WebContents | undefined): unknown {
+    if (!wc || wc.isDestroyed()) return undefined
+    try {
+      return this.libraryOf(wc).api?.tabs?.getTabDetails?.(wc)
+    } catch {
+      return undefined
+    }
+  }
+
+  /** The toolbar acknowledges a request (see ActionRelay). */
+  ackAction(token: string): boolean {
+    return this.relay.ack(token)
+  }
+
+  /** Asks the interface of the window that owns the active tab to open the button; false if there is none. */
+  private askToolbar(token: string, extensionId: string): boolean {
+    const win = this.b.win
+    const ui = win && !win.isDestroyed() && win.isFocused() ? win.webContents : null
+    if (!ui || ui.isDestroyed() || !isUiContents(ui)) return false
+    pushUi(ui, 'extensions:run-action', token, extensionId)
+    return true
+  }
+
+  /**
+   * What a click on the extension's toolbar button does, without a toolbar to anchor under (the fallback): its popup opens, or `action.onClicked` fires when it has none
+   * (the library decides). The popup opens at the window's top right, like `chrome.action.openPopup`.
+   */
+  private clickAction(extensionId: string, wc: WebContents | undefined): void {
+    if (!wc || wc.isDestroyed()) return
+    const click = this.libraryOf(wc).api?.browserAction
+    if (!click?.activateClick) return
+    const win = BrowserWindow.fromWebContents(wc) ?? this.b.win
+    const [width] = win && !win.isDestroyed() ? win.getContentSize() : [1000]
+    try {
+      click.activateClick({
+        eventType: 'click',
+        extensionId,
+        tabId: wc.id,
+        alignment: 'bottom left',
+        anchorRect: { x: Math.max(0, width - 48), y: 8, width: 32, height: 32 }
+      })
+    } catch (e) {
+      console.error('Extensions :', e)
+    }
   }
 
   /** Blocked-request counts per tab and extension (action count badge). */
@@ -376,6 +458,7 @@ export class Extensions {
 
   /** Installed extensions, for Settings. */
   list(): ExtensionInfo[] {
+    const commands = this.apis.commands.listAll()
     const loaded = session.defaultSession.extensions.getAllExtensions().map((ext): ExtensionInfo => {
       const manifest = ext.manifest as chrome.runtime.Manifest
       const path = this.b.unpacked.pathOf(ext.id)
@@ -385,6 +468,7 @@ export class Extensions {
         version: ext.version,
         icon: iconOf(ext),
         hasAction: !!(manifest.action || manifest.browser_action),
+        ...(commands.get(ext.id) && { commands: commands.get(ext.id) }),
         ...(path && { unpacked: this.b.unpacked.stateOf(path) })
       }
     })

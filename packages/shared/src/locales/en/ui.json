@@ -431,6 +431,10 @@
       "system": "System"
     },
     "shortcuts": {
+      "extensions": "Extensions",
+      "extensionsHint": "Shortcuts declared by your extensions. They can't be changed here, and Signet's own shortcuts win when they clash.",
+      "activateExtension": "Activate the extension",
+      "notSet": "Not set",
       "group": {
         "navigation": "Navigation",
         "search": "Search",
