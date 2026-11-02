@@ -108,6 +108,7 @@ export function configureSession(ses: Session): void {
   applySpellcheck(ses, browser.store.state.settings.spellcheck !== false)
   browser.permissions.attach(ses)
   browser.adblock.attach(ses)
+  browser.httpsOnly.attach(ses)
   browser.downloads.attach(ses)
   browser.devMode.watchSession(ses)
   browser.extensions.attach(ses)
@@ -149,6 +150,7 @@ export function configurePrivateSession(ses: Session): void {
   applySpellcheck(ses, browser.store.state.settings.spellcheck !== false)
   browser.permissions.attach(ses, { ephemeral: true })
   browser.adblock.attach(ses)
+  browser.httpsOnly.attach(ses)
   browser.downloads.attach(ses, { private: true })
   attachInternal(ses, browser)
   attachUiProtocol(ses)
@@ -170,6 +172,7 @@ export function configurePrivateSession(ses: Session): void {
 export function releasePrivateSession(ses: Session): void {
   privateSessions.delete(ses)
   browser?.adblock.detach(ses)
+  browser?.httpsOnly.detach(ses)
   void ses
     .clearStorageData()
     .then(() => ses.clearCache())

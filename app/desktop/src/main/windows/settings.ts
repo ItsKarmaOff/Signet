@@ -189,10 +189,11 @@ export class SettingsWindow {
     if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.sleep.discardHidden()
     // Default zoom: open pages follow now (except the sites the user zoomed).
     if (settings.defaultZoom !== zoom) this.b.pageZoom.applyAll()
-    // HTTPS-only mode applies from the next navigation.
+    // HTTPS-only mode applies from the next request: the upgrade is registered on (or released from) every session.
     if (typeof patch.httpsOnly === 'boolean') {
       if (patch.httpsOnly) settings.httpsOnly = true
       else delete settings.httpsOnly
+      this.b.httpsOnly.sync()
     }
     if (typeof patch.peekExternalLinks === 'boolean') settings.peekExternalLinks = patch.peekExternalLinks
     if (typeof patch.autoPip === 'boolean') settings.autoPip = patch.autoPip

@@ -28,7 +28,7 @@ export interface TabActionsDeps {
   store: Store
   model: Model
   views: Pick<Views, 'viewOf' | 'tabIdOfContents' | 'dropSession' | 'saveHistory'>
-  httpsOnly: Pick<HttpsOnly, 'resolve' | 'noteTyped' | 'forget'>
+  httpsOnly: Pick<HttpsOnly, 'noteTyped' | 'forget'>
   pageZoom: Pick<PageZoom, 'userZoomed' | 'reset'>
   changed: Changed
   undo: Pick<Undo, 'announce'>
@@ -192,9 +192,9 @@ export class TabActions {
     this.d.httpsOnly.forget(tabId)
     if (!tab || isUiAddress(url) || this.d.openShortcut(url)) return
     const wc = this.d.views.viewOf(tabId)?.webContents
-    // HTTPS-only mode: an http address opens over https (a tab without a view upgrades when its view is created).
-    const target = wc ? this.d.httpsOnly.resolve(tabId, wc.session, resolveInternal(url)) : resolveInternal(url)
-    tab.url = target === resolveInternal(url) ? url : target
+    // HTTPS-only mode upgrades an http address when the request leaves (see HttpsOnly.sync).
+    const target = resolveInternal(url)
+    tab.url = url
     if (typed) this.typedNav.mark(tabId, target)
     wc?.loadURL(target).catch(() => {})
     this.d.changed()

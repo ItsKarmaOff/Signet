@@ -147,7 +147,7 @@ export class Browser {
   ) {
     this.adblock = new Adblock(store)
     this.permissions = new Permissions(store)
-    this.httpsOnly = new HttpsOnly({ store })
+    this.httpsOnly = new HttpsOnly({ store, tabOf: (id) => this.views.tabIdOfContents(id) })
     // The parts use one another: these two shortcuts only read `this.broadcast` when called.
     const changed: Changed = (opts) => this.broadcast.changed(opts)
     const apply = () => this.broadcast.apply()
@@ -169,7 +169,6 @@ export class Browser {
       store,
       window: this,
       create: (tabId, ses) => createTabView(this, tabId, ses),
-      upgradeUrl: (tabId, ses, url) => this.httpsOnly.resolve(tabId, ses, url),
       extensions: this.extensions,
       changed: () => changed()
     })

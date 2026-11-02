@@ -16,7 +16,6 @@ export interface ViewsDeps {
   create: (tabId: string, ses: Session) => WebContentsView
   extensions: Pick<Extensions, 'track' | 'whenReady'>
   /** HTTPS-only mode: the address to load for a tab (`url` itself when it stays as is). */
-  upgradeUrl: (tabId: string, ses: Session, url: string) => string
   /** State broadcast (called when a tab is forgotten). */
   changed: () => void
 }
@@ -101,12 +100,9 @@ export class Views {
   private loadTab(tabId: string, wc: WebContents, tabUrl: string, history?: TabHistory): void {
     // Address saved as signetui: (never legitimate: notes are written as signet://note/…): nothing is loaded.
     const url = tabUrl && !isUiAddress(tabUrl) ? resolveInternal(tabUrl) : ''
-    // HTTPS-only: an http address is opened over https (without restoring its history, which holds the http entry).
-    const target = url ? this.d.upgradeUrl(tabId, wc.session, url) : url
     const plain = () => {
-      if (target && !wc.isDestroyed()) wc.loadURL(target).catch(() => {})
+      if (url && !wc.isDestroyed()) wc.loadURL(url).catch(() => {})
     }
-    if (target !== url) return plain()
     if (!history || history.entries[history.index]?.url !== url) return plain()
     try {
       wc.navigationHistory.restore({ entries: history.entries.map((e) => ({ ...e })), index: history.index }).catch(plain)
