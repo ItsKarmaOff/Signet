@@ -7,6 +7,7 @@ import { Popover } from './Popover'
 import { SitePanel } from '../windows/SitePanel'
 import { PasswordList, PasswordPrompt } from './PasswordPrompt'
 import { Capture } from './Capture'
+import { ZoomBubble } from './ZoomBubble'
 import { WebAppInstall } from '../windows/WebAppInstall'
 import { EXIT_MS } from '../lib/useExit'
 
@@ -60,7 +61,16 @@ export function Overlay() {
         return setPayload(null)
       }
       // Drop zones go right away; the main process keeps the view in place for EXIT_MS for the others.
-      if (mode !== 'palette' && mode !== 'site' && mode !== 'popover' && mode !== 'password' && mode !== 'passwords' && mode !== 'webapp' && mode !== 'peek')
+      if (
+        mode !== 'palette' &&
+        mode !== 'site' &&
+        mode !== 'popover' &&
+        mode !== 'password' &&
+        mode !== 'passwords' &&
+        mode !== 'webapp' &&
+        mode !== 'zoom' &&
+        mode !== 'peek'
+      )
         return setPayload(null)
       setClosing(true)
       exitRef.current = setTimeout(() => {
@@ -92,7 +102,9 @@ export function Overlay() {
   return (
     // A click during the exit (Escape or action) targets the page behind: remove the view right away.
     <div className={`ov${closing ? ' closing' : ''}`} onMouseDownCapture={closing ? () => void window.signet.closeOverlay(true) : undefined}>
-      {payload.mode === 'popover' ? (
+      {payload.mode === 'zoom' ? (
+        <ZoomBubble payload={payload} />
+      ) : payload.mode === 'popover' ? (
         <Popover key={gen} payload={payload} />
       ) : payload.mode === 'site' ? (
         <SitePanel key={gen} payload={payload} />

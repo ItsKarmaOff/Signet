@@ -30,6 +30,8 @@ export interface TabActionsDeps {
   views: Pick<Views, 'viewOf' | 'tabIdOfContents' | 'dropSession' | 'saveHistory'>
   httpsOnly: Pick<HttpsOnly, 'noteTyped' | 'forget'>
   pageZoom: Pick<PageZoom, 'userZoomed' | 'reset'>
+  /** Shows the zoom bubble of the tab (a zoom command ran). */
+  showZoom: (tabId: string) => void
   changed: Changed
   undo: Pick<Undo, 'announce'>
   overlay: Pick<Overlay, 'close'>
@@ -305,8 +307,11 @@ export class TabActions {
   zoom(tabId: string | null, delta: number): void {
     const wc = tabId ? this.d.views.viewOf(tabId)?.webContents : undefined
     if (!wc) return
-    if (delta === 0) return this.d.pageZoom.reset(wc)
-    wc.setZoomLevel(wc.getZoomLevel() + delta)
-    this.d.pageZoom.userZoomed(wc) // this site keeps its zoom on top of the default
+    if (delta === 0) this.d.pageZoom.reset(wc)
+    else {
+      wc.setZoomLevel(wc.getZoomLevel() + delta)
+      this.d.pageZoom.userZoomed(wc) // this site keeps its zoom on top of the default
+    }
+    if (tabId) this.d.showZoom(tabId)
   }
 }

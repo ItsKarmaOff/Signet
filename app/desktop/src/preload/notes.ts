@@ -9,7 +9,7 @@ const route = /^#(note|easel)\/[0-9a-f-]{36}$/i.test(location.hash)
 const app =
   location.protocol === 'signetui:'
     ? location.host === 'app' && location.pathname === '/index.html'
-    : /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.origin) // dev server (the main process checks the exact address)
+    : /^http:\/\/(signet-ui\.localhost|localhost|127\.0\.0\.1)(:\d+)?$/.test(location.origin) // dev server (main/core/dev-url.ts; the main process checks the exact address)
 
 if (process.isMainFrame && route && app) {
   const subscribe =

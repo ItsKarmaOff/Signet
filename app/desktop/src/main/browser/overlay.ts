@@ -8,7 +8,8 @@ import type { Passwords } from '../features/passwords/passwords'
 import type { Compact } from './compact'
 import type { Floating } from './floating'
 import type { Changed } from './broadcast'
-import type { Layout, LayoutContext, OverlayLayer } from './layout'
+import { PANE_BAR, type Layout, type LayoutContext, type OverlayLayer } from './layout'
+import { defaultZoomPercent } from '@shared/pagesettings'
 
 /** Duration of the overlay surfaces' fade-out (= --t-fast on the CSS side and in Overlay.tsx). */
 export const OVERLAY_EXIT_MS = 120
@@ -32,6 +33,7 @@ export type OverlayState =
   | { kind: 'password' }
   | { kind: 'capture' }
   | { kind: 'webapp' }
+  | { kind: 'zoom' }
   | null
 
 export type OverlayKind = NonNullable<OverlayState>['kind']
@@ -56,10 +58,21 @@ export interface OverlayDeps {
   changed: Changed
 }
 
-/** Password prompt without focus: tab whose card bounds the overlay, and last rectangle set (kept during the exit). */
+/** Zoom bubble: 248 px wide, 52 px high, in a view with a margin for the shadow. */
+const ZOOM_W = 248 + PW_MARGIN * 2
+const ZOOM_H = 52 + PW_MARGIN * 2
+
+/** Overlay that covers only part of a card (password prompt, zoom bubble): tab whose card bounds it, and last rectangle set (kept during the exit). */
 interface CompactBounds {
   tabId: string
   rect: Rect
+  kind: 'password' | 'zoom'
+}
+
+/** Overlay rectangle for the zoom bubble: top-right corner of the card, under the panel bar unless there is none (compact mode). */
+export function zoomBounds(card: Rect, W: number, compact: boolean): Rect {
+  const x = Math.max(0, Math.min(card.x + card.width - 248 - 12 - PW_MARGIN, W - ZOOM_W))
+  return { x, y: Math.max(0, card.y + (compact ? 8 : PANE_BAR + 4) - PW_MARGIN), width: ZOOM_W, height: ZOOM_H }
 }
 
 /** Overlay rectangle for the password prompt: top-right corner of the card, shadow margin included. */
@@ -177,7 +190,8 @@ export class Overlay implements OverlayLayer {
     // Unsolicited password prompt: only the card, so the page keeps clicks and focus.
     const compact = this.compactBounds
     const pane = compact ? panes.find((p) => p.tabId === compact.tabId) : undefined
-    if (compact && pane) compact.rect = passwordBounds(pane.card, W)
+    if (compact && pane)
+      compact.rect = compact.kind === 'zoom' ? zoomBounds(pane.card, W, this.d.store.state.settings.compactMode === true) : passwordBounds(pane.card, W)
     this.view.setBounds(this.state?.kind === 'dropzones' ? this.d.layout.dropArea() : (compact?.rect ?? { x: 0, y: 0, width: W, height: H }))
     desired.push(this.view)
   }
@@ -211,7 +225,9 @@ export class Overlay implements OverlayLayer {
     // Palette, site panel and popovers fade out (~--t-fast) before the view is removed; Peek and drop zones go right away.
     // `instant` (click outside the panel): the user is already acting elsewhere, the full-window view must not swallow their next click.
     const kind = this.state?.kind
-    const animate = !instant && (kind === 'palette' || kind === 'site' || kind === 'popover' || kind === 'password' || kind === 'webapp' || kind === 'peek')
+    const animate =
+      !instant &&
+      (kind === 'palette' || kind === 'site' || kind === 'popover' || kind === 'password' || kind === 'webapp' || kind === 'zoom' || kind === 'peek')
     this.cancelExit()
     if (animate) {
       this.leaving = true
@@ -311,7 +327,7 @@ export class Overlay implements OverlayLayer {
     else {
       // Unsolicited prompt (after a login): no stolen focus, no blocked page. The overlay only covers the card,
       // and it tucks itself away after a while; the address bar's key button reopens it by keyboard.
-      this.compactBounds = { tabId, rect: passwordBounds(pane.card, win.getContentBounds().width) }
+      this.compactBounds = { tabId, rect: passwordBounds(pane.card, win.getContentBounds().width), kind: 'password' }
       if (this.passwordTimer) clearTimeout(this.passwordTimer)
       this.passwordTimer = setTimeout(() => {
         this.passwordTimer = null
@@ -330,6 +346,28 @@ export class Overlay implements OverlayLayer {
     this.state = { kind: 'password' }
     this.send({ mode: 'passwords', ...payload })
     this.d.layout.requestFocus()
+    this.d.apply()
+    return true
+  }
+
+  /**
+   * Zoom bubble at the top right of the tab's card, over the page without taking focus or blocking it. Shown again
+   * (new percent) while it is open; does not interrupt another overlay.
+   */
+  openZoom(tabId: string): boolean {
+    const win = this.d.window.win
+    const { state } = this.d.store
+    const percent = state.tabs[tabId]?.zoom
+    if (!win || !this.view || percent === undefined) return false
+    if (this.state && this.state.kind !== 'zoom') return false
+    const pane = this.d.layout.panes.find((p) => p.tabId === tabId)
+    if (!pane) return false
+    const compact = state.settings.compactMode === true
+    this.d.floating.hide()
+    this.state = { kind: 'zoom' }
+    this.send({ mode: 'zoom', tabId, percent, defaultPercent: defaultZoomPercent(state.settings.defaultZoom), card: pane.card, compact })
+    // `send` clears the bounds: set them after.
+    this.compactBounds = { tabId, rect: zoomBounds(pane.card, win.getContentBounds().width, compact), kind: 'zoom' }
     this.d.apply()
     return true
   }

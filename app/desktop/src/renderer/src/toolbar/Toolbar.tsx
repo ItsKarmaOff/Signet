@@ -17,7 +17,9 @@ import {
   Rocket,
   Smartphone,
   Star,
-  X
+  X,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react'
 import { memo } from 'react'
 import type { MouseEvent } from 'react'
@@ -30,6 +32,7 @@ import { shortcutLabel } from '@shared/shortcuts'
 import { aliasFor, isLocalDevUrl } from '@shared/devhosts'
 import { deviceSpec } from '@shared/devices'
 import { useLinkState } from '../lib/useLinkState'
+import { formatZoomPercent, zoomIndicator } from '@shared/pagesettings'
 
 const norm = (u: string) => u.replace(/\/$/, '')
 const EMPTY: Bookmark[] = []
@@ -84,6 +87,7 @@ function deps(s: Snapshot, tabId?: string): unknown[] {
     s.settings.shortcuts,
     s.settings.devMode,
     s.settings.devAliases,
+    s.settings.defaultZoom,
     s.sidebarVisible,
     s.settings.sidebarSide,
     space.bookmarks
@@ -147,6 +151,8 @@ export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, sideba
           })
       ].filter((x): x is string => !!x)
     : []
+  const zoomKind = zoomIndicator(tab?.zoom, s.settings.defaultZoom)
+  const zoomLabel = tab?.zoom !== undefined ? t('zoom.label', { value: formatZoomPercent(tab.zoom, i18n.language) }) : ''
   const bookmarkable = /^(https?|file|signet):/i.test(url)
   const bookmarked = bookmarkable && urlsOf(space.bookmarks ?? EMPTY).has(norm(url))
   // Extensions of an isolated space live in its partition; favorites and shared spaces, in the default session.
@@ -298,6 +304,19 @@ export const Toolbar = memo(function Toolbar({ s, tabId, leading = false, sideba
           </button>
         )}
       </div>
+      {!narrow && zoomKind && id && (
+        <button
+          className="icon zoom-btn"
+          title={zoomLabel}
+          aria-label={zoomLabel}
+          onClick={() => {
+            focusTab()
+            void signet.openZoom(id)
+          }}
+        >
+          {zoomKind === 'in' ? <ZoomIn size={16} /> : <ZoomOut size={16} />}
+        </button>
+      )}
       {!narrow && (
         <ExtensionButtons
           partition={partition}

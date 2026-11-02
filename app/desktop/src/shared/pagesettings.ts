@@ -114,3 +114,30 @@ export function defaultZoomFactor(opts: { defaultPercent: unknown; url: string; 
   const target = opts.defaultPercent / 100
   return Math.abs(opts.currentFactor - target) < 0.005 ? null : target
 }
+
+/** Page zoom in percent for a zoom factor (110 for the 0.5 level step, as in Chrome). */
+export const zoomPercentOf = (factor: number): number => Math.round(factor * 100)
+
+/** Zoom percent to report for a page: null when it does not follow page zoom (internal page, PDF). */
+export function reportedZoom(url: string, factor: number): number | null {
+  return zoomHost(url) ? zoomPercentOf(factor) : null
+}
+
+/** The default zoom in percent (100 without a valid choice). */
+export const defaultZoomPercent = (setting: unknown): number => (isZoomPercent(setting) ? setting : DEFAULT_ZOOM)
+
+/** Toolbar zoom indicator: shown when the page zoom differs from the default; `in` when above it, `out` when below. */
+export function zoomIndicator(percent: number | undefined, defaultPercent: unknown): 'in' | 'out' | null {
+  if (percent === undefined) return null
+  const def = defaultZoomPercent(defaultPercent)
+  return percent === def ? null : percent > def ? 'in' : 'out'
+}
+
+/** "110%" in English, "110 %" (narrow no-break space) in French. */
+export function formatZoomPercent(percent: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(percent / 100)
+  } catch {
+    return `${percent}%`
+  }
+}

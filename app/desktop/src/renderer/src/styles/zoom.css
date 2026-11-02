@@ -1,0 +1,37 @@
+/* Zoom bubble (overlay) and the toolbar's zoom icon. */
+.site-panel.zoom-bubble {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--s2);
+  height: 52px;
+  padding: 0 var(--s3);
+  /* A small bubble: the panels' large shadow would spread far past it. */
+  box-shadow:
+    0 2px 8px rgb(0 0 0 / 0.14),
+    var(--edge-light),
+    0 0 0 0.5px var(--border);
+}
+.zoom-bubble .zoom-value {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: var(--fs-body, 13px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.zoom-bubble .site-btn-s {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.zoom-bubble .zoom-step {
+  width: 28px;
+  padding: 0;
+}
+.zoom-bubble .site-btn-s:disabled {
+  opacity: 0.45;
+}
+.toolbar button.icon.zoom-btn {
+  color: var(--accent);
+}

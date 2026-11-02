@@ -112,6 +112,8 @@ export const IPC = {
   toggleMute: invoke('tab:toggle-mute', [id]),
   resetPinned: invoke('tab:reset-pinned', [id]),
   toggleReader: invoke('tab:reader', [id]),
+  zoomPage: invoke('tab:zoom', [id, num()]),
+  openZoom: invoke('tab:zoom-open', [id]),
   toggleTranslation: invoke('tab:translate', [id]),
   // A malformed capture returns `{ ok: false }` (see ipc/tabs.ts), as before.
   takeCapture: invoke('capture:take', [id, captureTarget, lit('copy', 'save', 'easel')]),
