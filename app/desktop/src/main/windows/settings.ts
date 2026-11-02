@@ -185,9 +185,10 @@ export class SettingsWindow {
     applyCleaned(settings, cleanSettings(patch, settings))
     // The search engine (value already validated by `cleanSettings`) is used right away for the next inputs.
     setSearchEngine(settings.searchEngine)
-    // Font sizes only reach new views: hidden tabs go to sleep and come back with them; displayed ones keep theirs until reopened.
-    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.sleep.discardHidden()
-    // Default zoom: open pages follow now (except the sites the user zoomed).
+    // Font sizes only apply to new views: every live view is stale. The displayed ones are replaced by the layout that
+    // follows (they reload), the others the next time they are shown, like a wake from sleep.
+    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.views.markStale()
+    // Default zoom: open pages follow now (except the sites the user zoomed). New views start at it (`pagePreferences`).
     if (settings.defaultZoom !== zoom) this.b.pageZoom.applyAll()
     // HTTPS-only mode applies from the next request: the upgrade is registered on (or released from) every session.
     if (typeof patch.httpsOnly === 'boolean') {

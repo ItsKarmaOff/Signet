@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   cleanSiteZoom,
+  cleanSiteZoomBySpace,
+  pagePreferences,
   defaultZoomFactor,
   rememberSiteZoom,
   SITE_ZOOM_MAX,
@@ -97,5 +99,32 @@ describe('site zoom memory', () => {
     for (let i = 0; i < SITE_ZOOM_MAX; i++) rememberSiteZoom(map, `x${i}.com`, 1)
     expect(Object.keys(map)).toHaveLength(SITE_ZOOM_MAX)
     expect(map['a.com']).toBeUndefined()
+  })
+})
+
+describe('pagePreferences', () => {
+  it('gives the fonts and the default zoom as the first zoom of a new page', () => {
+    expect(pagePreferences({ fontSize: 20, minimumFontSize: 10, defaultZoom: 125 })).toEqual({
+      defaultFontSize: 20,
+      defaultMonospaceFontSize: 16,
+      minimumFontSize: 10,
+      zoomFactor: 1.25
+    })
+  })
+  it('leaves the zoom out when no valid default is chosen', () => {
+    expect('zoomFactor' in pagePreferences({})).toBe(false)
+    expect('zoomFactor' in pagePreferences({ defaultZoom: 123 })).toBe(false)
+    expect(pagePreferences({ defaultZoom: 100 }).zoomFactor).toBe(1)
+  })
+})
+
+describe('cleanSiteZoomBySpace', () => {
+  it('keeps valid maps per space, cleans them and drops empty ones', () => {
+    expect(cleanSiteZoomBySpace({ s1: { 'a.com': 2, 'b.com': 'x' }, s2: {}, s3: { 'c.com': 99 }, s4: 'no' })).toEqual({ s1: { 'a.com': 2 } })
+  })
+  it('ignores anything that is not an object', () => {
+    expect(cleanSiteZoomBySpace(null)).toEqual({})
+    expect(cleanSiteZoomBySpace([])).toEqual({})
+    expect(cleanSiteZoomBySpace('x')).toEqual({})
   })
 })

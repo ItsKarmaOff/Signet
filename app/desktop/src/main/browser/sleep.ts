@@ -94,17 +94,6 @@ export class TabSleep {
     return view
   }
 
-  /**
-   * Puts every hidden tab that can sleep to sleep now, whatever the delay: they come back, with their history, as new views
-   * (a font size change only reaches views created afterwards). Displayed, busy and other windows' tabs are left alone.
-   */
-  discardHidden(): void {
-    for (const id of [...this.d.views.ids()]) {
-      const view = this.sleepable(id)
-      if (view) this.discard(id, view)
-    }
-  }
-
   /** Closes the page while honoring `beforeunload`: a page that refuses (unsaved draft) stays loaded. */
   private discard(tabId: string, view: WebContentsView): void {
     const { views } = this.d

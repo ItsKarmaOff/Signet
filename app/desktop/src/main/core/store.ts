@@ -9,7 +9,7 @@ import { ARCHIVE_MAX } from '../model/types'
 import { AtomicWriter, writeFileSyncDurable } from './atomic'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
 import { cleanOverrides } from '@shared/shortcuts'
-import { cleanSiteZoom, isFontSize, isMinFontSize, isZoomPercent, type SiteZoom } from '@shared/pagesettings'
+import { cleanSiteZoom, cleanSiteZoomBySpace, isFontSize, isMinFontSize, isZoomPercent, type SiteZoom, type SiteZoomBySpace } from '@shared/pagesettings'
 import { pruneBookmarks } from '../features/bookmarks'
 import { defaultLanguages, normalizeLanguages, takeStartupState } from '../web/languages'
 import { initLocale, t } from '../app/i18n'
@@ -113,6 +113,8 @@ export interface State {
   pipBounds: Rectangle | null
   /** Zoom level the user chose per site host (regular windows only; not part of backups). Bounded, see `rememberSiteZoom`. */
   siteZoom: SiteZoom
+  /** Same for each isolated space (key: space id); dropped with the space. */
+  siteZoomBySpace: SiteZoomBySpace
 }
 
 export const SIDEBAR_MIN = 180
@@ -158,7 +160,8 @@ function initialState(): State {
     sitePermissions: {},
     bounds: null,
     pipBounds: null,
-    siteZoom: {}
+    siteZoom: {},
+    siteZoomBySpace: {}
   }
 }
 
@@ -262,6 +265,7 @@ function sanitize(raw: Partial<State>): State {
   if (!APP_ICONS.some((i) => i.id === state.settings.appIcon)) state.settings.appIcon = 'aurore'
   if (!Array.isArray(state.settings.routes)) state.settings.routes = []
   state.siteZoom = cleanSiteZoom(raw.siteZoom)
+  state.siteZoomBySpace = cleanSiteZoomBySpace(raw.siteZoomBySpace)
   const pb = state.pipBounds as Partial<Rectangle> | null
   if (!pb || ![pb.x, pb.y, pb.width, pb.height].every((n) => Number.isFinite(n))) state.pipBounds = null
   // Migration: without saved languages, follow the system ones.

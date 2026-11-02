@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { newId } from '@signet/shared/ids'
 import { Adblock } from '../web/adblock'
 import { Permissions } from '../web/permissions'
-import { initProfiles } from '../web/profiles'
+import { initProfiles, isolatedSpaceOf } from '../web/profiles'
 import { Boosts } from '../features/boost/boost'
 import { Compact } from './compact'
 import { Downloads } from '../web/downloads'
@@ -173,9 +173,19 @@ export class Browser {
       window: this,
       create: (tabId, ses) => createTabView(this, tabId, ses),
       extensions: this.extensions,
-      changed: () => changed()
+      changed: () => changed(),
+      isPrivate: (tabId) => this.privates.owns(tabId),
+      keep: (tabId) => this.pip.owns(tabId) || this.devtools.isOpen(tabId)
     })
-    this.pageZoom = new PageZoom({ store, views: this.views, persistent: (ses) => !this.privates.hasSession(ses) })
+    this.pageZoom = new PageZoom({
+      store,
+      views: this.views,
+      scope: (ses) => {
+        if (this.privates.hasSession(ses)) return { kind: 'private' }
+        const id = isolatedSpaceOf(ses)
+        return id ? { kind: 'space', id } : { kind: 'shared' }
+      }
+    })
     // Intended order: the mini player renders the page before sleep forgets the tab.
     this.views.onGone((tabId) => this.pip.onGone(tabId))
     this.sleep = new TabSleep({

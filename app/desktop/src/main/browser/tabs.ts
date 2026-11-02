@@ -8,7 +8,7 @@ import { crashDocument, ERROR_CSS, injectionScript, insecureSiteScript, insecure
 import { t } from '../app/i18n'
 import { buildMenu, menuIcon } from '../app/menuicons'
 import { tabContents } from '../web/guard'
-import { fontPreferences } from '@shared/pagesettings'
+import { pagePreferences } from '@shared/pagesettings'
 import { CONTINUE_TITLE } from './https-only'
 
 /**
@@ -56,14 +56,14 @@ export function reloadContents(wc: Electron.WebContents, force = false): void {
 /** Creates a tab's web view and relays its events to its `TabInfo`. */
 export function createTabView(b: Browser, tabId: string, ses?: Session): WebContentsView {
   const view = new WebContentsView({
-    // Font sizes (Settings › Appearance) can only be given at creation: they reach the pages of views created from now on.
+    // Font sizes and default zoom (Settings › Appearance) can only be given at creation: a font change replaces the stale views (see Views.markStale).
     // nodeIntegrationInSubFrames does not enable Node: it makes the session's frame preloads run in iframes too.
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: true,
-      ...fontPreferences(b.store.state.settings),
+      ...pagePreferences(b.store.state.settings),
       ...(ses && { session: ses })
     }
   })
