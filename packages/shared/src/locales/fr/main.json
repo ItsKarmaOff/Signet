@@ -116,6 +116,12 @@
         "pageCapture": "Enregistrer des pages en fichiers",
         "browsingData": "Effacer vos données de navigation"
       },
+      "request": {
+        "message": "« {{name}} » demande des accès supplémentaires",
+        "detail": "Cette extension souhaite pouvoir :\n{{permissions}}",
+        "allow": "Autoriser",
+        "deny": "Refuser"
+      },
       "add": "Ajouter"
     },
     "removeExtension": {

@@ -116,6 +116,12 @@
         "pageCapture": "Save pages as files",
         "browsingData": "Clear your browsing data"
       },
+      "request": {
+        "message": "“{{name}}” is asking for more access",
+        "detail": "This extension wants to be able to:\n{{permissions}}",
+        "allow": "Allow",
+        "deny": "Deny"
+      },
       "add": "Add"
     },
     "removeExtension": {

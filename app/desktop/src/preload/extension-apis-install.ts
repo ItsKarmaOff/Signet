@@ -202,6 +202,15 @@ export function installApis(plan: Plan): Omit<InstallReport, 'context'> {
       clearAll: method('alarms.clearAll'),
       onAlarm: event(plan.alarmEvent)
     },
+    // Real implementation in main (permissions.ts): grants are stored and applied there, the library's in-memory one is replaced.
+    permissions: {
+      request: method('permissions.request'),
+      contains: method('permissions.contains'),
+      getAll: method('permissions.getAll'),
+      remove: method('permissions.remove'),
+      onAdded: event('permissions.onAdded'),
+      onRemoved: event('permissions.onRemoved')
+    },
     // Real implementation in main (offscreen.ts): one hidden document per extension.
     offscreen: {
       Reason: Object.fromEntries(plan.offscreenReasons.map((r) => [r, r])),
@@ -288,7 +297,8 @@ export function installApis(plan: Plan): Omit<InstallReport, 'context'> {
   }
   for (const [name, api] of Object.entries(apis)) {
     const needs: readonly string[] = plan.namespacePermissions[name] ?? [name]
-    if (granted && !needs.some((p) => granted!.includes(p))) continue
+    // chrome.permissions needs no permission itself.
+    if (name !== 'permissions' && granted && !needs.some((p) => granted!.includes(p))) continue
     assign(target, { [name]: api }, '')
     installed.push(name)
   }
