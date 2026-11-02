@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import type { ElectronBlocker } from '@ghostery/adblocker-electron'
 import type { Store } from '../core/store'
+import { NetworkOrder, networkHub } from './network'
 
 const MAX_AGE = 7 * 24 * 3_600_000
 /** Global `ipcMain` channels that the library (re)declares on each activation in a session. */
@@ -42,6 +43,25 @@ function scopedInjection(blocker: ElectronBlocker): (event: IpcMainInvokeEvent, 
   }
 }
 
+/**
+ * What the library sees instead of the real session: same preload API, but `webRequest` is the ad blocker's slot in the
+ * network hub (Electron keeps one listener per event, the hub shares it). One object per session: the library
+ * remembers the sessions it enabled by identity.
+ */
+const facades = new WeakMap<Session, Session>()
+function facade(ses: Session): Session {
+  let f = facades.get(ses)
+  if (!f) {
+    f = {
+      registerPreloadScript: (o: Electron.PreloadScriptRegistration) => ses.registerPreloadScript(o),
+      unregisterPreloadScript: (id: string) => ses.unregisterPreloadScript(id),
+      webRequest: networkHub(ses).consumer('adblock', NetworkOrder.adblock)
+    } as unknown as Session
+    facades.set(ses, f)
+  }
+  return f
+}
+
 /** Ad and tracker blocker (Ghostery), enabled on each configured session (see profiles.ts). */
 export class Adblock {
   private loading: Promise<ElectronBlocker> | null = null
@@ -63,7 +83,7 @@ export class Adblock {
   detach(ses: Session): void {
     if (!this.sessions.delete(ses)) return
     try {
-      if (this.enabled?.isBlockingEnabled(ses)) this.enabled.disableBlockingInSession(ses)
+      if (this.enabled?.isBlockingEnabled(facade(ses))) this.enabled.disableBlockingInSession(facade(ses))
     } catch {
       // session already released
     }
@@ -78,11 +98,11 @@ export class Adblock {
     const blocker = this.enabled
     if (!blocker) return
     try {
-      const rest = [...this.sessions].find((s) => blocker.isBlockingEnabled(s))
+      const rest = [...this.sessions].find((s) => blocker.isBlockingEnabled(facade(s)))
       if (!rest) return
-      blocker.disableBlockingInSession(rest)
+      blocker.disableBlockingInSession(facade(rest))
       for (const channel of COSMETIC_CHANNELS) ipcMain.removeHandler(channel)
-      blocker.enableBlockingInSession(rest)
+      blocker.enableBlockingInSession(facade(rest))
       this.scopeScriptlets(blocker)
     } catch (error) {
       console.error('Ad blocker: handlers not restored:', error)
@@ -95,10 +115,10 @@ export class Adblock {
    * previous ones first. They are bound to the same engine, so the replacement has no effect on the other sessions.
    */
   private activate(blocker: ElectronBlocker, ses: Session): void {
-    if (blocker.isBlockingEnabled(ses)) return
+    if (blocker.isBlockingEnabled(facade(ses))) return
     for (const channel of COSMETIC_CHANNELS) ipcMain.removeHandler(channel)
     try {
-      blocker.enableBlockingInSession(ses)
+      blocker.enableBlockingInSession(facade(ses))
       this.scopeScriptlets(blocker)
     } catch (error) {
       console.error('Ad blocker: could not enable on a session:', error)
@@ -127,7 +147,7 @@ export class Adblock {
     if (!wanted) {
       const blocker = this.enabled
       this.enabled = null
-      if (blocker) for (const ses of this.sessions) if (blocker.isBlockingEnabled(ses)) blocker.disableBlockingInSession(ses)
+      if (blocker) for (const ses of this.sessions) if (blocker.isBlockingEnabled(facade(ses))) blocker.disableBlockingInSession(facade(ses))
       for (const channel of COSMETIC_CHANNELS) ipcMain.removeHandler(channel) // none left, even if a session failed
       return
     }

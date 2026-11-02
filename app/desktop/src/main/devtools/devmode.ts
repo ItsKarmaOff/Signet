@@ -1,7 +1,10 @@
 import type { Session, WebContents } from 'electron'
 import { isLocalDevUrl } from '@shared/devhosts'
 import type { Browser } from '../browser/browser'
+import { NetworkOrder, networkHub } from '../web/network'
 
+/** Name of developer mode in the network hub. */
+const NAME = 'devmode'
 /** Batching of counter updates (a page can write hundreds of errors at once). */
 const PUSH_MS = 150
 /** Network failures that are not page errors: cancelled navigation, request blocked by the ad blocker. */
@@ -56,15 +59,15 @@ export class DevMode {
       if (attached === on) continue
       if (on) {
         const filter = { urls: ['http://*/*', 'https://*/*'] }
-        ses.webRequest.onCompleted(filter, (d) => {
+        const hub = networkHub(ses)
+        hub.on('onCompleted', NAME, NetworkOrder.devmode, filter, (d) => {
           if (d.statusCode >= 400) this.failed(d.webContentsId)
         })
-        ses.webRequest.onErrorOccurred(filter, (d) => {
+        hub.on('onErrorOccurred', NAME, NetworkOrder.devmode, filter, (d) => {
           if (!IGNORED_NET_ERRORS.has(d.error)) this.failed(d.webContentsId)
         })
       } else {
-        ses.webRequest.onCompleted(null)
-        ses.webRequest.onErrorOccurred(null)
+        networkHub(ses).release(NAME)
       }
       this.sessions.set(ses, on)
     }
