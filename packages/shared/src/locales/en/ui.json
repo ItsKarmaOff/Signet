@@ -336,6 +336,8 @@
       "adblock": "Block ads and trackers",
       "httpsOnly": "Always use secure connections",
       "httpsOnlyHint": "Opens http:// sites over https://, and warns you before loading a site that has no secure connection. Local addresses are not affected.",
+      "gpc": "Send Global Privacy Control",
+      "gpcHint": "Asks sites not to sell or share your data. While this is on, some extensions that watch network traffic may work less well.",
       "archive": "Archived tabs: {{count}}",
       "cache": "Cache",
       "clear": "Clear",

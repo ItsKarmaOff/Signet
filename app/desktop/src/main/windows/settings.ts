@@ -195,6 +195,8 @@ export class SettingsWindow {
       else delete settings.httpsOnly
       this.b.httpsOnly.sync()
     }
+    // Global Privacy Control (validated by `cleanSettings`): header and page script follow now, on every session.
+    if (typeof patch.globalPrivacyControl === 'boolean') this.b.gpc.sync()
     if (typeof patch.peekExternalLinks === 'boolean') settings.peekExternalLinks = patch.peekExternalLinks
     if (typeof patch.autoPip === 'boolean') settings.autoPip = patch.autoPip
     if (typeof patch.askDownloadPath === 'boolean') settings.askDownloadPath = patch.askDownloadPath

@@ -109,6 +109,7 @@ export function configureSession(ses: Session): void {
   browser.permissions.attach(ses)
   browser.adblock.attach(ses)
   browser.httpsOnly.attach(ses)
+  browser.gpc.attach(ses)
   browser.downloads.attach(ses)
   browser.devMode.watchSession(ses)
   browser.extensions.attach(ses)
@@ -151,6 +152,7 @@ export function configurePrivateSession(ses: Session): void {
   browser.permissions.attach(ses, { ephemeral: true })
   browser.adblock.attach(ses)
   browser.httpsOnly.attach(ses)
+  browser.gpc.attach(ses)
   browser.downloads.attach(ses, { private: true })
   attachInternal(ses, browser)
   attachUiProtocol(ses)
@@ -173,6 +175,7 @@ export function releasePrivateSession(ses: Session): void {
   privateSessions.delete(ses)
   browser?.adblock.detach(ses)
   browser?.httpsOnly.detach(ses)
+  browser?.gpc.detach(ses)
   void ses
     .clearStorageData()
     .then(() => ses.clearCache())

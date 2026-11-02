@@ -36,6 +36,9 @@ export const preloadPath = join(__dirname, '../preload/index.js')
 /** Page script for drag-to-navigate (injected into tabs). */
 export const swipePath = join(__dirname, '../preload/swipe.js')
 
+/** Page script that sets `navigator.globalPrivacyControl` (registered only while Global Privacy Control is on; all frames). */
+export const gpcPath = join(__dirname, '../preload/gpc.js')
+
 /** Password page script: on-demand filling and login detection (all frames). */
 export const passwordsPath = join(__dirname, '../preload/passwords.js')
 

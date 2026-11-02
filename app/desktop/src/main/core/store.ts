@@ -174,7 +174,8 @@ export const CLEAN_SETTING_KEYS = [
   'downloadDir',
   'fontSize',
   'minimumFontSize',
-  'defaultZoom'
+  'defaultZoom',
+  'globalPrivacyControl'
 ] as const
 
 /**
@@ -222,6 +223,9 @@ export function cleanSettings(patch: Partial<Settings>, base: Settings): Setting
   if (isFontSize(patch.fontSize)) out.fontSize = patch.fontSize
   if (isMinFontSize(patch.minimumFontSize)) out.minimumFontSize = patch.minimumFontSize
   if (isZoomPercent(patch.defaultZoom)) out.defaultZoom = patch.defaultZoom
+  // Global Privacy Control: on or missing (false is stored as missing, anything else keeps the previous value).
+  if (patch.globalPrivacyControl === true) out.globalPrivacyControl = true
+  else if (patch.globalPrivacyControl === false) delete out.globalPrivacyControl
   return out
 }
 

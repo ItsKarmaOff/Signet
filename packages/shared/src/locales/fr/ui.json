@@ -336,6 +336,8 @@
       "adblock": "Bloquer les pubs et les traqueurs",
       "httpsOnly": "Toujours utiliser des connexions sécurisées",
       "httpsOnlyHint": "Ouvre les sites http:// en https:// et vous prévient avant de charger un site sans connexion sécurisée. Les adresses locales ne sont pas concernées.",
+      "gpc": "Envoyer le signal Global Privacy Control",
+      "gpcHint": "Demande aux sites de ne pas vendre ni partager vos données. Tant que c'est activé, certaines extensions qui surveillent le trafic réseau peuvent moins bien fonctionner.",
       "archive": "Onglets archivés : {{count}}",
       "cache": "Cache",
       "clear": "Effacer",

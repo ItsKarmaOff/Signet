@@ -58,6 +58,7 @@ import { Shell } from './shell'
 import { TabSleep } from './sleep'
 import { SpaceActions } from './space-actions'
 import { HttpsOnly } from './https-only'
+import { Gpc } from '../web/gpc'
 import { PageZoom } from './page-zoom'
 import { SplitView } from './splitview'
 import { TabActions } from './tab-actions'
@@ -116,6 +117,7 @@ export class Browser {
   readonly updates = new Updates(this)
   readonly permissions: Permissions
   readonly httpsOnly: HttpsOnly
+  readonly gpc: Gpc
   readonly pageZoom: PageZoom
 
   // Core: the state rules, then the pages, the broadcast and the layout
@@ -148,6 +150,7 @@ export class Browser {
     this.adblock = new Adblock(store)
     this.permissions = new Permissions(store)
     this.httpsOnly = new HttpsOnly({ store, tabOf: (id) => this.views.tabIdOfContents(id) })
+    this.gpc = new Gpc({ store })
     // The parts use one another: these two shortcuts only read `this.broadcast` when called.
     const changed: Changed = (opts) => this.broadcast.changed(opts)
     const apply = () => this.broadcast.apply()
