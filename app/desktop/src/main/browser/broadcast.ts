@@ -30,6 +30,7 @@ const META_FIELDS = new Set<keyof TabInfo>([
   'translation',
   'liveUnread',
   'passwordKey',
+  'zoom',
   'consoleErrors',
   'consoleWarnings',
   'devOverrides'
@@ -48,7 +49,7 @@ const ENGINE_FIELDS = new Set<keyof TabInfo>([
   'consoleWarnings'
 ])
 /** Fields sent alone (`state:patch`): read only from `snapshot.tabs[id]` by the views, with no derived data elsewhere. */
-const PATCH_FIELDS = new Set<keyof TabInfo>([...ENGINE_FIELDS, 'reader', 'foreignLang', 'translation', 'passwordKey'])
+const PATCH_FIELDS = new Set<keyof TabInfo>([...ENGINE_FIELDS, 'reader', 'foreignLang', 'translation', 'passwordKey', 'zoom'])
 /** Fields written to state.json (see Store.flush). */
 const PERSISTED_FIELDS = new Set<keyof TabInfo>(['url', 'title', 'favicon', 'pinnedUrl', 'lastActive', 'muted', 'customTitle', 'customIcon'])
 /** Window (ms) for batching broadcasts caused by engine events. */

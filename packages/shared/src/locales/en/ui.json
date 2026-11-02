@@ -890,6 +890,12 @@
     "more": "More bookmarks",
     "hintNoKeys": "Add bookmarks with the star in the address bar, or by dropping a tab here"
   },
+  "zoom": {
+    "label": "Zoom: {{value}}",
+    "out": "Zoom out",
+    "in": "Zoom in",
+    "reset": "Reset"
+  },
   "password": {
     "saveAddressTitle": "Save address?",
     "updateAddressTitle": "Update address?",

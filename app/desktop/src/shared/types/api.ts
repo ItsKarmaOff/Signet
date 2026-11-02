@@ -57,6 +57,10 @@ export interface SignetApi {
   resetPinned(tabId: string): Promise<void>
   /** Enters or leaves the tab's reader mode. */
   toggleReader(tabId: string): Promise<void>
+  /** Zooms the tab's page by `delta` levels (shortcut code path); 0 goes back to the default. Shows the zoom bubble. */
+  zoomPage(tabId: string, delta: number): Promise<void>
+  /** Opens the zoom bubble (click on the toolbar's zoom icon). */
+  openZoom(tabId: string): Promise<void>
 
   // Live folders
   /** Creates a live folder (`folderId` null) or changes its source; returns a translated error message, or null. */

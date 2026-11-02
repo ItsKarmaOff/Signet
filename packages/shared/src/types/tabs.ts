@@ -69,6 +69,8 @@ export interface TabInfo {
   translation?: 'working' | 'on'
   /** Key button in the address bar: typed password not yet saved, or accounts already saved for the site. */
   passwordKey?: 'pending' | 'saved'
+  /** Zoom of the page in percent, for pages that follow page zoom. Missing = internal page, PDF or unknown. */
+  zoom?: number
   /** Item of a live folder not yet opened ("new" dot). */
   liveUnread?: boolean
   /** Developer mode, local page: errors and warnings written to the console since loading. Missing = none. */

@@ -890,6 +890,12 @@
     "more": "Autres signets",
     "hintNoKeys": "Ajoutez des signets avec l’étoile de la barre d’adresse, ou en déposant un onglet ici"
   },
+  "zoom": {
+    "label": "Zoom : {{value}}",
+    "out": "Zoom arrière",
+    "in": "Zoom avant",
+    "reset": "Réinitialiser"
+  },
   "password": {
     "saveAddressTitle": "Enregistrer l’adresse ?",
     "updateAddressTitle": "Mettre à jour l’adresse ?",

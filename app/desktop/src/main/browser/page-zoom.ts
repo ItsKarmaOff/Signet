@@ -1,6 +1,6 @@
 import type { Session, WebContents } from 'electron'
 import type { Store } from '../core/store'
-import { defaultZoomFactor, isZoomPercent, rememberSiteZoom, zoomHost, type SiteZoom } from '@shared/pagesettings'
+import { defaultZoomFactor, isZoomPercent, rememberSiteZoom, reportedZoom, zoomHost, type SiteZoom } from '@shared/pagesettings'
 import type { Views } from './views'
 
 /**
@@ -20,8 +20,27 @@ export class PageZoom {
       views: Pick<Views, 'all'>
       /** Whose zoom memory a session uses: the shared one (normal spaces), an isolated space's own, or none (private window, never written to disk). */
       scope: (ses: Session) => ZoomScope
+      /** A page's reported zoom (percent, undefined when it does not follow page zoom) changed. */
+      report?: (wc: WebContents, percent: number | undefined) => void
     }
   ) {}
+
+  /** Last zoom reported per page: the UI only hears about changes. */
+  private reported = new WeakMap<WebContents, number | undefined>()
+
+  /** Reports the page's current zoom if it changed since the last report. */
+  sync(wc: WebContents): void {
+    if (wc.isDestroyed()) return
+    const percent = reportedZoom(wc.getURL(), wc.getZoomFactor()) ?? undefined
+    if (this.reported.has(wc) && this.reported.get(wc) === percent) return
+    this.reported.set(wc, percent)
+    this.d.report?.(wc, percent)
+  }
+
+  /** Chromium shares the zoom of a host between the tabs of a session: they all re-report. */
+  private syncSession(ses: Session): void {
+    for (const view of this.d.views.all()) if (view.webContents.session === ses) this.sync(view.webContents)
+  }
 
   private hostsOf(ses: Session): Set<string> {
     let set = this.userHosts.get(ses)
@@ -44,6 +63,11 @@ export class PageZoom {
 
   /** Applies the saved zoom of the site, otherwise the default, to a web page (a main-frame navigation committed, or the setting changed). */
   apply(wc: WebContents): void {
+    this.applyZoom(wc)
+    this.sync(wc)
+  }
+
+  private applyZoom(wc: WebContents): void {
     if (wc.isDestroyed()) return
     const host = zoomHost(wc.getURL())
     const saved = host ? this.memory(wc.session)?.[host] : undefined
@@ -76,6 +100,7 @@ export class PageZoom {
       rememberSiteZoom(memory, host, wc.getZoomLevel())
       this.d.store.schedule()
     }
+    this.syncSession(wc.session)
   }
 
   /** Back to the default zoom (100 % when none is chosen, or for a page that does not follow it); the site follows the default again. */
@@ -87,5 +112,6 @@ export class PageZoom {
       if (memory && delete memory[host]) this.d.store.schedule()
     }
     wc.setZoomFactor(host && isZoomPercent(this.percent) ? this.percent / 100 : 1)
+    this.syncSession(wc.session)
   }
 }

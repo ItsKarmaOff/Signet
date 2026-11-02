@@ -10,7 +10,11 @@ import {
   isFontSize,
   isMinFontSize,
   isZoomPercent,
-  zoomHost
+  zoomHost,
+  zoomPercentOf,
+  reportedZoom,
+  zoomIndicator,
+  formatZoomPercent
 } from './pagesettings'
 
 describe('fontPreferences', () => {
@@ -126,5 +130,29 @@ describe('cleanSiteZoomBySpace', () => {
     expect(cleanSiteZoomBySpace(null)).toEqual({})
     expect(cleanSiteZoomBySpace([])).toEqual({})
     expect(cleanSiteZoomBySpace('x')).toEqual({})
+  })
+})
+
+describe('zoom indicator', () => {
+  it('rounds the factor to a percent and ignores pages that do not follow page zoom', () => {
+    expect(zoomPercentOf(1.2 ** 0.5)).toBe(110)
+    expect(zoomPercentOf(1)).toBe(100)
+    expect(reportedZoom('https://a.com/', 1.25)).toBe(125)
+    expect(reportedZoom('signet://settings', 1.25)).toBeNull()
+    expect(reportedZoom('https://a.com/doc.pdf', 1.25)).toBeNull()
+  })
+  it('shows only away from the default, with the right variant', () => {
+    expect(zoomIndicator(undefined, 100)).toBeNull()
+    expect(zoomIndicator(100, undefined)).toBeNull()
+    expect(zoomIndicator(110, undefined)).toBe('in')
+    expect(zoomIndicator(90, 100)).toBe('out')
+    expect(zoomIndicator(125, 125)).toBeNull()
+    expect(zoomIndicator(100, 125)).toBe('out')
+    expect(zoomIndicator(150, 125)).toBe('in')
+    expect(zoomIndicator(150, 123)).toBe('in') // invalid default: 100 %
+  })
+  it('formats the percent for the locale', () => {
+    expect(formatZoomPercent(110, 'en')).toBe('110%')
+    expect(formatZoomPercent(110, 'fr')).toMatch(/^110[\u00a0\u202f]%$/) // no-break space, width depends on the ICU data
   })
 })

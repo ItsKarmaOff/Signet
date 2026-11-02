@@ -213,6 +213,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     visited(url, true)
     b.views.queueHistory(tabId)
   })
+  wc.on('zoom-changed', () => b.pageZoom.sync(wc))
   wc.on('did-navigate-in-page', (_e, url, isMainFrame) => {
     if (!isMainFrame) return
     visited(url)

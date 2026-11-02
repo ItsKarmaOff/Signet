@@ -57,6 +57,8 @@ export type OverlayPayload =
   | { mode: 'passwords'; origin: string; logins: { id: string; username: string }[]; anchor: Rect }
   /** Screenshot tool placed over the tab's web view (`rect`, window coordinates). */
   | { mode: 'capture'; tabId: string; rect: Rect; hue: number }
+  /** Zoom bubble at the top right of `card`: the tab's zoom and the default one, in percent. */
+  | { mode: 'zoom'; tabId: string; percent: number; defaultPercent: number; card: Rect; compact: boolean }
   /**
    * Install the site as an app, at the top right of `card`. `icon`: best icon found (data URL), or null;
    * `maskable`: it can fill the whole icon square (otherwise it is placed on a white background).

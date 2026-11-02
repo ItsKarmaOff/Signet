@@ -21,12 +21,14 @@ const make = (
   siteZoom: Record<string, number> = {},
   privateSessions: Session[] = [],
   spaces: Map<Session, string> = new Map(),
-  siteZoomBySpace: Record<string, Record<string, number>> = {}
+  siteZoomBySpace: Record<string, Record<string, number>> = {},
+  report?: (wc: WebContents, percent: number | undefined) => void
 ) => {
   const state = { settings: { defaultZoom }, siteZoom, siteZoomBySpace }
   return new PageZoom({
     store: { state, schedule: () => {} } as never,
     views: { all: () => pages.map((p) => ({ webContents: p })) } as never,
+    report,
     scope: (ses): ZoomScope => {
       if (privateSessions.includes(ses)) return { kind: 'private' }
       const id = spaces.get(ses)
@@ -181,5 +183,43 @@ describe('PageZoom', () => {
     zoom.apply(other as unknown as WebContents)
     expect(saved.factor).toBeCloseTo(1.2)
     expect(other.factor).toBe(1.5)
+  })
+})
+
+describe('PageZoom reports', () => {
+  it('tells the UI only when a page zoom changes, tab siblings included', () => {
+    const s = {} as Session
+    const a = page('https://a.com/', s)
+    const b = page('https://a.com/other', s)
+    const pdf = page('https://a.com/x.pdf', s)
+    const calls: [unknown, number | undefined][] = []
+    const zoom = make(undefined, [a, b, pdf], {}, [], new Map(), {}, (wc, p) => calls.push([wc, p]))
+    zoom.apply(a as unknown as WebContents)
+    zoom.apply(a as unknown as WebContents)
+    expect(calls).toEqual([[a, 100]])
+    a.factor = 1.2 ** 0.5
+    b.factor = a.factor // Chromium shares the host zoom
+    zoom.userZoomed(a as unknown as WebContents)
+    zoom.userZoomed(a as unknown as WebContents)
+    expect(calls.map((c) => [c[0] === a ? 'a' : c[0] === b ? 'b' : 'pdf', c[1]])).toEqual([
+      ['a', 100],
+      ['a', 110],
+      ['b', 110],
+      ['pdf', undefined]
+    ])
+  })
+  it('reports the default applied at commit, and back to 100 on reset', () => {
+    const s = {} as Session
+    const a = page('https://a.com/', s)
+    const seen: (number | undefined)[] = []
+    const zoom = make(150, [a], {}, [], new Map(), {}, (_wc, p) => seen.push(p))
+    zoom.apply(a as unknown as WebContents)
+    expect(seen).toEqual([150])
+    zoom.reset(a as unknown as WebContents)
+    zoom.reset(a as unknown as WebContents)
+    expect(seen).toEqual([150])
+    a.factor = 2
+    zoom.sync(a as unknown as WebContents)
+    expect(seen).toEqual([150, 200])
   })
 })

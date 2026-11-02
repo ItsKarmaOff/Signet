@@ -182,6 +182,10 @@ export class Browser {
     this.pageZoom = new PageZoom({
       store,
       views: this.views,
+      report: (wc, percent) => {
+        const tabId = this.views.tabIdOfContents(wc.id)
+        if (tabId) this.broadcast.patchTab(tabId, { zoom: percent }, { soft: true })
+      },
       scope: (ses) => {
         if (this.privates.hasSession(ses)) return { kind: 'private' }
         const id = isolatedSpaceOf(ses)
@@ -291,6 +295,7 @@ export class Browser {
       views: this.views,
       httpsOnly: this.httpsOnly,
       pageZoom: this.pageZoom,
+      showZoom: (tabId) => this.overlay.openZoom(tabId),
       changed,
       undo: this.undo,
       overlay: this.overlay,
