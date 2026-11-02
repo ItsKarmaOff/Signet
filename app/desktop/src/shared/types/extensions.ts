@@ -10,3 +10,6 @@ export interface ExtensionInfo {
   /** Unpacked extension, loaded from a folder (empty id if it could not be loaded). */
   unpacked?: { path: string; display: string; error?: string; reloadedAt?: number }
 }
+
+/** Blocked-request counts shown on extension buttons: tab (webContents id), then extension id, then count (always above 0). */
+export type ExtensionActionCounts = Record<number, Record<string, number>>

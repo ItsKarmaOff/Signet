@@ -16,6 +16,7 @@ import type {
 } from '@signet/shared/types'
 import type { BackupInfo, BackupMode, BackupSection, BackupSummary, ImportKind } from './data'
 import type { DevToolsWindowState } from './devtools'
+import type { ExtensionActionCounts } from './extensions'
 import type { LinkState } from './link'
 import type { BoostEditorState, ModsInfo } from './mods'
 import type { OverlayPayload, PaletteMode, PaletteResult, PopoverRequest, QuitHudState } from './overlay'
@@ -260,6 +261,9 @@ export interface SignetApi {
   showAppMenu(): Promise<void>
   /** Extensions button menu: all extensions with a button, and their pinning. Returns the one to open, or null. */
   showExtensionsMenu(): Promise<string | null>
+  /** Counts of requests blocked per tab and extension (`declarativeNetRequest` action count badge). */
+  getExtensionActionCounts(): Promise<ExtensionActionCounts>
+  onExtensionActionCounts(cb: (counts: ExtensionActionCounts) => void): () => void
 
   // Passwords (Settings › Passwords; never a password without `revealPassword`)
   listPasswords(): Promise<PasswordsInfo>

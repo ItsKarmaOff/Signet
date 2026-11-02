@@ -58,24 +58,44 @@ export function validateRule(rule: unknown): Rule {
   return rule as Rule
 }
 
+/** `isRegexSupported`: RE2 syntax is close enough to JavaScript's for a compile test (no lookarounds or backreferences in RE2). */
+function regexSupport(o: unknown): { isSupported: boolean; reason?: string } {
+  if (!isObject(o) || typeof o.regex !== 'string' || !o.regex) return { isSupported: false, reason: DNR_ENUMS.UnsupportedRegexReason.SYNTAX_ERROR }
+  try {
+    new RegExp(o.regex)
+    return /\(\?<?[=!]|\\[1-9]/.test(o.regex) ? { isSupported: false, reason: DNR_ENUMS.UnsupportedRegexReason.SYNTAX_ERROR } : { isSupported: true }
+  } catch {
+    return { isSupported: false, reason: DNR_ENUMS.UnsupportedRegexReason.SYNTAX_ERROR }
+  }
+}
+
 /**
  * `chrome.declarativeNetRequest` rule storage. Dynamic rules persist per extension (like Chrome), session rules live in
- * memory. NOTHING IS ENFORCED YET: Electron has one `session.webRequest` handler per event, and taking
- * onBeforeSendHeaders would silence the extensions' own `chrome.webRequest` listeners. Rules are only kept so the
- * extension's bookkeeping (getDynamicRules, unique ids) behaves.
+ * memory; the enabled static rulesets are remembered too. Enforcement is in dnr-engine.ts, which listens to `onChange`.
  */
 export class DnrStore {
   private dynamic = new Map<string, Map<number, Rule>>()
   private session = new Map<string, Map<number, Rule>>()
   private writer: AtomicWriter
-  private warned = new Set<string>()
+  private enabled = new Map<string, { version: string; ids: string[] }>()
+  private listeners = new Set<() => void>()
+  /** Extensions that asked for `displayActionCountAsBadgeText`. */
+  private actionCount = new Set<string>()
 
   constructor(
     file: string,
     private log: (message: string) => void = () => {}
   ) {
     try {
-      const data = JSON.parse(readFileSync(file, 'utf8')) as { dynamic?: Record<string, unknown[]> }
+      const data = JSON.parse(readFileSync(file, 'utf8')) as {
+        dynamic?: Record<string, unknown[]>
+        enabled?: Record<string, { version?: unknown; ids?: unknown }>
+        actionCount?: Record<string, unknown>
+      }
+      for (const [id, e] of Object.entries(data.enabled ?? {})) {
+        if (e && typeof e.version === 'string' && Array.isArray(e.ids)) this.enabled.set(id, { version: e.version, ids: e.ids.map(String) })
+      }
+      for (const [id, on] of Object.entries(data.actionCount ?? {})) if (on === true) this.actionCount.add(id)
       for (const [id, rules] of Object.entries(data.dynamic ?? {})) {
         const map = new Map<number, Rule>()
         let dropped = 0
@@ -95,7 +115,12 @@ export class DnrStore {
       // no file yet
     }
     this.writer = new AtomicWriter(file, () =>
-      JSON.stringify({ version: 1, dynamic: Object.fromEntries([...this.dynamic].map(([id, m]) => [id, [...m.values()]])) })
+      JSON.stringify({
+        version: 1,
+        dynamic: Object.fromEntries([...this.dynamic].map(([id, m]) => [id, [...m.values()]])),
+        enabled: Object.fromEntries(this.enabled),
+        actionCount: Object.fromEntries([...this.actionCount].map((id) => [id, true]))
+      })
     )
   }
 
@@ -125,10 +150,40 @@ export class DnrStore {
     if (next.size > max) throw new ApiError('Rule count exceeds the limit.')
     this[kind].set(id, next)
     if (kind === 'dynamic') this.writer.request()
-    if (add.length && !this.warned.has(id)) {
-      this.warned.add(id)
-      this.log(`[extension-apis] ${id} declarativeNetRequest: ${next.size} ${kind} rule(s) stored, NOT enforced yet`)
-    }
+    this.changed()
+  }
+
+  /** Called after every change of the rules or of the enabled rulesets. */
+  onChange(fn: () => void): void {
+    this.listeners.add(fn)
+  }
+
+  private changed(): void {
+    for (const fn of this.listeners) fn()
+  }
+
+  /** Static rulesets the extension enabled (kept for the version they were chosen on), or undefined for the manifest's defaults. */
+  enabledRulesets(id: string, version: string): string[] | undefined {
+    const e = this.enabled.get(id)
+    return e && e.version === version ? e.ids : undefined
+  }
+
+  setEnabledRulesets(id: string, version: string, ids: string[]): void {
+    this.enabled.set(id, { version, ids })
+    this.writer.request()
+    this.changed()
+  }
+
+  /** `displayActionCountAsBadgeText` of the extension (persisted, as in Chrome). */
+  displayActionCount(id: string): boolean {
+    return this.actionCount.has(id)
+  }
+
+  setDisplayActionCount(id: string, on: boolean): void {
+    if (this.actionCount.has(id) === on) return
+    if (on) this.actionCount.add(id)
+    else this.actionCount.delete(id)
+    this.writer.request()
   }
 
   get(kind: 'dynamic' | 'session', id: string, filter: unknown): Rule[] {
@@ -139,7 +194,9 @@ export class DnrStore {
   /** Extension uninstalled: its rules go with it. */
   remove(id: string): void {
     this.session.delete(id)
-    if (this.dynamic.delete(id)) this.writer.request()
+    const had = this.dynamic.delete(id)
+    if (this.enabled.delete(id) || this.actionCount.delete(id) || had) this.writer.request()
+    this.changed()
   }
 
   methods(): Record<string, ApiHandler> {
@@ -148,11 +205,7 @@ export class DnrStore {
       'declarativeNetRequest.getDynamicRules': ({ extensionId }, f) => this.get('dynamic', extensionId, f),
       'declarativeNetRequest.updateSessionRules': ({ extensionId }, o) => this.update('session', extensionId, o),
       'declarativeNetRequest.getSessionRules': ({ extensionId }, f) => this.get('session', extensionId, f),
-      'declarativeNetRequest.getEnabledRulesets': () => [],
-      'declarativeNetRequest.updateEnabledRulesets': () => undefined,
-      'declarativeNetRequest.getAvailableStaticRuleCount': () => DNR_CONSTANTS.GUARANTEED_MINIMUM_STATIC_RULES,
-      'declarativeNetRequest.isRegexSupported': (_c, o) => ({ isSupported: isObject(o) && typeof o.regex === 'string' }),
-      'declarativeNetRequest.getMatchedRules': () => ({ rulesMatchedInfo: [] })
+      'declarativeNetRequest.isRegexSupported': (_c, o) => regexSupport(o)
     }
   }
 }

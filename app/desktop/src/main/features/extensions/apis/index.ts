@@ -1,5 +1,6 @@
 import { app, webContents, WebContentsView, type Session } from 'electron'
 import { join } from 'node:path'
+import type { ExtensionActionCounts } from '@shared/types'
 import { extensionApisPath } from '../../../core/urls'
 import { Alarms } from './alarms'
 import { privacySettings, applyWebRtcTo, WEBRTC_KEY } from './privacy'
@@ -7,6 +8,7 @@ import { proxySetting } from './proxy'
 import { ApiRouter } from './router'
 import { backgroundContext, filterContexts, pageContext, type ExtensionContext } from './contexts'
 import { DnrStore } from './dnr'
+import { DnrEngine } from './dnr-engine'
 import { Offscreen, type OffscreenPage } from './offscreen'
 import { ProxyAuthBroker } from './auth'
 import { ChromeSettings, type SettingDef } from './settings'
@@ -24,6 +26,8 @@ export class ExtensionApis {
   private alarms: Alarms | null = null
   private sessions = new Set<Session>()
   private dnr: DnrStore | null = null
+  private dnrEngine: DnrEngine | null = null
+  private countListeners = new Set<(counts: ExtensionActionCounts) => void>()
   private offscreen = new Offscreen(
     (ses) => openOffscreenPage(ses as Session),
     (m) => console.log(m)
@@ -39,7 +43,12 @@ export class ExtensionApis {
       for (const def of defs) for (const m of SETTING_METHODS) this.registerSetting(this.settings, def, m)
       for (const [method, fn] of Object.entries(this.alarms.methods())) this.router.register('alarms', method, fn)
       this.dnr = new DnrStore(join(dir, 'extension-dnr.json'), (m) => !app.isPackaged && console.log(m))
-      for (const [method, fn] of Object.entries(this.dnr.methods()))
+      const engine = (this.dnrEngine = new DnrEngine(this.dnr, {
+        log: (m) => !app.isPackaged && console.log(m),
+        watchTab: (id, fn) => webContents.fromId(id)?.once('destroyed', fn),
+        onCounts: (counts) => this.countListeners.forEach((l) => l(counts))
+      }))
+      for (const [method, fn] of Object.entries({ ...this.dnr.methods(), ...engine.methods() }))
         this.router.register(['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'], method, fn)
       this.router.register('offscreen', 'offscreen.createDocument', ({ ses, extensionId }, params) => this.offscreen.create(ses, extensionId, params))
       this.router.register('offscreen', 'offscreen.closeDocument', ({ extensionId }) => this.offscreen.close(extensionId))
@@ -137,6 +146,7 @@ export class ExtensionApis {
       }
     }
     this.router.attach(ses)
+    this.dnrEngine?.attach(ses)
     ses.extensions.on('extension-loaded', (_e, ext) => {
       settings.reapply(ses, ext.id)
       alarms.scheduler.activate(ext.id)
@@ -156,6 +166,16 @@ export class ExtensionApis {
   /** The extension's `chrome.*` endpoints for pages of an extension (calls from `chrome-extension://` frames). */
   registerPageIpc(): void {
     this.router.registerPageIpc()
+  }
+
+  /** Blocked-request counts per tab and extension, for the toolbar buttons. */
+  actionCounts(): ExtensionActionCounts {
+    return this.dnrEngine?.actionCounts() ?? {}
+  }
+
+  /** Called with the counts after each change (throttled by the engine). */
+  onActionCounts(fn: (counts: ExtensionActionCounts) => void): void {
+    this.countListeners.add(fn)
   }
 
   /** Writes pending state (app quit). */

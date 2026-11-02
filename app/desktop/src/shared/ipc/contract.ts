@@ -281,6 +281,8 @@ export const IPC = {
   removeUnpackedExtension: invoke('extensions:remove-unpacked', [str()]),
   showExtensionMenu: invoke('extension:menu', [id]),
   showExtensionsMenu: invoke('extension:list-menu', []),
+  getExtensionActionCounts: invoke('extensions:get-action-counts', []),
+  onExtensionActionCounts: event('extensions:action-counts'),
   showAppMenu: invoke('app:menu', []),
 
   // Passwords
