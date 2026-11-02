@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { canAccessUrl, extensionFilePath, urlAsPattern, urlMatches } from './urlmatch'
 
 const ID = 'a'.repeat(32)
@@ -27,7 +27,8 @@ describe('canAccessUrl', () => {
 })
 
 describe('extensionFilePath', () => {
-  const root = join('/ext', 'root')
+  // Absolute on every system (`resolve` adds the drive letter on Windows), like a real extension folder.
+  const root = resolve('/ext', 'root')
   it('resolves relative, rooted and own chrome-extension paths and refuses escapes', () => {
     expect(extensionFilePath(root, ID, 'css/a.css')).toBe(join(root, 'css', 'a.css'))
     expect(extensionFilePath(root, ID, '/css/a.css')).toBe(join(root, 'css', 'a.css'))
