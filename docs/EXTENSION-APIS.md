@@ -1,6 +1,6 @@
 # Extension APIs: probe results
 
-Measured with the API probe (`app/desktop/tests/extensions/api-probe`, run by `app/desktop/tests/e2e/extension-api.spec.ts`) on macOS arm64, Electron 45.1.0, on 2026-10-30. The probe loads an MV3 extension requesting every permission of `src/shared/extension-api-catalog.ts` and runs in four contexts: service worker, popup page, options page, and an extension page inside an iframe of the options page.
+Measured with the API probe (`app/desktop/tests/extensions/api-probe`, run on demand by `SIGNET_E2E_PROBE=1 npm run test:e2e -- extension-api.spec.ts`) on macOS arm64, Electron 45.1.0, on 2026-10-30. The probe loads an MV3 extension requesting every permission of `src/shared/extension-api-catalog.ts` and runs in four contexts: service worker, popup page, options page, and an extension page inside an iframe of the options page.
 
 Status of this document: the call results below were measured (copied from the generated report). The full member by member matrix (`test-results/extension-api-probe.md`) was generated but is not reproduced here, and the last runs were interrupted before it could be re-read, so anything about individual members or events is **not measured** unless stated.
 
