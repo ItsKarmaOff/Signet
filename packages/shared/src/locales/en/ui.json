@@ -135,7 +135,9 @@
   "palette": {
     "editUrl": "Edit address",
     "splitPlaceholder": "Choose the page to open in split view",
-    "splitTag": "Split view"
+    "splitTag": "Split view",
+    "searchSite": "Search {{engine}}",
+    "keywordPlaceholder": "Type your search"
   },
   "peek": {
     "openInTab": "Open as tab"
@@ -417,6 +419,7 @@
       "appearance": "Appearance",
       "boosts": "Boosts",
       "extensions": "Extensions",
+      "search": "Search engines",
       "general": "General",
       "import": "Import",
       "privacy": "Privacy",
@@ -627,6 +630,34 @@
       "confirm": "Uninstall “{{name}}”? Its launcher will be deleted.",
       "space": "{{space}} space",
       "noLauncher": "launcher deleted"
+    },
+    "search": {
+      "intro": "Type a keyword and press Tab or Space in the command bar to search a site directly, for example “yt cats”.",
+      "engines": "Engines",
+      "keyword": "Keyword",
+      "keywordFor": "Keyword of {{name}}",
+      "enabledFor": "Use {{name}}",
+      "default": "Default",
+      "builtin": "Built-in",
+      "preset": "Site search",
+      "custom": "Custom",
+      "add": "Add a search engine",
+      "edit": "Edit",
+      "remove": "Delete",
+      "save": "Save",
+      "cancel": "Cancel",
+      "name": "Name",
+      "namePlaceholder": "My engine",
+      "url": "Search address",
+      "urlPlaceholder": "https://example.com/search?q=%s",
+      "suggestUrl": "Suggestions address (optional)",
+      "suggestPlaceholder": "https://example.com/suggest?q=%s",
+      "formHint": "Use %s where the search text goes. Suggestions must answer in the OpenSearch JSON format.",
+      "errorName": "Enter a name of up to 60 characters.",
+      "errorKeyword": "The keyword is required, without spaces, and up to 32 characters.",
+      "errorKeywordTaken": "This keyword is already used by another engine.",
+      "errorTemplate": "The search address must start with http:// or https:// and contain %s.",
+      "errorSuggest": "The suggestions address must start with http:// or https:// and contain %s."
     },
     "developer": {
       "devMode": "Developer mode",

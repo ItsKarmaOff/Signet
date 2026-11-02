@@ -8,7 +8,7 @@ import { IMPORT_SOURCES, availableSources, runImport } from '../features/importe
 import { allSessions, reapplyLanguages, reapplySpellcheck } from '../web/profiles'
 import { normalizeLanguages } from '../web/languages'
 import type { ImportSource } from '../features/importers'
-import { loadRoute, preloadPath, setSearchEngine } from '../core/urls'
+import { loadRoute, preloadPath, setSearchEngine, setSearchEngines } from '../core/urls'
 import { setUiLanguage, t } from '../app/i18n'
 import { applyTheme, broadcastAppearance } from '../app/appearance'
 import { isManager } from '../features/passwords/passwords'
@@ -185,6 +185,7 @@ export class SettingsWindow {
     applyCleaned(settings, cleanSettings(patch, settings))
     // The search engine (value already validated by `cleanSettings`) is used right away for the next inputs.
     setSearchEngine(settings.searchEngine)
+    setSearchEngines(settings)
     // Font sizes only apply to new views: every live view is stale. The displayed ones are replaced by the layout that
     // follows (they reload), the others the next time they are shown, like a wake from sleep.
     if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.views.markStale()

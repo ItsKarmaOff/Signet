@@ -146,3 +146,11 @@
   font-size: var(--fs-sub);
   color: var(--text-2);
 }
+
+/* Keyword mode chip ("Search YouTube"). */
+.kw-tag {
+  color: var(--text);
+}
+.palette-input .input-ico[hidden] {
+  display: none;
+}

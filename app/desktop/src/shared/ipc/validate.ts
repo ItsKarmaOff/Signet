@@ -156,7 +156,8 @@ export const popoverRequest: Guard<PopoverRequest> = union(
 export const paletteResult: Guard<PaletteResult> = union(
   obj({ kind: lit('url', 'search', 'suggestion', 'history', 'archived'), url: str() }),
   obj({ kind: lit('tab'), tabId: str() }),
-  obj({ kind: lit('action'), action: str() })
+  obj({ kind: lit('action'), action: str() }),
+  obj({ kind: lit('keyword') })
 ) as unknown as Guard<PaletteResult>
 
 // ───────────────────────── Application ─────────────────────────

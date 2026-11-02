@@ -1,7 +1,7 @@
 import { WebContentsView, type BrowserWindow, type WebContents } from 'electron'
 import type { OverlayPayload, PaletteMode, PopoverRequest, Rect, SiteInfo } from '@shared/types'
 import { pushUi } from '../ipc/push'
-import { loadRoute, preloadPath } from '../core/urls'
+import { keywordList, loadRoute, preloadPath } from '../core/urls'
 import type { Store } from '../core/store'
 import { activeSpace, activeTab } from '../model/locate'
 import type { Passwords } from '../features/passwords/passwords'
@@ -280,6 +280,7 @@ export class Overlay implements OverlayLayer {
       paletteMode: mode,
       initial: mode === 'edit-url' ? (activeTab(state)?.url ?? '') : '',
       hue: activeSpace(state).hue,
+      keywords: keywordList(),
       ...(ok && { anchor })
     })
     this.d.layout.requestFocus()

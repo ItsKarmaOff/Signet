@@ -362,6 +362,7 @@
     "goToTab": "Go to tab · {{space}}",
     "openAddress": "Open this address",
     "searchWith": "Search for “{{query}}” on {{engine}}",
+    "keywordHint": "Press Tab to search {{engine}}",
     "archived": "Archived · {{url}}",
     "subtitle": {
       "on": "On",

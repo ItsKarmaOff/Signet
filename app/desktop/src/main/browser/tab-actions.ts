@@ -3,7 +3,7 @@ import { matchRoute } from '@signet/shared/routes'
 import type { PaletteMode } from '@shared/types'
 import { resolveAlias } from '@shared/devhosts'
 import type { Store } from '../core/store'
-import { httpFallback, isHttpsFallbackError, isUiAddress, isUpgradedInput, engineSearchUrl, toUrl } from '../core/urls'
+import { httpFallback, isHttpsFallbackError, isUiAddress, isUpgradedInput, engineSearchUrl, keywordSearch, toUrl } from '../core/urls'
 import type { Model } from '../model'
 import type { OpenOptions } from '../model/opening'
 import { isHorizontal } from '../model/chrome'
@@ -202,6 +202,9 @@ export class TabActions {
 
   /** Address typed in the toolbar or a private window. */
   navigate(tabId: string, input: string): void {
+    // `keyword query` (e.g. `yt cats`) searches that engine; a lone keyword stays what it was.
+    const kw = keywordSearch(input)
+    if (kw?.query) return this.loadUrl(tabId, refuseEngineInput(kw.url))
     // A local name (`mysite/admin`) takes precedence over everything: otherwise `mysite.test` looks like a domain.
     const aliased = resolveAlias(input, this.d.store.state.settings.devAliases)
     const typed = aliased ? null : toUrl(input)

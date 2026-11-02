@@ -2,7 +2,7 @@ import type { UiLanguage } from '../i18n'
 import type { DevAlias, DevResponsive, DevToolsPrefs } from './devtools'
 import type { PasswordManager } from './passwords'
 import type { SpaceRoute } from './spaces'
-import type { SearchEngineId } from '../mobile/search'
+import type { CustomEngine, KeywordOverrides } from '../searchengines'
 
 export interface Settings {
   /** Hours of inactivity before a day tab is archived. */
@@ -23,8 +23,12 @@ export interface Settings {
   languages: string[]
   /** Interface language; missing = `system` (follows macOS). */
   uiLanguage?: UiLanguage
-  /** Engine for searches typed in the command bar (see `SEARCH_ENGINES`). Missing = `google`. */
-  searchEngine?: SearchEngineId
+  /** Engine for searches typed in the command bar: a built-in, a preset (`youtube`…) or a custom engine id. Missing = `google`. */
+  searchEngine?: string
+  /** Engines added by the user (keyword search, see `searchengines.ts`). */
+  searchEngines?: CustomEngine[]
+  /** Changed keywords of built-in engines and presets, and presets turned off. */
+  searchKeywords?: KeywordOverrides
   /** Downloads folder (absolute path). Missing = the system's Downloads folder. */
   downloadDir?: string
   /** Ask where to save each download. Missing = no (saved directly to `downloadDir`). */

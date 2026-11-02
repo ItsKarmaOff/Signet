@@ -491,6 +491,19 @@ describe('cleanSettings / applyCleaned', () => {
     expect(target.searchEngine).toBeUndefined()
   })
 
+  it('search engines: cleaned, default falls back when its engine is deleted', () => {
+    const docs = { id: 'custom-abc123', name: 'Docs', keyword: 'd', template: 'https://docs.example/s?q=%s' }
+    const withDocs = cleanSettings({ searchEngines: [docs, { ...docs, id: 'custom-dup999' }, { ...docs, id: 'x' }], searchEngine: docs.id }, base)
+    expect(withDocs.searchEngines).toEqual([docs])
+    expect(withDocs.searchEngine).toBe(docs.id)
+    const deleted = cleanSettings({ searchEngines: [] }, withDocs)
+    expect(deleted.searchEngines).toBeUndefined()
+    expect(deleted.searchEngine).toBeUndefined()
+    const off = cleanSettings({ searchKeywords: { youtube: { disabled: true }, bing: { keyword: 'bb' } } }, base)
+    expect(off.searchKeywords).toEqual({ youtube: { disabled: true }, bing: { keyword: 'bb' } })
+    expect(cleanSettings({ searchEngine: 'youtube' }, off).searchEngine).toBeUndefined()
+  })
+
   it('downloadDir: absolute path kept, relative discarded, empty = system folder', () => {
     const abs = process.platform === 'win32' ? 'D:\\Fichiers' : '/Volumes/Disque/Fichiers'
     expect(cleanSettings({ downloadDir: abs }, base).downloadDir).toBe(abs)
