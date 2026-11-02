@@ -13,6 +13,9 @@ const PROBE_SRC = resolve(__dirname, '../extensions/api-probe')
 const RESULTS = resolve('test-results')
 
 test.setTimeout(240_000)
+// A measuring tool, not a regression test: it walks every API (some can hang or crash Electron on some systems), so it only runs
+// on demand: SIGNET_E2E_PROBE=1 npm run test:e2e -- extension-api.spec.ts
+test.skip(process.env.SIGNET_E2E_PROBE !== '1', 'extension API probe: run on demand with SIGNET_E2E_PROBE=1')
 
 /** Opens `url` in a new active tab and returns the tab id. */
 const openUrl = (a: App, url: string) => a.signet((b, u) => b.tabs.open(u, { activate: true }), url)

@@ -1,17 +1,17 @@
 # Extension APIs: probe results
 
-Measured with the API probe (`app/desktop/tests/extensions/api-probe`, run by `app/desktop/tests/e2e/extension-api.spec.ts`) on macOS arm64, Electron 45.1.0, on 2026-10-30. The probe loads an MV3 extension requesting every permission of `src/shared/extension-api-catalog.ts` and runs in four contexts: service worker, popup page, options page, and an extension page inside an iframe of the options page.
+Measured with the API probe (`app/desktop/tests/extensions/api-probe`, run on demand by `SIGNET_E2E_PROBE=1 npm run test:e2e -- extension-api.spec.ts`) on macOS arm64, Electron 45.1.0, on 2026-10-30. The probe loads an MV3 extension requesting every permission of `src/shared/extension-api-catalog.ts` and runs in four contexts: service worker, popup page, options page, and an extension page inside an iframe of the options page.
 
 Status of this document: the call results below were measured (copied from the generated report). The full member by member matrix (`test-results/extension-api-probe.md`) was generated but is not reproduced here, and the last runs were interrupted before it could be re-read, so anything about individual members or events is **not measured** unless stated.
 
 ## What each context gets
 
-| context | `chrome` | `browser` | `browser === chrome` | `chrome` frozen |
-|---|---|---|---|---|
-| service worker | yes | yes | yes | yes |
-| popup page | yes | yes | yes | yes |
-| options page | yes | yes | yes | yes |
-| iframe in an extension page | yes (native) | yes (native) | **no** | no |
+| context                     | `chrome`     | `browser`    | `browser === chrome` | `chrome` frozen |
+| --------------------------- | ------------ | ------------ | -------------------- | --------------- |
+| service worker              | yes          | yes          | yes                  | yes             |
+| popup page                  | yes          | yes          | yes                  | yes             |
+| options page                | yes          | yes          | yes                  | yes             |
+| iframe in an extension page | yes (native) | yes (native) | **no**               | no              |
 
 - Worker, popup and options behave the same: library namespaces plus Signet's (`proxy`, `privacy`, `alarms`, `offscreen`, `declarativeNetRequest`, `runtime.getContexts`), as logged by `[extension-apis] <id> worker: ...` and `page: ...`.
 - Subframe gap confirmed: the iframe only has Chromium's native bindings. `commands`, `windows`, `cookies`, `privacy`, `contextMenus`, `notifications`, `topSites`, `downloads`, `webNavigation` are absent there, `proxy.settings.get` is rejected ("Access to extension API denied"), `tabs.getCurrent`, `extension.getViews` and `extension.isAllowedIncognitoAccess` are missing, `storage.sync` and `storage.managed` are "not available in this instance of Chrome", and `browser !== chrome`.
@@ -19,27 +19,27 @@ Status of this document: the call results below were measured (copied from the g
 
 ## Answers to the inventory's unverified items
 
-| item | result |
-|---|---|
-| `userScripts` | **Absent** in all contexts even with the permission. The namespace must come from the safety net or a real implementation. |
-| `idle` | Native and working: `idle.queryState(60)` resolves `"active"`. |
-| `power` | Native and working: `requestKeepAwake` / `releaseKeepAwake` resolve. |
-| `dns` | Native and working: `dns.resolve('localhost')` resolves. |
-| `system.cpu / memory / display` | Calls resolved without crashing when explicitly enabled (`SIGNET_PROBE_UNSAFE`). Return values not read. |
+| item                                       | result                                                                                                                                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `userScripts`                              | **Absent** in all contexts even with the permission. The namespace must come from the safety net or a real implementation.                                                                                                                  |
+| `idle`                                     | Native and working: `idle.queryState(60)` resolves `"active"`.                                                                                                                                                                              |
+| `power`                                    | Native and working: `requestKeepAwake` / `releaseKeepAwake` resolve.                                                                                                                                                                        |
+| `dns`                                      | Native and working: `dns.resolve('localhost')` resolves.                                                                                                                                                                                    |
+| `system.cpu / memory / display`            | Calls resolved without crashing when explicitly enabled (`SIGNET_PROBE_UNSAFE`). Return values not read.                                                                                                                                    |
 | `system.storage` (`getInfo`, `onAttached`) | **Not conclusive.** First runs ended with the Electron process dying (SIGSEGV) around `system.storage.onAttached`, but those runs also overlapped with an extension reload, so the cause is not isolated. The probe skips these by default. |
-| `printerProvider` events | Not conclusive either (one run died during the `onGetUsbPrinterInfoRequested` listener test, `onPrintRequested` survived). Skipped by default. |
-| `storage.session` | Works: set then get round-trips in every context. |
-| `storage.managed` | **Wrong, confirmed**: `get(null)` returns the extension's local data (alias of `local`). |
-| `storage.sync` | Works but **aliased to local**: a key written to `local` is read from `sync`. |
-| `runtime.setUninstallURL('')` | Resolves. |
-| `runtime.requestUpdateCheck` | Rejects with "Autoupdate is not enabled." (acceptable). |
-| `activeTab` | Not measured (needs a button click on a real page). |
-| `alarms` native vs Signet | Signet's version is installed in the worker (`alarms` listed in the preload report); create/clear/getAll work. Not distinguished from native by this probe. |
-| native `declarativeNetRequest` vs Signet | Signet's version is installed; `getEnabledRulesets` / `getDynamicRules` resolve `[]`. The user verified on 2026-10-30 that uBOL "no filtering" lifts blocking, so there is no double enforcement. |
-| `commands.getAll` | Works in worker, popup, options (lists the manifest command); absent in the iframe. |
-| `runtime.getContexts` | Works (Signet's override) in the three contexts and the iframe. |
-| `extension.getViews` | Returns `[]` (library stub). |
-| `action.isEnabled` | Always `false` (native stub). |
+| `printerProvider` events                   | Not conclusive either (one run died during the `onGetUsbPrinterInfoRequested` listener test, `onPrintRequested` survived). Skipped by default.                                                                                              |
+| `storage.session`                          | Works: set then get round-trips in every context.                                                                                                                                                                                           |
+| `storage.managed`                          | **Wrong, confirmed**: `get(null)` returns the extension's local data (alias of `local`).                                                                                                                                                    |
+| `storage.sync`                             | Works but **aliased to local**: a key written to `local` is read from `sync`.                                                                                                                                                               |
+| `runtime.setUninstallURL('')`              | Resolves.                                                                                                                                                                                                                                   |
+| `runtime.requestUpdateCheck`               | Rejects with "Autoupdate is not enabled." (acceptable).                                                                                                                                                                                     |
+| `activeTab`                                | Not measured (needs a button click on a real page).                                                                                                                                                                                         |
+| `alarms` native vs Signet                  | Signet's version is installed in the worker (`alarms` listed in the preload report); create/clear/getAll work. Not distinguished from native by this probe.                                                                                 |
+| native `declarativeNetRequest` vs Signet   | Signet's version is installed; `getEnabledRulesets` / `getDynamicRules` resolve `[]`. The user verified on 2026-10-30 that uBOL "no filtering" lifts blocking, so there is no double enforcement.                                           |
+| `commands.getAll`                          | Works in worker, popup, options (lists the manifest command); absent in the iframe.                                                                                                                                                         |
+| `runtime.getContexts`                      | Works (Signet's override) in the three contexts and the iframe.                                                                                                                                                                             |
+| `extension.getViews`                       | Returns `[]` (library stub).                                                                                                                                                                                                                |
+| `action.isEnabled`                         | Always `false` (native stub).                                                                                                                                                                                                               |
 
 ## Namespaces: measured by calls
 
