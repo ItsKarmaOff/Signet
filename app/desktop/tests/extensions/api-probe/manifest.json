@@ -1,0 +1,117 @@
+{
+  "manifest_version": 3,
+  "name": "Signet API probe",
+  "version": "1.0.0",
+  "description": "Test extension: walks the Chrome extension API catalog in every context and reports what exists.",
+  "minimum_chrome_version": "116",
+  "permissions": [
+    "accessibilityFeatures.modify",
+    "accessibilityFeatures.read",
+    "activeTab",
+    "alarms",
+    "audio",
+    "background",
+    "certificateProvider",
+    "clipboard",
+    "clipboardRead",
+    "clipboardWrite",
+    "contentSettings",
+    "contextMenus",
+    "cookies",
+    "debugger",
+    "declarativeContent",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "declarativeNetRequestWithHostAccess",
+    "desktopCapture",
+    "dns",
+    "documentScan",
+    "downloads.open",
+    "downloads.shelf",
+    "downloads.ui",
+    "enterprise.deviceAttributes",
+    "enterprise.hardwarePlatform",
+    "enterprise.login",
+    "enterprise.networkingAttributes",
+    "enterprise.platformKeys",
+    "fileBrowserHandler",
+    "fileSystemProvider",
+    "fontSettings",
+    "gcm",
+    "geolocation",
+    "identity",
+    "idle",
+    "input",
+    "loginState",
+    "management",
+    "nativeMessaging",
+    "notifications",
+    "offscreen",
+    "pageCapture",
+    "platformKeys",
+    "power",
+    "printerProvider",
+    "printing",
+    "printingMetrics",
+    "privacy",
+    "processes",
+    "proxy",
+    "publicSuffix",
+    "readingList",
+    "scripting",
+    "search",
+    "sessions",
+    "sidePanel",
+    "storage",
+    "system.cpu",
+    "system.display",
+    "system.memory",
+    "system.storage",
+    "systemLog",
+    "tabCapture",
+    "tabGroups",
+    "tabs",
+    "tts",
+    "ttsEngine",
+    "unlimitedStorage",
+    "userScripts",
+    "vpnProvider",
+    "wallpaper",
+    "webAuthenticationProxy",
+    "webNavigation",
+    "webRequest",
+    "webRequestAuthProvider",
+    "webRequestBlocking"
+  ],
+  "optional_permissions": ["bookmarks", "browsingData", "downloads", "history", "topSites"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "worker.js"
+  },
+  "action": {
+    "default_title": "API probe",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "omnibox": {
+    "keyword": "probe"
+  },
+  "commands": {
+    "probe-command": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+9",
+        "mac": "Command+Shift+9"
+      },
+      "description": "Probe command"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["frame.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
