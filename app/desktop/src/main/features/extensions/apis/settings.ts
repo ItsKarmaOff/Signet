@@ -133,7 +133,12 @@ export class ChromeSettings {
     if (this.state.get(key)?.extensionId === extensionId) this.change(key, extensionId, undefined)
   }
 
-  /** Extension unloaded or uninstalled: it no longer controls anything. */
+  /** Ids that control a setting. */
+  knownIds(): string[] {
+    return [...new Set([...this.state.values()].map((c) => c.extensionId))]
+  }
+
+  /** Extension uninstalled: it no longer controls anything. An unload (reload, update) keeps the control. */
   release(extensionId: string): void {
     for (const [key, c] of [...this.state]) if (c.extensionId === extensionId) this.change(key, extensionId, undefined)
   }

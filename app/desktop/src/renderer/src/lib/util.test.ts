@@ -269,6 +269,12 @@ describe('badgeColors', () => {
     expect(badgeColors('rgba(255, 255, 0, 1)')?.color).toBe('rgb(0 0 0 / .85)')
   })
 
+  it('uses the text color the extension chose (setBadgeTextColor) when it is readable', () => {
+    expect(badgeColors('#d32f2f', [0, 0, 0, 255])?.color).toBe('rgb(0 0 0 / 1)')
+    expect(badgeColors('#d32f2f', 'yellow')?.color).toBe('yellow')
+    expect(badgeColors('#d32f2f', 'url(x)')?.color).toBe('#fff')
+  })
+
   it('ignores unreadable colors (the stylesheet fallback applies)', () => {
     expect(badgeColors(undefined)).toBeUndefined()
     expect(badgeColors('green')).toBeUndefined()

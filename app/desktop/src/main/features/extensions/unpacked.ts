@@ -215,6 +215,7 @@ export class UnpackedExtensions {
     e.scheduler?.dispose()
     this.entries.delete(path)
     e.chain = e.chain.then(() => {
+      if (e.id) this.b.extensions.forgetData(e.id)
       if (e.id && session.defaultSession.extensions.getExtension(e.id)) session.defaultSession.extensions.removeExtension(e.id)
       this.b.broadcast.changed({ layout: false, persist: false })
     })

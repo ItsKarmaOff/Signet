@@ -232,6 +232,11 @@ export class PermissionGrants {
     this.changed(id)
   }
 
+  /** Ids with grants. */
+  knownIds(): string[] {
+    return [...this.grants.keys()]
+  }
+
   /** The extension is uninstalled. */
   drop(id: string): void {
     if (this.grants.delete(id)) this.changed(id)

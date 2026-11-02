@@ -16,7 +16,7 @@ import type {
 } from '@signet/shared/types'
 import type { BackupInfo, BackupMode, BackupSection, BackupSummary, ImportKind } from './data'
 import type { DevToolsWindowState } from './devtools'
-import type { ExtensionActionCounts } from './extensions'
+import type { ExtensionActionCounts, ExtensionActionStates } from './extensions'
 import type { LinkState } from './link'
 import type { BoostEditorState, ModsInfo } from './mods'
 import type { OverlayPayload, PaletteMode, PaletteResult, PopoverRequest, QuitHudState } from './overlay'
@@ -264,6 +264,9 @@ export interface SignetApi {
   /** Counts of requests blocked per tab and extension (`declarativeNetRequest` action count badge). */
   getExtensionActionCounts(): Promise<ExtensionActionCounts>
   onExtensionActionCounts(cb: (counts: ExtensionActionCounts) => void): () => void
+  /** Enabled state and badge text color set by extensions on their buttons. */
+  getExtensionActionStates(): Promise<ExtensionActionStates>
+  onExtensionActionStates(cb: (states: ExtensionActionStates) => void): () => void
   /** An extension shortcut asks the toolbar to open an extension's button (token to acknowledge, extension id). */
   onRunExtensionAction(cb: (token: string, extensionId: string) => void): () => void
   /** The toolbar takes the request; false if it was already taken or main gave up waiting. */

@@ -1,8 +1,9 @@
-import { app, webContents, WebContentsView, type Session } from 'electron'
-import { readFileSync } from 'node:fs'
+import { app, nativeImage, Notification, webContents, webFrameMain, WebContentsView, type Session, type WebContents } from 'electron'
+import { existsSync, readFileSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { localeCandidates, localizeText, type Messages } from '@shared/extension-commands'
-import type { ExtensionActionCounts } from '@shared/types'
+import type { ExtensionActionCounts, ExtensionActionStates } from '@shared/types'
 import { extensionApisPath } from '../../../core/urls'
 import { Alarms } from './alarms'
 import { privacySettings, applyWebRtcTo, WEBRTC_KEY } from './privacy'
@@ -19,9 +20,35 @@ import { extensionOfPage } from './router'
 import { StubRegistry } from './stubs'
 import { PermissionGrants, type PermissionPrompt } from './permissions'
 import { ExtensionCommands, type CommandsDeps } from './commands'
+import { ContextMenus } from './contextmenus'
+import { PersistedData } from './lifecycle'
+import { TabsExtras, type TabLike } from './tabs'
+import { NavigationExtras, type FrameInfo } from './navigation'
+import { ExtensionNotifications, type ShownNotification } from './notifications'
+import { ActionStates, setIconMethod } from './action'
+import { extensionFilePath } from './urlmatch'
+import { ApiError, type ApiCaller, type ApiHandler } from './types'
 
 /** What the extension commands need from the rest of the app. */
 export type CommandHooks = Pick<CommandsDeps, 'signetKeys' | 'runAction' | 'activeTab'>
+
+/** What the other APIs of this layer need from the rest of the app. */
+export interface ApiHooks extends CommandHooks {
+  /** The displayed tab of a window (the current one without `windowId`). */
+  activeContents(windowId: number | undefined): WebContents | undefined
+  /** Activates the tab at `index` in the bar's order and returns the window in `windows.Window` shape. */
+  activateAt(index: number, windowId: number | undefined): unknown
+  /** Gives imageData icons (PNG data URLs by size) to the toolbar button, which the library draws. */
+  setActionIcon(ses: Session, extensionId: string, tabId: number | undefined, images: Record<string, string>): void
+}
+
+/** Frame ids as `webNavigation` writes them (the main frame is 0). */
+function frameInfo(processId: number, routingId: number): FrameInfo | undefined {
+  const frame = webFrameMain.fromId(processId, routingId)
+  if (!frame) return undefined
+  const id = (f: Electron.WebFrameMain): number => (f === f.top ? 0 : f.frameTreeNodeId)
+  return { frameId: id(frame), parentFrameId: frame.parent ? id(frame.parent) : -1, frameType: frame.parent ? 'sub_frame' : 'outermost_frame' }
+}
 
 /**
  * Extension APIs that Electron and electron-chrome-extensions lack: `chrome.proxy`, `chrome.privacy`, `chrome.alarms`.
@@ -45,8 +72,41 @@ export class ExtensionApis {
 
   private prompt: PermissionPrompt | null = null
   readonly commands: ExtensionCommands
+  readonly contextMenus: ContextMenus
+  private tabsExtras: TabsExtras
+  private navigation: NavigationExtras
+  private notifications: ExtensionNotifications
+  private actions = new ActionStates()
+  private stateListeners = new Set<(states: ExtensionActionStates) => void>()
 
-  constructor(hooks: CommandHooks) {
+  constructor(private hooks: ApiHooks) {
+    this.contextMenus = new ContextMenus(this.router)
+    this.navigation = new NavigationExtras({ emitter: this.router, frame: frameInfo })
+    this.actions.onChange(() => this.stateListeners.forEach((l) => l(this.actions.snapshot())))
+    this.tabsExtras = new TabsExtras({
+      contents: (id) => liveContents(webContents.fromId(id)),
+      active: (windowId) => liveContents(hooks.activeContents(windowId)),
+      access: (caller) => this.accessOf(caller),
+      readFile: (caller, file) => {
+        const ext = caller.ses.extensions.getExtension(caller.extensionId)
+        const path = ext && extensionFilePath(ext.path, ext.id, file)
+        return path ? readFile(path, 'utf8') : Promise.reject(new ApiError(`Could not load file: '${file}'.`))
+      },
+      activateAt: (index, windowId) => hooks.activateAt(index, windowId)
+    })
+    this.notifications = new ExtensionNotifications({
+      emitter: this.router,
+      platform: process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux',
+      appName: app.name,
+      make: (options) => new Notification(options) as unknown as ShownNotification,
+      icon: (caller, url) => {
+        if (url.startsWith('data:')) return url
+        const ext = caller.ses.extensions.getExtension(caller.extensionId)
+        const path = ext && extensionFilePath(ext.path, ext.id, url)
+        return path && existsSync(path) ? path : null
+      },
+      supported: () => Notification.isSupported()
+    })
     this.commands = new ExtensionCommands({
       ...hooks,
       platform: process.platform === 'darwin' ? 'darwin' : process.platform === 'win32' ? 'win32' : 'linux',
@@ -101,6 +161,8 @@ export class ExtensionApis {
       for (const [method, fn] of Object.entries({ ...this.dnr.methods(), ...engine.methods() }))
         this.router.register(['declarativeNetRequest', 'declarativeNetRequestWithHostAccess'], method, fn)
       for (const [method, fn] of Object.entries(this.commands.methods())) this.router.register('', method, fn)
+      this.contextMenus.persist(join(dir, 'extension-context-menus.json'))
+      this.registerExtras()
       this.router.register('offscreen', 'offscreen.createDocument', ({ ses, extensionId }, params) => this.offscreen.create(ses, extensionId, params))
       this.router.register('offscreen', 'offscreen.closeDocument', ({ extensionId }) => this.offscreen.close(extensionId))
       this.router.register('offscreen', 'offscreen.hasDocument', ({ extensionId }) => this.offscreen.has(extensionId))
@@ -123,6 +185,54 @@ export class ExtensionApis {
       })
     }
     return { settings: this.settings, alarms: this.alarms }
+  }
+
+  /** Manifest and runtime grants of an extension (host patterns included), for the checks that need the page's site. */
+  private accessOf(caller: ApiCaller): { permissions: string[]; origins: string[] } {
+    const manifest = caller.ses.extensions.getExtension(caller.extensionId)?.manifest
+    return this.grants?.effective(manifest, caller.extensionId) ?? { permissions: [], origins: [] }
+  }
+
+  /** Small gaps of members the library lacks or leaves incomplete: tabs, contextMenus, notifications, action, webNavigation. */
+  private registerExtras(): void {
+    const add = (permission: string, methods: Record<string, ApiHandler>): void => {
+      for (const [method, fn] of Object.entries(methods)) this.router.register(permission, method, fn)
+    }
+    add('', this.tabsExtras.methods())
+    add('contextMenus', this.contextMenus.methods())
+    add('notifications', this.notifications.methods())
+    add('', this.actions.methods())
+    add('', {
+      'action.setIcon': setIconMethod({
+        toPng: (bitmap, width, height) => nativeImage.createFromBitmap(bitmap, { width, height }).toDataURL(),
+        apply: (caller, tabId, images) => this.hooks.setActionIcon(caller.ses, caller.extensionId, tabId, images)
+      })
+    })
+  }
+
+  /** A tab declared to the library: its navigation errors and fragment changes are sent to extensions. */
+  watchTab(wc: WebContents): void {
+    this.navigation.watch(wc)
+  }
+
+  /** A tab closed: forget what extensions set for it. */
+  tabGone(tabId: number): void {
+    this.tabsExtras.forgetTab(tabId)
+    this.actions.forgetTab(tabId)
+  }
+
+  /** Is the extension's toolbar button enabled on this tab (`action.disable`)? */
+  actionEnabled(extensionId: string, tabId: number | undefined): boolean {
+    return this.actions.isEnabled(extensionId, tabId)
+  }
+
+  /** Button state set by extensions, for the toolbar. */
+  actionStates(): ExtensionActionStates {
+    return this.actions.snapshot()
+  }
+
+  onActionStates(fn: (states: ExtensionActionStates) => void): void {
+    this.stateListeners.add(fn)
   }
 
   /** Proxy authentication: Electron's `login` event for a proxy becomes `onAuthRequired` for the extension controlling the proxy. */
@@ -216,10 +326,12 @@ export class ExtensionApis {
     for (const ext of ses.extensions.getAllExtensions()) {
       this.grants?.reconcile(ext.id, ext.manifest)
       this.commands.register(ext.id, ext.name, ext.manifest)
+      this.contextMenus.restore(ext.id)
     }
     ses.extensions.on('extension-loaded', (_e, ext) => {
       this.grants?.reconcile(ext.id, ext.manifest)
       this.commands.register(ext.id, ext.name, ext.manifest)
+      this.contextMenus.restore(ext.id)
       settings.reapply(ses, ext.id)
       alarms.scheduler.activate(ext.id)
     })
@@ -228,13 +340,35 @@ export class ExtensionApis {
       if (settings.controllerOf('proxy.settings') === ext.id) void ses.setProxy({ mode: 'system' }).catch(() => {})
       // The extension is loaded in every session: it is only really gone once the last one lets go.
       if (this.router.loadedElsewhere(ext.id, ses)) return
+      // An unload is not an uninstall (reload of an unpacked extension, store update): only runtime state goes here.
+      // Grants, saved menus, DNR rules, controlled settings and alarms stay until `forgetExtension`.
       this.commands.unregister(ext.id)
-      settings.release(ext.id)
+      this.notifications.unload(ext.id)
+      this.tabsExtras.forgetExtension(ext.id)
+      this.actions.forgetExtension(ext.id)
       this.offscreen.closeFor(ext.id)
-      this.dnr?.remove(ext.id)
-      this.grants?.drop(ext.id)
-      alarms.scheduler.remove(ext.id)
+      this.dnr?.clearSession(ext.id)
+      alarms.scheduler.suspend(ext.id)
     })
+  }
+
+  /** Everything kept per extension across runs (storage is Electron's and is left alone). */
+  private persisted = new PersistedData(() => [
+    { knownIds: () => this.contextMenus.knownIds(), forget: (id) => this.contextMenus.unload(id) },
+    ...(this.settings ? [{ knownIds: () => this.settings!.knownIds(), forget: (id: string) => this.settings!.release(id) }] : []),
+    ...(this.dnr ? [{ knownIds: () => this.dnr!.knownIds(), forget: (id: string) => this.dnr!.remove(id) }] : []),
+    ...(this.grants ? [{ knownIds: () => this.grants!.knownIds(), forget: (id: string) => this.grants!.drop(id) }] : []),
+    ...(this.alarms ? [{ knownIds: () => this.alarms!.scheduler.knownIds(), forget: (id: string) => this.alarms!.scheduler.remove(id) }] : [])
+  ])
+
+  /** The extension was uninstalled: everything persisted for it goes. */
+  forgetExtension(id: string): void {
+    this.persisted.forget(id)
+  }
+
+  /** Drops persisted data of extensions that are no longer installed (folder deleted by hand). Call only once loading has finished. */
+  collectGarbage(installed: ReadonlySet<string>): string[] {
+    return this.persisted.collect(installed)
   }
 
   /** The extension's `chrome.*` endpoints for pages of an extension (calls from `chrome-extension://` frames). */
@@ -258,7 +392,13 @@ export class ExtensionApis {
     this.alarms?.flush()
     this.dnr?.flush()
     this.grants?.flush()
+    this.contextMenus.flush()
   }
+}
+
+/** A tab that can still be used, or undefined. */
+function liveContents(wc: WebContents | undefined | null): TabLike | undefined {
+  return wc && !wc.isDestroyed() ? wc : undefined
 }
 
 /**

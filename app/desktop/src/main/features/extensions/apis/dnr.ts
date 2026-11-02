@@ -191,11 +191,23 @@ export class DnrStore {
     return [...this.store(kind, id).values()].filter((r) => !ids || ids.has(r.id))
   }
 
+  /** Extension unloaded (reload, update): session rules are in memory only and do not survive it; the rest is kept. */
+  clearSession(id: string): void {
+    if (this.session.delete(id)) this.changed()
+  }
+
+  /** Ids with anything persisted. */
+  knownIds(): string[] {
+    return [...new Set([...this.dynamic.keys(), ...this.enabled.keys(), ...this.actionCount])]
+  }
+
   /** Extension uninstalled: its rules go with it. */
   remove(id: string): void {
     this.session.delete(id)
     const had = this.dynamic.delete(id)
-    if (this.enabled.delete(id) || this.actionCount.delete(id) || had) this.writer.request()
+    const enabled = this.enabled.delete(id)
+    const counted = this.actionCount.delete(id)
+    if (enabled || counted || had) this.writer.request()
     this.changed()
   }
 

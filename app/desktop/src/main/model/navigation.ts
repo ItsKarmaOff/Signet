@@ -4,10 +4,16 @@ import { itemTabIds } from '@signet/shared/tree'
 import type { State } from '../core/store'
 import { activeSpace } from './locate'
 
+/** Tab ids in the order the bar shows them: favorites, pinned, then day tabs (folders and groups flattened). */
+export function tabIdsInOrder(state: State): string[] {
+  const space = activeSpace(state)
+  return [...state.favorites, ...[...space.pinned, ...space.today].flatMap(itemTabIds)]
+}
+
 /** Next or previous tab: favorites, pinned, then day tabs. */
 export function cycleTarget(state: State, step: number): string | undefined {
   const space = activeSpace(state)
-  const ids = [...state.favorites, ...[...space.pinned, ...space.today].flatMap(itemTabIds)]
+  const ids = tabIdsInOrder(state)
   if (ids.length === 0) return undefined
   const i = ids.indexOf(space.activeTabId ?? '')
   const n = ids.length

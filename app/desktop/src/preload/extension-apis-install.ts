@@ -442,6 +442,91 @@ export function installApis(plan: Plan): Omit<InstallReport, 'context'> {
     return ctor
   }
 
+  // ── members Signet implements in namespaces the library provides ──
+  // Only the listed members are replaced, on a copy of the namespace (see `writable`); the rest stays the library's or native.
+  // A namespace that is absent (no permission, no action in the manifest) is left absent.
+  const overrideMembers = (ns: string, members: Record<string, unknown>): boolean => {
+    if (!existing([ns])) return false
+    try {
+      const obj = writable([ns], true)
+      for (const [name, value] of Object.entries(members)) define(obj, name, value)
+      installed.push(`${ns}.*`)
+      return true
+    } catch (e) {
+      console.warn(`[signet] extension APIs: cannot override members of chrome.${ns}`, e)
+      return false
+    }
+  }
+  const swallow = (p: Promise<unknown> | undefined): void => void p?.catch((e: Error) => console.error('Unchecked runtime.lastError:', e.message))
+  overrideMembers('tabs', {
+    captureVisibleTab: method('tabs.captureVisibleTab'),
+    highlight: method('tabs.highlight'),
+    insertCSS: method('tabs.insertCSS'),
+    removeCSS: method('tabs.removeCSS'),
+    detectLanguage: method('tabs.detectLanguage')
+  })
+  overrideMembers('webNavigation', {
+    onErrorOccurred: event('webNavigation.onErrorOccurred'),
+    onReferenceFragmentUpdated: event('webNavigation.onReferenceFragmentUpdated')
+  })
+  overrideMembers('notifications', {
+    create: method('notifications.create'),
+    update: method('notifications.update'),
+    clear: method('notifications.clear'),
+    getAll: method('notifications.getAll'),
+    getPermissionLevel: method('notifications.getPermissionLevel'),
+    onClicked: event('notifications.onClicked'),
+    onButtonClicked: event('notifications.onButtonClicked'),
+    onClosed: event('notifications.onClosed')
+  })
+  {
+    // contextMenus: the items live in main (contextmenus.ts); `onclick` callbacks stay here.
+    const clicks = new Map<string, (...a: unknown[]) => void>()
+    let counter = 0
+    let listening = false
+    const onClicked = event('contextMenus.onClicked')
+    overrideMembers('contextMenus', {
+      create: (props: any, callback?: () => void) => {
+        const p = { ...props }
+        if (p.id === undefined) p.id = `signet-menu-${Date.now().toString(36)}-${++counter}`
+        if (typeof p.onclick === 'function') {
+          clicks.set(String(p.id), p.onclick)
+          if (!listening) {
+            listening = true
+            onClicked.addListener((info: any, tab: unknown) => clicks.get(String(info.menuItemId))?.(info, tab))
+          }
+        }
+        delete p.onclick
+        if (typeof callback === 'function') void call('contextMenus.create', [p, callback])
+        else swallow(call('contextMenus.create', [p]))
+        return p.id
+      },
+      update: method('contextMenus.update'),
+      remove: method('contextMenus.remove'),
+      removeAll: method('contextMenus.removeAll'),
+      onClicked
+    })
+  }
+  for (const ns of ['action', 'browserAction']) {
+    // `action.setIcon` with imageData: the pixels go to main, which makes the PNGs; paths and the rest stay with the library.
+    const original = existing([ns])?.setIcon
+    const setIcon = (details: any, ...rest: unknown[]): unknown => {
+      const data = details && details.imageData
+      if (!data || typeof data !== 'object') return original?.(details, ...rest)
+      const plain = (img: any) => ({ width: img.width, height: img.height, data: new Uint8ClampedArray(img.data) })
+      const imageData = 'width' in data && 'data' in data ? plain(data) : Object.fromEntries(Object.entries(data).map(([k, v]) => [k, plain(v)]))
+      return call('action.setIcon', [{ tabId: details.tabId, imageData }, ...rest])
+    }
+    overrideMembers(ns, {
+      enable: method('action.enable'),
+      disable: method('action.disable'),
+      isEnabled: method('action.isEnabled'),
+      setBadgeTextColor: method('action.setBadgeTextColor'),
+      getBadgeTextColor: method('action.getBadgeTextColor'),
+      setIcon
+    })
+  }
+
   // storage.managed: Chrome's enterprise policy area. The library aliases it to storage.local, which makes extensions read their own
   // data as if it were policy. Replaced by an empty read-only area (the one case, with crashers, where an existing member is replaced).
   const READ_ONLY = 'This is a read-only store.'

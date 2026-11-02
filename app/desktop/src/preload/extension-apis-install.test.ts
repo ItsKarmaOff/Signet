@@ -67,6 +67,36 @@ describe('chrome.permissions', () => {
   })
 })
 
+describe('member overrides', () => {
+  it('replaces single members of tabs, notifications, action and contextMenus and keeps the rest of the namespace', () => {
+    const query = () => 'library'
+    const { c } = install(
+      { permissions: ['notifications', 'contextMenus'], action: {} },
+      {
+        tabs: { query },
+        notifications: { create: () => 'library', getAll: () => {} },
+        action: { setTitle: () => 'library', setIcon: () => 'library' },
+        contextMenus: { create: () => 'library' }
+      }
+    )
+    expect(c.tabs.query).toBe(query)
+    for (const m of ['captureVisibleTab', 'highlight', 'insertCSS', 'removeCSS', 'detectLanguage']) expect(c.tabs[m]).toBeTypeOf('function')
+    expect(c.notifications.onButtonClicked.addListener).toBeTypeOf('function')
+    expect(c.action.setTitle()).toBe('library')
+    for (const m of ['enable', 'disable', 'isEnabled', 'setBadgeTextColor', 'getBadgeTextColor']) expect(c.action[m]).toBeTypeOf('function')
+    expect(c.contextMenus.update).toBeTypeOf('function')
+    expect(c.contextMenus.create({ title: 'x', id: 'a' })).toBe('a')
+  })
+
+  it('leaves an absent namespace absent and sends non-imageData setIcon to the library', () => {
+    const setIcon = vi.fn(() => 'library')
+    const { c } = install({ permissions: [] }, { action: { setIcon } })
+    expect(c.notifications).toBeUndefined()
+    expect(c.action.setIcon({ path: 'a.png' })).toBe('library')
+    expect(setIcon).toHaveBeenCalledWith({ path: 'a.png' })
+  })
+})
+
 afterEach(() => {
   delete g.chrome
   delete g.browser

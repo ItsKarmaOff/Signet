@@ -158,6 +158,7 @@ function start(): void {
       .init()
       .then(() => browser?.backup.installPendingExtensions())
       .then(() => browser?.unpacked.init())
+      .then(() => browser?.extensions.collectGarbage())
     // Launched by an app's launcher: only its window opens (like Chrome); the Dock or ⌘N bring back the main window.
     const launches = [...pendingApps, ...process.argv.filter(isAppLaunch)]
     pendingApps.length = 0
