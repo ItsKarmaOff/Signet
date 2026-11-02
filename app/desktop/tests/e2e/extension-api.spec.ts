@@ -55,8 +55,8 @@ test('extension API probe: report what each context exposes', async ({ signetApp
   )
 
   try {
-    // Loaded straight into the session tabs use, not through Signet's unpacked mechanism (Settings > Extensions): that one watches the
-    // folder and reloads on change, and a reload while the probe runs kills the Electron process (also seen on macOS FSEvents replays).
+    // Loaded straight into the session tabs use, not through Signet's unpacked mechanism (Settings > Extensions). That mechanism now
+    // ignores watcher events that change no file and unloads cleanly before reloading, but the probe does not depend on it.
     const loaded = await signetApp.app.evaluate(
       ({ session }, p) => session.defaultSession.extensions.loadExtension(p, { allowFileAccess: true }).then((e) => ({ id: e.id, name: e.name })),
       probeDir
@@ -98,11 +98,30 @@ test('extension API probe: report what each context exposes', async ({ signetApp
     for (const path of ['proxy', 'privacy', 'alarms', 'offscreen', 'declarativeNetRequest']) expect(present(worker, path), `worker chrome.${path}`).toBe(true)
     expect(worker.namespaces?.runtime?.members.getContexts?.chrome, 'worker chrome.runtime.getContexts').toBe('function')
 
-    // `browser` is an alias of `chrome` wherever Signet's preload runs. Extension subframes (iframe) get no preload today: reported, not asserted.
-    for (const name of ['worker', 'popup', 'options'] as const) {
+    // `browser` is an alias of `chrome` wherever Signet's preload runs, extension subframes (iframe) included.
+    for (const name of ['worker', 'popup', 'options', 'iframe'] as const) {
       const r = reports[name]
       if (r?.hasBrowser) expect(r.browserIsChrome, `${name}: browser === chrome`).toBe(true)
     }
+
+    // Subframes of an extension page get Signet's APIs, like their parent.
+    const iframe = reports.iframe
+    expect(iframe, 'iframe report').not.toBeNull()
+    for (const path of ['proxy', 'privacy', 'alarms', 'declarativeNetRequest']) expect(present(iframe!, path), `iframe chrome.${path}`).toBe(true)
+
+    // Safety net: absent namespaces are placeholders in every context (userScripts, bookmarks... are in the probe's permissions).
+    for (const name of ['worker', 'popup', 'options', 'iframe'] as const) {
+      for (const path of ['userScripts', 'bookmarks', 'sidePanel', 'tabGroups']) expect(present(reports[name]!, path), `${name} chrome.${path}`).toBe(true)
+      const managed = reports[name]?.calls?.['storage.managed.get']
+      expect(managed?.status, `${name} storage.managed.get`).toBe('resolved')
+      expect(managed?.value, `${name} storage.managed.get is empty`).toBe('{}')
+    }
+    // The native crashers were exercised (no longer skipped) and the process survived.
+    expect(reports.worker!.calls?.['system.cpu.getInfo']?.status).not.toBe('skipped')
+    expect(
+      logs.some((l) => l.includes(`${id} stubbed:`)),
+      'terminal line listing the stubbed APIs'
+    ).toBe(true)
   } finally {
     mkdirSync(RESULTS, { recursive: true })
     writeFileSync(join(RESULTS, 'extension-api-probe.progress.log'), progress.join('\n'))

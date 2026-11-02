@@ -57,7 +57,15 @@ export function reloadContents(wc: Electron.WebContents, force = false): void {
 export function createTabView(b: Browser, tabId: string, ses?: Session): WebContentsView {
   const view = new WebContentsView({
     // Font sizes (Settings › Appearance) can only be given at creation: they reach the pages of views created from now on.
-    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, ...fontPreferences(b.store.state.settings), ...(ses && { session: ses }) }
+    // nodeIntegrationInSubFrames does not enable Node: it makes the session's frame preloads run in iframes too.
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: true,
+      ...fontPreferences(b.store.state.settings),
+      ...(ses && { session: ses })
+    }
   })
   view.setBackgroundColor('#ffffff')
   view.setBorderRadius(12)

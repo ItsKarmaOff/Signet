@@ -74,6 +74,10 @@ export interface InstallReport {
   namespaces: string[]
   /** first: ran before the library; replaced-frozen: copied the library's frozen `chrome`; failed: nothing installed. */
   mode: 'first' | 'replaced-frozen' | 'failed'
+  /** Namespaces (`userScripts`) and members (`tabs.group`, `sidePanel.open`) Signet replaced with placeholders that report "not supported". */
+  stubbed?: string[]
+  /** Library event objects whose hasListener / hasListeners threw and were repaired. */
+  fixedEvents?: string[]
   error?: string
 }
 
@@ -104,11 +108,13 @@ export const OFFSCREEN_REASONS = [
  * Whether a preload runs in an extension context. Strict on purpose: service-worker preloads run for EVERY worker of the
  * session, web sites' included, so only a `chrome-extension://` URL qualifies.
  * - worker: its script URL starts with chrome-extension://
- * - page: a chrome-extension:// document that is the top frame (subframes get nothing).
+ * - page: a chrome-extension:// document, top frame or subframe (an options page embedding another page of the extension
+ *   must see the same APIs as its parent), unless it is sandboxed: a sandbox page has an opaque origin and no extension APIs.
+ * The URL test is what keeps web content out: a web page's frames never have a chrome-extension:// URL.
  */
-export function isExtensionContext(input: { processType: string; url: string | null | undefined; isTopFrame: boolean }): boolean {
+export function isExtensionContext(input: { processType: string; url: string | null | undefined; sandboxed: boolean }): boolean {
   if (!input.url?.startsWith('chrome-extension://')) return false
-  return input.processType === 'service-worker' || input.isTopFrame
+  return input.processType === 'service-worker' || !input.sandboxed
 }
 
 /** Event main sends to ask an extension for proxy credentials: args `[requestKey, details]`. Same name as Chrome's event. */

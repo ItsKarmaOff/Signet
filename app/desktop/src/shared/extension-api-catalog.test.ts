@@ -134,6 +134,7 @@ describe('extension API catalog', () => {
       if (spec.declarativeEvents) for (const e of spec.declarativeEvents) expect(spec.events, `${path} declarative ${e}`).toContain(e)
       for (const k of spec.classes ?? []) expect(isNames([k]), `${path} class ${k}`).toBe(true)
       for (const m of Object.keys(spec.soft ?? {})) expect(spec.methods, `${path} soft ${m}`).toContain(m)
+      for (const m of spec.crashes ?? []) expect([...spec.methods, ...spec.events], `${path} crashes ${m}`).toContain(m)
       expect(new Set(spec.methods).size, `${path} methods unique`).toBe(spec.methods.length)
       expect(new Set(spec.events).size, `${path} events unique`).toBe(spec.events.length)
     }
@@ -141,6 +142,12 @@ describe('extension API catalog', () => {
 
   it('is plain JSON data (it travels to the preload and the probe as JSON)', () => {
     expect(JSON.parse(JSON.stringify(EXTENSION_API_CATALOG))).toEqual(EXTENSION_API_CATALOG)
+  })
+
+  it('lists the native crashers', () => {
+    expect(EXTENSION_API_CATALOG.system.children!.storage.crashes).toEqual(expect.arrayContaining(['onAttached', 'onDetached']))
+    expect(EXTENSION_API_CATALOG.printerProvider.crashes).toContain('onGetUsbPrinterInfoRequested')
+    expect(EXTENSION_API_CATALOG.system.children!.cpu.crashes).toBeUndefined()
   })
 
   it('flags only the namespaces Signet will never provide', () => {

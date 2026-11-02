@@ -14,6 +14,7 @@ import { ProxyAuthBroker } from './auth'
 import { ChromeSettings, type SettingDef } from './settings'
 import { AUTH_LISTENERS_METHOD, AUTH_RESPONSE_METHOD, INSTALLED_METHOD, SETTING_METHODS, type InstallReport } from '@shared/extension-apis'
 import { extensionOfPage } from './router'
+import { StubRegistry } from './stubs'
 
 /**
  * Extension APIs that Electron and electron-chrome-extensions lack: `chrome.proxy`, `chrome.privacy`, `chrome.alarms`.
@@ -25,6 +26,7 @@ export class ExtensionApis {
   private settings: ChromeSettings | null = null
   private alarms: Alarms | null = null
   private sessions = new Set<Session>()
+  private stubs = new StubRegistry()
   private dnr: DnrStore | null = null
   private dnrEngine: DnrEngine | null = null
   private countListeners = new Set<(counts: ExtensionActionCounts) => void>()
@@ -55,7 +57,7 @@ export class ExtensionApis {
       this.router.register('offscreen', 'offscreen.hasDocument', ({ extensionId }) => this.offscreen.has(extensionId))
       this.initAuth(settings)
       this.router.register('', 'runtime.getContexts', ({ ses, extensionId }, filter) => filterContexts(this.contextsOf(ses, extensionId), filter))
-      this.router.register('', INSTALLED_METHOD, ({ extensionId }, report) => this.logInstalled(extensionId, report as InstallReport))
+      this.router.register('', INSTALLED_METHOD, ({ ses, extensionId }, report) => this.logInstalled(ses, extensionId, report as InstallReport))
       app.on('will-quit', () => this.flush())
       // Tabs opened after the WebRTC policy was set must follow it.
       app.on('web-contents-created', (_e, wc) => {
@@ -123,8 +125,23 @@ export class ExtensionApis {
     return contexts
   }
 
-  private logInstalled(extensionId: string, r: InstallReport): void {
+  /** Namespaces and members the safety net replaced by placeholders for an extension (for a later Settings line). */
+  stubbedOf(extensionId: string, version?: string): string[] {
+    return this.stubs.of(extensionId, version)
+  }
+
+  private logInstalled(ses: Session, extensionId: string, r: InstallReport): void {
     if (!r || typeof r !== 'object') return
+    if (Array.isArray(r.stubbed)) {
+      const version = String(ses.extensions.getExtension(extensionId)?.version ?? '')
+      const names = r.stubbed.map(String)
+      if (this.stubs.record(extensionId, version, names) && !app.isPackaged) {
+        console.log(`[extension-apis] ${extensionId} stubbed: ${names.join(', ') || 'none'}`.slice(0, 1500))
+      }
+    }
+    if (!app.isPackaged && Array.isArray(r.fixedEvents) && r.fixedEvents.length) {
+      console.log(`[extension-apis] ${extensionId} repaired events: ${r.fixedEvents.join(', ')}`.slice(0, 600))
+    }
     const names = Array.isArray(r.namespaces) ? r.namespaces.map(String).join(', ') : ''
     const error = r.error ? ` ERROR ${String(r.error).slice(0, 200)}` : ''
     console.log(`[extension-apis] ${extensionId} ${r.context === 'page' ? 'page' : 'worker'}: ${names || 'none'} (${String(r.mode)})${error}`)
@@ -192,7 +209,9 @@ export class ExtensionApis {
  * with the tab logic, so it cannot appear, take focus or become a tab.
  */
 function openOffscreenPage(ses: Session): OffscreenPage {
-  const view = new WebContentsView({ webPreferences: { session: ses, sandbox: true, contextIsolation: true, backgroundThrottling: false } })
+  const view = new WebContentsView({
+    webPreferences: { session: ses, sandbox: true, contextIsolation: true, nodeIntegrationInSubFrames: true, backgroundThrottling: false }
+  })
   const wc = view.webContents
   const id = wc.id
   return {

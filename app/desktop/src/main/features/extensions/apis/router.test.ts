@@ -133,10 +133,15 @@ describe('sender checks', () => {
     expect(await call(event(ses, `chrome-extension://${B}/popup.html`), 'alarms.get', [])).toEqual({ ok: true, value: B })
   })
 
-  it('page: refuses web pages, subframes and missing frames', async () => {
+  it('page: an extension subframe is served as its own extension', async () => {
+    const { ses, call } = setup()
+    expect(await call(event(ses, `chrome-extension://${A}/p.html`, false), 'alarms.get', [])).toEqual({ ok: true, value: A })
+  })
+
+  it('page: refuses web pages (also subframes) and missing frames', async () => {
     const { ses, call } = setup()
     expect(await call(event(ses, 'https://example.com/'), 'alarms.get', [])).toMatchObject({ ok: false })
-    expect(await call(event(ses, `chrome-extension://${A}/p.html`, false), 'alarms.get', [])).toMatchObject({ ok: false })
+    expect(await call(event(ses, 'https://example.com/', false), 'alarms.get', [])).toMatchObject({ ok: false })
     expect(await call({ senderFrame: null, sender: { session: ses } }, 'alarms.get', [])).toMatchObject({ ok: false })
   })
 

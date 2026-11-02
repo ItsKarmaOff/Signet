@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-// Page script (registered on the tabs' sessions, all frames): fills `window.chrome` like Chrome.
+// Page script (registered on the tabs' sessions, all frames, except extension pages): fills `window.chrome` like Chrome.
 // Electron leaves it empty, without `loadTimes`, `csi` or `app`, and Google then refuses the sign-in ("This browser or
 // app may not be secure"). Runs in the page's world, before its scripts.
 import { contextBridge } from 'electron'
@@ -7,6 +7,8 @@ import { contextBridge } from 'electron'
 try {
   contextBridge.executeInMainWorld({
     func: () => {
+      // Extension pages keep their real `chrome` (patched by extension-apis).
+      if (location.protocol === 'chrome-extension:') return
       // A bound function displays as `function () { [native code] }`, like Chrome's native functions.
       const native = <T extends (...args: never[]) => unknown>(name: string, fn: T): T => {
         const bound = fn.bind(null) as T

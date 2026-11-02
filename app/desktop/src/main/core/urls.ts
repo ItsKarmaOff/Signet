@@ -39,7 +39,7 @@ export const swipePath = join(__dirname, '../preload/swipe.js')
 /** Page script that sets `navigator.globalPrivacyControl` (registered only while Global Privacy Control is on; all frames). */
 export const gpcPath = join(__dirname, '../preload/gpc.js')
 
-/** Password page script: on-demand filling and login detection (all frames). */
+/** Password page script: on-demand filling and login detection (main frame only). */
 export const passwordsPath = join(__dirname, '../preload/passwords.js')
 
 /** Page script that fills `window.chrome` like Chrome (without it, Google refuses sign-in; all frames). */
