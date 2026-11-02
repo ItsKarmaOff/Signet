@@ -616,6 +616,35 @@
       "noUsername": "Sans identifiant"
     }
   },
+  "autofill": {
+    "card": "Carte",
+    "authCard": "remplir votre carte bancaire sur {{site}}",
+    "authReveal": "afficher le numéro de votre carte",
+    "authEdit": "modifier le numéro de votre carte",
+    "menu": {
+      "addressesTitle": "Adresses Signet",
+      "cardsTitle": "Cartes Signet",
+      "manageAddresses": "Gérer les adresses…",
+      "manageCards": "Gérer les cartes…",
+      "expires": "exp. {{date}}"
+    },
+    "error": {
+      "encryption": "Le chiffrement n’est pas disponible sur ce système : aucune carte ne peut être enregistrée.",
+      "empty": "Renseignez au moins un champ.",
+      "missing": "Cet élément n’existe plus.",
+      "number": "Saisissez un numéro de carte valide.",
+      "expiry": "Saisissez une date d’expiration valide.",
+      "duplicateCard": "Cette carte est déjà enregistrée.",
+      "duplicateAddress": "Une adresse avec le même nom et la même rue est déjà enregistrée.",
+      "auth": "L’authentification a échoué."
+    },
+    "prompt": {
+      "saveAddressTitle": "Enregistrer cette adresse de {{site}} ?",
+      "updateAddressTitle": "Mettre à jour cette adresse de {{site}} ?",
+      "saveCardTitle": "Enregistrer cette carte de {{site}} ?",
+      "updateCardTitle": "Mettre à jour cette carte de {{site}} ?"
+    }
+  },
   "pageTools": {
     "savePdfTitle": "Exporter en PDF",
     "savePageTitle": "Enregistrer la page",

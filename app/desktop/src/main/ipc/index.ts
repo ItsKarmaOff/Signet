@@ -7,7 +7,7 @@ import { registerLibraryIpc } from './library'
 import { registerLinkIpc } from './link'
 import { registerOverlayIpc } from './overlay'
 import { registerPageIpc } from './page'
-import { registerPasswordsIpc } from './passwords'
+import { registerAutofillIpc, registerPasswordsIpc } from './passwords'
 import { createRegistrar, type Registrar } from './registrar'
 import { registerSettingsIpc } from './settings'
 import { registerSidebarIpc } from './sidebar'
@@ -33,6 +33,7 @@ export function registerIpc(b: Browser, dev: boolean): Registrar {
   registerSettingsIpc(b, reg)
   registerExtensionsIpc(b, reg)
   registerPasswordsIpc(b, reg)
+  registerAutofillIpc(b, reg)
   registerLinkIpc(b, reg)
   registerCustomizeIpc(b, reg)
   registerWindowsIpc(b, reg)

@@ -14,6 +14,7 @@ import type {
   SpaceDraft,
   SplitLayout
 } from '@signet/shared/types'
+import type { AddressInput, AutofillInfo, CardInput } from './autofill'
 import type { BackupInfo, BackupMode, BackupSection, BackupSummary, ImportKind } from './data'
 import type { DevToolsWindowState } from './devtools'
 import type { ExtensionActionCounts, ExtensionActionStates } from './extensions'
@@ -291,6 +292,17 @@ export interface SignetApi {
   answerPasswordPrompt(token: string, answer: 'save' | 'never' | 'dismiss'): Promise<void>
   /** Key button of the address bar: reopens the pending prompt, otherwise lists the site's accounts, under `anchor`. */
   openPasswordKey(tabId: string, anchor: Rect): Promise<void>
+
+  // Autofill (Settings > Autofill; a card number only leaves main through `revealCard`, after authentication)
+  listAutofill(): Promise<AutofillInfo>
+  /** Adds (null id) or edits an address. Returns an error message, or null. */
+  saveAddress(id: string | null, address: AddressInput): Promise<string | null>
+  deleteAddress(id: string): Promise<void>
+  /** Adds (null id) or edits a card; a new number for an existing card asks for authentication. Returns an error message, or null. */
+  saveCard(id: string | null, card: CardInput): Promise<string | null>
+  deleteCard(id: string): Promise<void>
+  /** Full card number, after the system's authentication; null if refused. */
+  revealCard(id: string): Promise<string | null>
 
   // Mode compact (lot A)
   toggleCompact(): Promise<void>

@@ -222,6 +222,8 @@ export class SettingsWindow {
       this.b.passwords.refreshAll() // the key button only exists with Signet's password vault
     }
     if (typeof patch.offerSavePasswords === 'boolean') settings.offerSavePasswords = patch.offerSavePasswords
+    if (typeof patch.autofillAddresses === 'boolean') settings.autofillAddresses = patch.autofillAddresses
+    if (typeof patch.autofillCards === 'boolean') settings.autofillCards = patch.autofillCards
     if (typeof patch.devMode === 'boolean' && patch.devMode !== (settings.devMode === true)) {
       settings.devMode = patch.devMode
       if (!patch.devMode) this.b.devMode.clearAll()
@@ -247,6 +249,11 @@ export class SettingsWindow {
     if (Array.isArray(patch.neverSavePasswords)) {
       const kept = new Set(patch.neverSavePasswords.filter((o): o is string => typeof o === 'string'))
       settings.neverSavePasswords = (settings.neverSavePasswords ?? []).filter((o) => kept.has(o))
+    }
+    // Same for autofill: sites can only be removed here.
+    if (Array.isArray(patch.neverSaveAutofill)) {
+      const kept = new Set(patch.neverSaveAutofill.filter((o): o is string => typeof o === 'string'))
+      settings.neverSaveAutofill = (settings.neverSaveAutofill ?? []).filter((o) => kept.has(o))
     }
     if (typeof patch.compactMode === 'boolean') this.b.shell.setCompact(patch.compactMode)
     if (patch.tabLayout === 'vertical' || patch.tabLayout === 'horizontal') this.b.shell.setTabLayout(patch.tabLayout)

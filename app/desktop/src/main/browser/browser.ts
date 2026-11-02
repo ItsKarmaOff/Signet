@@ -28,6 +28,7 @@ import { TabPreviews } from './preview'
 import { Mods } from '../features/mods/mods'
 import { Reader } from '../features/reader'
 import { Translator } from '../features/translate'
+import { Autofill } from '../features/autofill/autofill'
 import { Passwords } from '../features/passwords/passwords'
 import { WebApps } from '../features/webapps'
 import { Link } from '../features/link/link'
@@ -112,6 +113,7 @@ export class Browser {
   readonly adblock: Adblock
   readonly extensions = new Extensions(this)
   readonly passwords = new Passwords(this)
+  readonly autofill = new Autofill(this)
   readonly webApps = new WebApps(this)
   readonly link = new Link(this)
   readonly updates = new Updates(this)
@@ -241,7 +243,12 @@ export class Browser {
       layout: this.layout,
       floating: this.floating,
       compact: this.compact,
-      passwords: this.passwords,
+      passwords: {
+        dismissPrompt: () => {
+          this.passwords.dismissPrompt()
+          this.autofill.dismissPrompt()
+        }
+      },
       apply,
       changed
     })

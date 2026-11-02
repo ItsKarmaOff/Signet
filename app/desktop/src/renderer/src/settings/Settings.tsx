@@ -27,7 +27,8 @@ import {
   Cpu,
   ExternalLink,
   RotateCw,
-  Search
+  Search,
+  TextCursorInput
 } from 'lucide-react'
 import type { BrowsingDataKind, DevAlias, ImportKind, SettingsInfo } from '@shared/types'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
@@ -41,6 +42,7 @@ import { LanguageSettings } from './LanguageSettings'
 import { ExtensionSettings } from './ExtensionSettings'
 import { ShortcutSettings } from './ShortcutSettings'
 import { LiveFolderSettings } from './LiveFolderSettings'
+import { AutofillSettings } from './AutofillSettings'
 import { PasswordSettings } from './PasswordSettings'
 import { BackupSettings } from './BackupSettings'
 import { SitePermissionSettings } from './SitePermissionSettings'
@@ -66,6 +68,7 @@ const SECTIONS = [
   { id: 'devices', group: 'browsing', label: 'settings.section.devices', icon: Smartphone },
   { id: 'privacy', group: 'data', label: 'settings.section.privacy', icon: Shield },
   { id: 'passwords', group: 'data', label: 'settings.section.passwords', icon: KeyRound },
+  { id: 'autofill', group: 'data', label: 'settings.section.autofill', icon: TextCursorInput },
   { id: 'backup', group: 'data', label: 'settings.section.backup', icon: ArchiveRestore },
   { id: 'import', group: 'data', label: 'settings.section.import', icon: Download },
   { id: 'mods', group: 'advanced', label: 'settings.section.mods', icon: Paintbrush },
@@ -139,6 +142,7 @@ export function Settings() {
               {section === 'appearance' && <Appearance info={info} />}
               {section === 'privacy' && <Privacy info={info} />}
               {section === 'passwords' && <PasswordSettings info={info} />}
+              {section === 'autofill' && <AutofillSettings info={info} />}
               {section === 'backup' && <BackupSettings />}
               {section === 'import' && <Import info={info} />}
               {section === 'boosts' && <Boosts info={info} />}

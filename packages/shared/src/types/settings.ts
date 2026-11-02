@@ -76,6 +76,12 @@ export interface Settings {
   offerSavePasswords?: boolean
   /** Origins for which saving is never offered. */
   neverSavePasswords?: string[]
+  /** Save and fill addresses (autofill). Missing = enabled. */
+  autofillAddresses?: boolean
+  /** Save and fill payment cards (autofill). Missing = enabled. */
+  autofillCards?: boolean
+  /** Origins for which saving an address or a card is never offered. */
+  neverSaveAutofill?: string[]
   /** Modified shortcuts (see app/desktop/src/shared/shortcuts.ts): chosen accelerator, or null for none. Missing key = default. */
   shortcuts?: Record<string, string | null>
   /** Tab preview on hover (sidebar, tab row). Missing = enabled. */

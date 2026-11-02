@@ -67,6 +67,19 @@ const send = <const C extends string, const G extends readonly Guard<unknown>[]>
 const id = str()
 const optId = opt(str())
 const idOrNull = nullable(str())
+const addressInput = obj({
+  givenName: str(200),
+  familyName: str(200),
+  organization: str(200),
+  street: str(600),
+  city: str(200),
+  postalCode: str(40),
+  region: str(200),
+  country: str(200),
+  phone: str(60),
+  email: str(200)
+})
+const cardInput = obj({ holder: str(200), number: nullable(str(40)), expMonth: num(), expYear: num(), nickname: str(100) })
 
 /**
  * Checks an entry against the `SignetApi` method's signature: a method returning a promise is a call
@@ -301,6 +314,14 @@ export const IPC = {
   answerPasswordPrompt: invoke('passwords:prompt', [id, lit('save', 'never', 'dismiss')]),
   openPasswordKey: invoke('passwords:key', [id, rect]),
 
+  // Autofill
+  listAutofill: invoke('autofill:list', []),
+  saveAddress: invoke('autofill:save-address', [idOrNull, addressInput]),
+  deleteAddress: invoke('autofill:delete-address', [id]),
+  saveCard: invoke('autofill:save-card', [idOrNull, cardInput]),
+  deleteCard: invoke('autofill:delete-card', [id]),
+  revealCard: invoke('autofill:reveal-card', [id]),
+
   // Library, site panel
   openLibrary: invoke('library:open', [opt(librarySection)]),
   openLibraryUrl: invoke('library:open-url', [str()]),
@@ -386,7 +407,7 @@ export const PIP_IPC = {
 // ───────────────────────── Web page channels (UNTRUSTED) ─────────────────────────
 
 /**
- * Channels called by page scripts (src/preload/swipe.ts, passwords.ts, webauthn.ts, notes.ts), hence from tabs:
+ * Channels called by page scripts (src/preload/swipe.ts, passwords.ts, autofill.ts, webauthn.ts, notes.ts), hence from tabs:
  * never by the UI. Each has its own sender check in main (see ipc/page.ts, passwords.ts,
  * notes.ts); they do not go through the "UI only" guard nor the schemas above.
  */
@@ -397,6 +418,10 @@ export const PAGE_IPC = {
   'pw:accounts': 'invoke',
   'pw:fill': 'invoke',
   'pw:submit': 'send',
+  'af:menu': 'invoke',
+  'af:fill': 'invoke',
+  'af:manage': 'send',
+  'af:submit': 'send',
   'webauthn:request': 'invoke',
   'webauthn:abort': 'send',
   'notes:locale': 'invoke',
