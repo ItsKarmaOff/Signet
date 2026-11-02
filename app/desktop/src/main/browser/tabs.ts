@@ -8,7 +8,7 @@ import { crashDocument, ERROR_CSS, injectionScript, insecureSiteScript, insecure
 import { t } from '../app/i18n'
 import { buildMenu, menuIcon } from '../app/menuicons'
 import { tabContents } from '../web/guard'
-import { fontPreferences } from '@shared/pagesettings'
+import { pagePreferences } from '@shared/pagesettings'
 import { CONTINUE_TITLE } from './https-only'
 
 /**
@@ -56,8 +56,16 @@ export function reloadContents(wc: Electron.WebContents, force = false): void {
 /** Creates a tab's web view and relays its events to its `TabInfo`. */
 export function createTabView(b: Browser, tabId: string, ses?: Session): WebContentsView {
   const view = new WebContentsView({
-    // Font sizes (Settings › Appearance) can only be given at creation: they reach the pages of views created from now on.
-    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, ...fontPreferences(b.store.state.settings), ...(ses && { session: ses }) }
+    // Font sizes and default zoom (Settings › Appearance) can only be given at creation: a font change replaces the stale views (see Views.markStale).
+    // nodeIntegrationInSubFrames does not enable Node: it makes the session's frame preloads run in iframes too.
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: true,
+      ...pagePreferences(b.store.state.settings),
+      ...(ses && { session: ses })
+    }
   })
   view.setBackgroundColor('#ffffff')
   view.setBorderRadius(12)
@@ -171,6 +179,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     const url = displayUrl(realUrl) // the UI never sees the engine's real address
     b.broadcast.patchTab(tabId, { url, ...navState() })
     b.passwords.onNavigate(tabId, url)
+    b.autofill.onNavigate(tabId, url)
     // A page committed after a navigation the command bar started counts as typed (private windows record nothing).
     const typed = committed && b.tabs.takeTyped(tabId)
     if (!priv && !b.devMode.keepOutOfHistory(url)) b.history.record(url, wc.getTitle(), info().favicon, typed)
@@ -190,11 +199,6 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
       b.adblock.resetBlocked(wc.id)
       b.tabs.typedStart(tabId, details.url)
       if (!details.url.startsWith('data:')) crashed.delete(wc)
-      // HTTPS-only safety net for what bypasses `will-navigate` (back/forward to an http entry, restored history).
-      if (/^http:/i.test(details.url)) {
-        const https = b.httpsOnly.resolve(tabId, wc.session, details.url)
-        if (https !== details.url) wc.loadURL(https).catch(() => {})
-      }
     }
   })
   wc.on('did-navigate', (_e, url) => {
@@ -209,6 +213,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     visited(url, true)
     b.views.queueHistory(tabId)
   })
+  wc.on('zoom-changed', () => b.pageZoom.sync(wc))
   wc.on('did-navigate-in-page', (_e, url, isMainFrame) => {
     if (!isMainFrame) return
     visited(url)
@@ -260,7 +265,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
       b.webApps.openLink(tabId, url)
     } else if (b.store.detached.has(tabId)) {
       // Peek and Little Signet have no tabs around them: we navigate in place.
-      wc.loadURL(b.httpsOnly.resolve(tabId, wc.session, resolveInternal(url))).catch(() => {})
+      wc.loadURL(resolveInternal(url)).catch(() => {})
     } else if (disposition === 'new-window') {
       b.peek.open(url, tabId, lastPoint)
     } else {
@@ -283,15 +288,9 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
   wc.on('will-frame-navigate', (details) => {
     if (!details.isMainFrame) guard(details)
   })
-  // HTTPS-only mode: a main-frame navigation or redirect to http:// goes to https:// instead (the load failure shows the warning page).
-  const upgradeToHttps = (details: { url: string; preventDefault: () => void }) => {
-    const https = b.httpsOnly.resolve(tabId, wc.session, details.url)
-    if (https === details.url) return
-    details.preventDefault()
-    wc.loadURL(https).catch(() => {})
-  }
+  // HTTPS-only mode is not decided here: the request itself is upgraded (see HttpsOnly.sync).
   wc.on('will-redirect', (details) => {
-    if (details.isMainFrame && !guard(details, true)) upgradeToHttps(details)
+    if (details.isMainFrame) guard(details, true)
   })
 
   // Last click in the page: without a recent click, the navigation comes from a script (SSO, redirect) and is not intercepted.
@@ -322,7 +321,7 @@ export function createTabView(b: Browser, tabId: string, ses?: Session): WebCont
     if (peeks) {
       details.preventDefault()
       b.peek.open(details.url, tabId, lastPoint)
-    } else upgradeToHttps(details) // the Peek, if any, upgrades when it loads
+    }
   })
 
   wc.on('before-input-event', (event, input) => {

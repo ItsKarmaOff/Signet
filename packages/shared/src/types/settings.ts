@@ -2,7 +2,7 @@ import type { UiLanguage } from '../i18n'
 import type { DevAlias, DevResponsive, DevToolsPrefs } from './devtools'
 import type { PasswordManager } from './passwords'
 import type { SpaceRoute } from './spaces'
-import type { SearchEngineId } from '../mobile/search'
+import type { CustomEngine, KeywordOverrides } from '../searchengines'
 
 export interface Settings {
   /** Hours of inactivity before a day tab is archived. */
@@ -23,8 +23,12 @@ export interface Settings {
   languages: string[]
   /** Interface language; missing = `system` (follows macOS). */
   uiLanguage?: UiLanguage
-  /** Engine for searches typed in the command bar (see `SEARCH_ENGINES`). Missing = `google`. */
-  searchEngine?: SearchEngineId
+  /** Engine for searches typed in the command bar: a built-in, a preset (`youtube`…) or a custom engine id. Missing = `google`. */
+  searchEngine?: string
+  /** Engines added by the user (keyword search, see `searchengines.ts`). */
+  searchEngines?: CustomEngine[]
+  /** Changed keywords of built-in engines and presets, and presets turned off. */
+  searchKeywords?: KeywordOverrides
   /** Downloads folder (absolute path). Missing = the system's Downloads folder. */
   downloadDir?: string
   /** Ask where to save each download. Missing = no (saved directly to `downloadDir`). */
@@ -72,6 +76,12 @@ export interface Settings {
   offerSavePasswords?: boolean
   /** Origins for which saving is never offered. */
   neverSavePasswords?: string[]
+  /** Save and fill addresses (autofill). Missing = enabled. */
+  autofillAddresses?: boolean
+  /** Save and fill payment cards (autofill). Missing = enabled. */
+  autofillCards?: boolean
+  /** Origins for which saving an address or a card is never offered. */
+  neverSaveAutofill?: string[]
   /** Modified shortcuts (see app/desktop/src/shared/shortcuts.ts): chosen accelerator, or null for none. Missing key = default. */
   shortcuts?: Record<string, string | null>
   /** Tab preview on hover (sidebar, tab row). Missing = enabled. */
@@ -103,6 +113,11 @@ export interface Settings {
    * excepted); a site without a secure connection shows a warning page. Missing = off.
    */
   httpsOnly?: boolean
+  /**
+   * Global Privacy Control: every http(s) request carries `Sec-GPC: 1` and pages see `navigator.globalPrivacyControl === true`.
+   * Extensions can no longer observe request headers while it is on. Missing = off.
+   */
+  globalPrivacyControl?: boolean
   /** Default font size of web pages in px (9, 12, 16, 20 or 24). Missing = 16. */
   fontSize?: number
   /** Minimum font size of web pages in px (0 = none, then 6 to 24). Missing = 0. */

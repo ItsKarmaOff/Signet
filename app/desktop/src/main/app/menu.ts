@@ -60,6 +60,7 @@ export function menuKey(b: Browser): string {
     b.layout.horizontal,
     b.bookmarks.visible,
     JSON.stringify(settings.shortcuts ?? null),
+    b.extensions.commandsKey(),
     settings.devMode === true ? `${b.space.activeTabId}:${JSON.stringify({ ...devOverrides, responsive: !!devOverrides?.responsive })}` : ''
   ].join()
 }
@@ -346,7 +347,20 @@ export function buildAppMenu(b: Browser): void {
               { type: 'separator' },
               { label: t('menu.window.bringAllToFront'), role: 'front' }
             ] satisfies MenuItemConstructorOptions[])
-          : [])
+          : []),
+        // Keyboard shortcuts of extension commands: hidden entries, like the extra shortcuts of Signet's own commands, so
+        // they work wherever focus is (page, sidebar, toolbar) and the page gets the key first on Windows and Linux.
+        ...b.extensions.commandBindings().map(({ accel, extensionId, name }): MenuItemConstructorOptions => ({
+          label: `${extensionId} ${name}`,
+          accelerator: accel,
+          visible: false,
+          acceleratorWorksWhenHidden: true,
+          click: () => {
+            const c = cur()
+            // Private windows have no extensions; an app or Little Signet window uses its own tab.
+            if (!c.priv) b.extensions.runCommand(extensionId, name, c.tabId)
+          }
+        }))
       ]
     },
     {

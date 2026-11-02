@@ -37,6 +37,11 @@ export default tseslint.config(
     languageOptions: { globals: globals.node }
   },
   {
+    // API probe test extension: plain JS run in extension pages and an MV3 service worker.
+    files: ['app/desktop/tests/extensions/**/*.js'],
+    languageOptions: { sourceType: 'script', globals: { ...globals.browser, ...globals.serviceworker } }
+  },
+  {
     files: ['app/desktop/src/renderer/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },

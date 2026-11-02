@@ -96,6 +96,14 @@ feat(desktop): add a default page zoom
 Known-limitation: The default zoom applies when the page loads, so it can briefly show at the previous zoom.
 ```
 
+- A later commit that fixes a limitation lifts it with a `Lifted-limitation: <exact text>` trailer, repeating the original text word for word. The release notes then leave that limitation out, as long as both commits are in the same release range (a limitation already published in a past release stays in that release's notes):
+
+```
+feat(desktop): apply the default zoom before the page paints
+
+Lifted-limitation: The default zoom applies when the page loads, so it can briefly show at the previous zoom.
+```
+
 ## Atomic Commits
 
 - **One commit = one logical intent**: don't mix a refactor and a feature

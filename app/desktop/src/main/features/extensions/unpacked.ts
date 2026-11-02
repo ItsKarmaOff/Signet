@@ -1,14 +1,37 @@
 import { BrowserWindow, dialog, session, type Session } from 'electron'
 import { existsSync, watch, type FSWatcher } from 'node:fs'
+import { readdir, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { Browser } from '../../browser/browser'
 import { t } from '../../app/i18n'
+import { IGNORED, ReloadScheduler, safeReload, type Snapshot } from './unpacked-reload'
 
-/** Delay after the last file change before reloading (a save often touches several files). */
+/** Delay after the last file change before checking for a real change (a save often touches several files). */
 const RELOAD_DELAY = 400
-/** Files whose change does not reload the extension. */
-const IGNORED = /(^|[\\/])(\.git|node_modules)([\\/]|$)|\.DS_Store$|~$|\.sw[po]$/
+/** How long to wait for Electron to unload an extension, and for its service worker to stop. */
+const UNLOAD_TIMEOUT = 3000
+const MAX_SCANNED_FILES = 20000
+
+/** Size and modification time of every file of a folder (the watcher's "did anything really change" reference). */
+async function scanFolder(root: string): Promise<Snapshot> {
+  const out: Snapshot = new Map()
+  const walk = async (dir: string, rel: string): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const relative = rel ? `${rel}/${entry.name}` : entry.name
+      if (IGNORED.test(relative) || out.size >= MAX_SCANNED_FILES) continue
+      if (entry.isDirectory()) await walk(join(dir, entry.name), relative)
+      else if (entry.isFile()) {
+        const s = await stat(join(dir, entry.name)).catch(() => null)
+        if (s) out.set(relative, `${s.size}:${s.mtimeMs}`)
+      }
+    }
+  }
+  await walk(root, '')
+  return out
+}
+
+const pause = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 interface Entry {
   path: string
@@ -18,7 +41,7 @@ interface Entry {
   error?: string
   reloadedAt?: number
   watcher?: FSWatcher
-  timer?: NodeJS.Timeout
+  scheduler?: ReloadScheduler
   /** Loads and removals of the same extension, one after the other. */
   chain: Promise<void>
 }
@@ -95,7 +118,15 @@ export class UnpackedExtensions {
   private entry(path: string): Entry {
     let e = this.entries.get(path)
     if (!e) {
-      e = { path, name: basename(path), chain: Promise.resolve() }
+      const entry: Entry = { path, name: basename(path), chain: Promise.resolve() }
+      entry.scheduler = new ReloadScheduler({
+        delay: RELOAD_DELAY,
+        scan: () => scanFolder(path),
+        reload: () => this.reload(path),
+        setTimer: (fn, ms) => setTimeout(fn, ms),
+        clearTimer: (h) => clearTimeout(h as NodeJS.Timeout)
+      })
+      e = entry
       this.entries.set(path, e)
     }
     return e
@@ -106,12 +137,22 @@ export class UnpackedExtensions {
     const e = this.entry(path)
     const run = async () => {
       if (!this.paths.includes(path)) return // removed in the meantime
-      const exts = session.defaultSession.extensions
-      if (e.id && exts.getExtension(e.id)) exts.removeExtension(e.id)
+      const ses = session.defaultSession
+      const exts = ses.extensions
+      // Snapshot BEFORE loading: a file written while loading triggers one more (safe) reload instead of being lost.
+      e.scheduler?.baseline(await scanFolder(path).catch(() => new Map()))
       try {
-        const ext = await exts.loadExtension(path, { allowFileAccess: true })
-        e.id = ext.id
-        e.name = ext.name
+        const old = e.id
+        await safeReload({
+          isLoaded: () => !!old && !!exts.getExtension(old),
+          unload: () => this.unloadAndWait(ses, old!),
+          workerStopped: () => this.workerStopped(ses, old!),
+          load: async () => {
+            const ext = await exts.loadExtension(path, { allowFileAccess: true })
+            e.id = ext.id
+            e.name = ext.name
+          }
+        })
         e.error = undefined
         if (reloading) e.reloadedAt = Date.now()
       } catch (err) {
@@ -125,6 +166,42 @@ export class UnpackedExtensions {
     return e.chain
   }
 
+  /**
+   * Removes an extension and resolves once Electron says it is unloaded. Loading it again before that (the previous
+   * behaviour) raced Chromium's teardown of the extension, including its running service worker.
+   */
+  private unloadAndWait(ses: Session, id: string): Promise<void> {
+    return new Promise((resolve) => {
+      const done = () => {
+        clearTimeout(timer)
+        ses.extensions.off('extension-unloaded', onUnloaded)
+        resolve()
+      }
+      const onUnloaded = (_e: unknown, ext: { id: string }) => ext.id === id && done()
+      const timer = setTimeout(done, UNLOAD_TIMEOUT)
+      ses.extensions.on('extension-unloaded', onUnloaded)
+      try {
+        ses.extensions.removeExtension(id)
+      } catch {
+        done()
+      }
+    })
+  }
+
+  /** Electron has no call to stop a service worker: removing the extension makes Chromium stop it, so wait until it has. */
+  private async workerStopped(ses: Session, id: string): Promise<void> {
+    const scope = `chrome-extension://${id}/`
+    const running = () => {
+      try {
+        return Object.values(ses.serviceWorkers.getAllRunning()).some((w) => w.scope.startsWith(scope))
+      } catch {
+        return false
+      }
+    }
+    for (const start = Date.now(); running() && Date.now() - start < UNLOAD_TIMEOUT;) await pause(100)
+    await pause(150) // let Chromium finish the registration cleanup
+  }
+
   reload(path: string): Promise<void> {
     return this.paths.includes(path) ? this.load(path, true) : Promise.resolve()
   }
@@ -135,9 +212,10 @@ export class UnpackedExtensions {
     this.savePaths(this.paths.filter((p) => p !== path))
     if (!e) return
     e.watcher?.close()
-    clearTimeout(e.timer)
+    e.scheduler?.dispose()
     this.entries.delete(path)
     e.chain = e.chain.then(() => {
+      if (e.id) this.b.extensions.forgetData(e.id)
       if (e.id && session.defaultSession.extensions.getExtension(e.id)) session.defaultSession.extensions.removeExtension(e.id)
       this.b.broadcast.changed({ layout: false, persist: false })
     })
@@ -155,8 +233,7 @@ export class UnpackedExtensions {
     try {
       e.watcher = watch(e.path, { recursive: true }, (_event, file) => {
         if (IGNORED.test(String(file ?? ''))) return
-        clearTimeout(e.timer)
-        e.timer = setTimeout(() => void this.reload(e.path), RELOAD_DELAY)
+        e.scheduler?.notify()
       })
       e.watcher.on('error', () => {
         e.watcher?.close()

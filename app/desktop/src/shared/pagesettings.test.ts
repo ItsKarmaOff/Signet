@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   cleanSiteZoom,
+  cleanSiteZoomBySpace,
+  pagePreferences,
   defaultZoomFactor,
   rememberSiteZoom,
   SITE_ZOOM_MAX,
@@ -8,7 +10,11 @@ import {
   isFontSize,
   isMinFontSize,
   isZoomPercent,
-  zoomHost
+  zoomHost,
+  zoomPercentOf,
+  reportedZoom,
+  zoomIndicator,
+  formatZoomPercent
 } from './pagesettings'
 
 describe('fontPreferences', () => {
@@ -97,5 +103,56 @@ describe('site zoom memory', () => {
     for (let i = 0; i < SITE_ZOOM_MAX; i++) rememberSiteZoom(map, `x${i}.com`, 1)
     expect(Object.keys(map)).toHaveLength(SITE_ZOOM_MAX)
     expect(map['a.com']).toBeUndefined()
+  })
+})
+
+describe('pagePreferences', () => {
+  it('gives the fonts and the default zoom as the first zoom of a new page', () => {
+    expect(pagePreferences({ fontSize: 20, minimumFontSize: 10, defaultZoom: 125 })).toEqual({
+      defaultFontSize: 20,
+      defaultMonospaceFontSize: 16,
+      minimumFontSize: 10,
+      zoomFactor: 1.25
+    })
+  })
+  it('leaves the zoom out when no valid default is chosen', () => {
+    expect('zoomFactor' in pagePreferences({})).toBe(false)
+    expect('zoomFactor' in pagePreferences({ defaultZoom: 123 })).toBe(false)
+    expect(pagePreferences({ defaultZoom: 100 }).zoomFactor).toBe(1)
+  })
+})
+
+describe('cleanSiteZoomBySpace', () => {
+  it('keeps valid maps per space, cleans them and drops empty ones', () => {
+    expect(cleanSiteZoomBySpace({ s1: { 'a.com': 2, 'b.com': 'x' }, s2: {}, s3: { 'c.com': 99 }, s4: 'no' })).toEqual({ s1: { 'a.com': 2 } })
+  })
+  it('ignores anything that is not an object', () => {
+    expect(cleanSiteZoomBySpace(null)).toEqual({})
+    expect(cleanSiteZoomBySpace([])).toEqual({})
+    expect(cleanSiteZoomBySpace('x')).toEqual({})
+  })
+})
+
+describe('zoom indicator', () => {
+  it('rounds the factor to a percent and ignores pages that do not follow page zoom', () => {
+    expect(zoomPercentOf(1.2 ** 0.5)).toBe(110)
+    expect(zoomPercentOf(1)).toBe(100)
+    expect(reportedZoom('https://a.com/', 1.25)).toBe(125)
+    expect(reportedZoom('signet://settings', 1.25)).toBeNull()
+    expect(reportedZoom('https://a.com/doc.pdf', 1.25)).toBeNull()
+  })
+  it('shows only away from the default, with the right variant', () => {
+    expect(zoomIndicator(undefined, 100)).toBeNull()
+    expect(zoomIndicator(100, undefined)).toBeNull()
+    expect(zoomIndicator(110, undefined)).toBe('in')
+    expect(zoomIndicator(90, 100)).toBe('out')
+    expect(zoomIndicator(125, 125)).toBeNull()
+    expect(zoomIndicator(100, 125)).toBe('out')
+    expect(zoomIndicator(150, 125)).toBe('in')
+    expect(zoomIndicator(150, 123)).toBe('in') // invalid default: 100 %
+  })
+  it('formats the percent for the locale', () => {
+    expect(formatZoomPercent(110, 'en')).toBe('110%')
+    expect(formatZoomPercent(110, 'fr')).toMatch(/^110[\u00a0\u202f]%$/) // no-break space, width depends on the ICU data
   })
 })

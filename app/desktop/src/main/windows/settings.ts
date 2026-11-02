@@ -8,7 +8,7 @@ import { IMPORT_SOURCES, availableSources, runImport } from '../features/importe
 import { allSessions, reapplyLanguages, reapplySpellcheck } from '../web/profiles'
 import { normalizeLanguages } from '../web/languages'
 import type { ImportSource } from '../features/importers'
-import { loadRoute, preloadPath, setSearchEngine } from '../core/urls'
+import { loadRoute, preloadPath, setSearchEngine, setSearchEngines } from '../core/urls'
 import { setUiLanguage, t } from '../app/i18n'
 import { applyTheme, broadcastAppearance } from '../app/appearance'
 import { isManager } from '../features/passwords/passwords'
@@ -185,15 +185,20 @@ export class SettingsWindow {
     applyCleaned(settings, cleanSettings(patch, settings))
     // The search engine (value already validated by `cleanSettings`) is used right away for the next inputs.
     setSearchEngine(settings.searchEngine)
-    // Font sizes only reach new views: hidden tabs go to sleep and come back with them; displayed ones keep theirs until reopened.
-    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.sleep.discardHidden()
-    // Default zoom: open pages follow now (except the sites the user zoomed).
+    setSearchEngines(settings)
+    // Font sizes only apply to new views: every live view is stale. The displayed ones are replaced by the layout that
+    // follows (they reload), the others the next time they are shown, like a wake from sleep.
+    if (JSON.stringify([settings.fontSize, settings.minimumFontSize]) !== fonts) this.b.views.markStale()
+    // Default zoom: open pages follow now (except the sites the user zoomed). New views start at it (`pagePreferences`).
     if (settings.defaultZoom !== zoom) this.b.pageZoom.applyAll()
-    // HTTPS-only mode applies from the next navigation.
+    // HTTPS-only mode applies from the next request: the upgrade is registered on (or released from) every session.
     if (typeof patch.httpsOnly === 'boolean') {
       if (patch.httpsOnly) settings.httpsOnly = true
       else delete settings.httpsOnly
+      this.b.httpsOnly.sync()
     }
+    // Global Privacy Control (validated by `cleanSettings`): header and page script follow now, on every session.
+    if (typeof patch.globalPrivacyControl === 'boolean') this.b.gpc.sync()
     if (typeof patch.peekExternalLinks === 'boolean') settings.peekExternalLinks = patch.peekExternalLinks
     if (typeof patch.autoPip === 'boolean') settings.autoPip = patch.autoPip
     if (typeof patch.askDownloadPath === 'boolean') settings.askDownloadPath = patch.askDownloadPath
@@ -217,6 +222,8 @@ export class SettingsWindow {
       this.b.passwords.refreshAll() // the key button only exists with Signet's password vault
     }
     if (typeof patch.offerSavePasswords === 'boolean') settings.offerSavePasswords = patch.offerSavePasswords
+    if (typeof patch.autofillAddresses === 'boolean') settings.autofillAddresses = patch.autofillAddresses
+    if (typeof patch.autofillCards === 'boolean') settings.autofillCards = patch.autofillCards
     if (typeof patch.devMode === 'boolean' && patch.devMode !== (settings.devMode === true)) {
       settings.devMode = patch.devMode
       if (!patch.devMode) this.b.devMode.clearAll()
@@ -242,6 +249,11 @@ export class SettingsWindow {
     if (Array.isArray(patch.neverSavePasswords)) {
       const kept = new Set(patch.neverSavePasswords.filter((o): o is string => typeof o === 'string'))
       settings.neverSavePasswords = (settings.neverSavePasswords ?? []).filter((o) => kept.has(o))
+    }
+    // Same for autofill: sites can only be removed here.
+    if (Array.isArray(patch.neverSaveAutofill)) {
+      const kept = new Set(patch.neverSaveAutofill.filter((o): o is string => typeof o === 'string'))
+      settings.neverSaveAutofill = (settings.neverSaveAutofill ?? []).filter((o) => kept.has(o))
     }
     if (typeof patch.compactMode === 'boolean') this.b.shell.setCompact(patch.compactMode)
     if (patch.tabLayout === 'vertical' || patch.tabLayout === 'horizontal') this.b.shell.setTabLayout(patch.tabLayout)

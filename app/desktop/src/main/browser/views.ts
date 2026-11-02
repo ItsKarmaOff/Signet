@@ -16,9 +16,12 @@ export interface ViewsDeps {
   create: (tabId: string, ses: Session) => WebContentsView
   extensions: Pick<Extensions, 'track' | 'whenReady'>
   /** HTTPS-only mode: the address to load for a tab (`url` itself when it stays as is). */
-  upgradeUrl: (tabId: string, ses: Session, url: string) => string
   /** State broadcast (called when a tab is forgotten). */
   changed: () => void
+  /** True for a tab of a private window (the only detached tabs that follow the page settings). */
+  isPrivate: (tabId: string) => boolean
+  /** True while a tab's view must not be replaced (mini player, developer tools): it stays stale for later. */
+  keep: (tabId: string) => boolean
 }
 
 /**
@@ -34,6 +37,8 @@ export class Views {
   private detachedSessions = new Map<string, Session>()
   /** Tabs being unloaded (closing that waits for `beforeunload`). */
   readonly discarding = new Set<string>()
+  /** Tabs whose view was created with outdated page preferences (fonts): replaced when next asked for. */
+  private stale = new Set<string>()
   private historyDirty = new Set<string>()
   private historyTimer: NodeJS.Timeout | null = null
   private goneListeners: ((tabId: string) => void)[] = []
@@ -71,7 +76,11 @@ export class Views {
   /** Creates a tab's view on demand. */
   ensureView(tabId: string, win: BrowserWindow | null = this.d.window.win): WebContentsView {
     const existing = this.views.get(tabId)
-    if (existing && !existing.webContents.isDestroyed() && !this.discarding.has(tabId)) return existing
+    if (existing && !existing.webContents.isDestroyed() && !this.discarding.has(tabId)) {
+      if (!this.stale.has(tabId) || this.d.keep(tabId)) return existing
+      // Same path as a wake from sleep: history is saved, the view destroyed, a new one loads the same address.
+      this.destroyView(tabId)
+    }
     const { store } = this.d
     const ses = this.sessionOfTab(tabId)
     const view = this.d.create(tabId, ses)
@@ -97,16 +106,25 @@ export class Views {
     return view
   }
 
+  /**
+   * The page preferences that only apply at creation (fonts) changed: every live view of a tab that follows them is stale
+   * and gets replaced the next time it is asked for (displayed tabs: at the next layout). Windows that hold their view
+   * themselves (Little Signet, apps, Peek) are left alone. Returns the marked tabs.
+   */
+  markStale(): string[] {
+    const { store } = this.d
+    const marked = [...this.views.keys()].filter((id) => !store.detached.has(id) || this.d.isPrivate(id))
+    for (const id of marked) this.stale.add(id)
+    return marked
+  }
+
   /** Restores the history if its active entry matches the tab's URL, otherwise loads the URL alone. */
   private loadTab(tabId: string, wc: WebContents, tabUrl: string, history?: TabHistory): void {
     // Address saved as signetui: (never legitimate: notes are written as signet://note/…): nothing is loaded.
     const url = tabUrl && !isUiAddress(tabUrl) ? resolveInternal(tabUrl) : ''
-    // HTTPS-only: an http address is opened over https (without restoring its history, which holds the http entry).
-    const target = url ? this.d.upgradeUrl(tabId, wc.session, url) : url
     const plain = () => {
-      if (target && !wc.isDestroyed()) wc.loadURL(target).catch(() => {})
+      if (url && !wc.isDestroyed()) wc.loadURL(url).catch(() => {})
     }
-    if (target !== url) return plain()
     if (!history || history.entries[history.index]?.url !== url) return plain()
     try {
       wc.navigationHistory.restore({ entries: history.entries.map((e) => ({ ...e })), index: history.index }).catch(plain)
@@ -219,6 +237,7 @@ export class Views {
   destroyView(tabId: string): void {
     const view = this.views.get(tabId)
     const tab = this.d.store.state.tabs[tabId]
+    this.stale.delete(tabId)
     for (const fn of this.goneListeners) fn(tabId)
     this.saveHistory(tabId)
     if (tab) Object.assign(tab, { loaded: false, loading: false, audible: false })

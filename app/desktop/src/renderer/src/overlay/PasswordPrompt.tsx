@@ -1,12 +1,19 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, Copy, KeyRound, Settings as Cog } from 'lucide-react'
+import { Check, Copy, CreditCard, KeyRound, MapPin, Settings as Cog } from 'lucide-react'
 import type { OverlayPayload, Rect } from '@shared/types'
 
 type Prompt = Extract<OverlayPayload, { mode: 'password' }>
 type List = Extract<OverlayPayload, { mode: 'passwords' }>
 
 const WIDTH = 300
+
+/** Title of the prompt: [save, update] for a password or an autofill offer. */
+const TITLES = {
+  password: ['password.saveTitle', 'password.updateTitle'],
+  address: ['password.saveAddressTitle', 'password.updateAddressTitle'],
+  card: ['password.saveCardTitle', 'password.updateCardTitle']
+} as const
 
 /** Card placed under the key button: right edge aligned with it, arrow pointing at its center. */
 function underAnchor(anchor: Rect) {
@@ -26,7 +33,7 @@ const MARGIN = 24
  */
 export function PasswordPrompt({ payload }: { payload: Prompt }) {
   const { t } = useTranslation()
-  const { token, origin, username, update, anchor } = payload
+  const { token, origin, username, update, anchor, kind } = payload
   const answer = (a: 'save' | 'never' | 'dismiss') => void window.signet.answerPasswordPrompt(token, a)
   // Opened from the key button: under it; after a login: top right of the page.
   const placed = anchor ? underAnchor(anchor) : null
@@ -59,13 +66,19 @@ export function PasswordPrompt({ payload }: { payload: Prompt }) {
       >
         {placed && <i className="site-arrow" />}
         <div className="site-head">
-          <KeyRound size={18} className="site-ico" />
+          {kind === 'card' ? (
+            <CreditCard size={18} className="site-ico" />
+          ) : kind === 'address' ? (
+            <MapPin size={18} className="site-ico" />
+          ) : (
+            <KeyRound size={18} className="site-ico" />
+          )}
           <div className="site-id">
-            <strong>{update ? t('password.updateTitle') : t('password.saveTitle')}</strong>
+            <strong>{t(TITLES[kind ?? 'password'][update ? 1 : 0])}</strong>
             <span className="site-conn">{host}</span>
           </div>
         </div>
-        <div className="pw-user">{username || t('password.noUsername')}</div>
+        <div className="pw-user">{username || (kind ? '' : t('password.noUsername'))}</div>
         <div className="site-foot pw-actions">
           <button className="site-btn-s" onClick={() => answer('never')}>
             {t('password.never')}

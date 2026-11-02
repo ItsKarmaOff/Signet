@@ -8,7 +8,7 @@ import { applyLanguages, applySpellcheck } from './languages'
 import { webauthnInterceptEnabled } from './webauthn'
 import { attachInternal } from './internal'
 import { attachUiProtocol } from '../browser/uiprotocol'
-import { identityPath, notesPath, passwordsPath, swipePath, webauthnPath } from '../core/urls'
+import { autofillPath, identityPath, notesPath, passwordsPath, swipePath, webauthnPath } from '../core/urls'
 
 let browser: Browser | null = null
 const configured = new WeakSet<Session>()
@@ -64,6 +64,7 @@ async function wipePending(spaces: Space[]): Promise<void> {
   const names = await readdir(dir).catch(() => [] as string[])
   for (const id of ids) {
     if (alive.has(id)) continue // space came back (backup restored…): keep its data
+    if (browser && delete browser.store.state.siteZoomBySpace[id]) browser.store.schedule()
     const target = `space-${id}`.toLowerCase()
     for (const name of names) if (name.toLowerCase() === target) await rm(join(dir, name), { recursive: true, force: true }).catch(() => {})
   }
@@ -79,6 +80,14 @@ export function sessionFor(spaceId: string | null): Session {
   const ses = space && isIsolated(space) ? session.fromPartition(partitionOf(space.id)) : session.defaultSession
   configureSession(ses)
   return ses
+}
+
+/** Id of the isolated space whose partition this session is, null for any other session. */
+export function isolatedSpaceOf(ses: Session): string | null {
+  for (const space of browser?.store.state.spaces ?? []) {
+    if (isIsolated(space) && session.fromPartition(partitionOf(space.id)) === ses) return space.id
+  }
+  return null
 }
 
 /** `window.chrome` as in Chrome, in all frames: without it, Google refuses the sign-in. */
@@ -108,6 +117,8 @@ export function configureSession(ses: Session): void {
   applySpellcheck(ses, browser.store.state.settings.spellcheck !== false)
   browser.permissions.attach(ses)
   browser.adblock.attach(ses)
+  browser.httpsOnly.attach(ses)
+  browser.gpc.attach(ses)
   browser.downloads.attach(ses)
   browser.devMode.watchSession(ses)
   browser.extensions.attach(ses)
@@ -125,6 +136,11 @@ export function configureSession(ses: Session): void {
     ses.registerPreloadScript({ id: 'signet-passwords', type: 'frame', filePath: passwordsPath })
   } catch (e) {
     console.error('Mots de passe : script de page indisponible', e)
+  }
+  try {
+    ses.registerPreloadScript({ id: 'signet-autofill', type: 'frame', filePath: autofillPath })
+  } catch (e) {
+    console.error('Autofill: page script unavailable', e)
   }
   // Notes and Easels: not in private windows (nothing is saved there).
   try {
@@ -149,6 +165,8 @@ export function configurePrivateSession(ses: Session): void {
   applySpellcheck(ses, browser.store.state.settings.spellcheck !== false)
   browser.permissions.attach(ses, { ephemeral: true })
   browser.adblock.attach(ses)
+  browser.httpsOnly.attach(ses)
+  browser.gpc.attach(ses)
   browser.downloads.attach(ses, { private: true })
   attachInternal(ses, browser)
   attachUiProtocol(ses)
@@ -164,12 +182,19 @@ export function configurePrivateSession(ses: Session): void {
   } catch (e) {
     console.error('Mots de passe : script de page indisponible', e)
   }
+  try {
+    ses.registerPreloadScript({ id: 'signet-autofill', type: 'frame', filePath: autofillPath })
+  } catch (e) {
+    console.error('Autofill: page script unavailable', e)
+  }
 }
 
 /** Private window closed: erases everything its session kept in memory and releases it. */
 export function releasePrivateSession(ses: Session): void {
   privateSessions.delete(ses)
   browser?.adblock.detach(ses)
+  browser?.httpsOnly.detach(ses)
+  browser?.gpc.detach(ses)
   void ses
     .clearStorageData()
     .then(() => ses.clearCache())

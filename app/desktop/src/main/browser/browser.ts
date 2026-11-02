@@ -2,7 +2,7 @@ import type { BrowserWindow } from 'electron'
 import { newId } from '@signet/shared/ids'
 import { Adblock } from '../web/adblock'
 import { Permissions } from '../web/permissions'
-import { initProfiles } from '../web/profiles'
+import { initProfiles, isolatedSpaceOf } from '../web/profiles'
 import { Boosts } from '../features/boost/boost'
 import { Compact } from './compact'
 import { Downloads } from '../web/downloads'
@@ -28,6 +28,7 @@ import { TabPreviews } from './preview'
 import { Mods } from '../features/mods/mods'
 import { Reader } from '../features/reader'
 import { Translator } from '../features/translate'
+import { Autofill } from '../features/autofill/autofill'
 import { Passwords } from '../features/passwords/passwords'
 import { WebApps } from '../features/webapps'
 import { Link } from '../features/link/link'
@@ -58,6 +59,7 @@ import { Shell } from './shell'
 import { TabSleep } from './sleep'
 import { SpaceActions } from './space-actions'
 import { HttpsOnly } from './https-only'
+import { Gpc } from '../web/gpc'
 import { PageZoom } from './page-zoom'
 import { SplitView } from './splitview'
 import { TabActions } from './tab-actions'
@@ -111,11 +113,13 @@ export class Browser {
   readonly adblock: Adblock
   readonly extensions = new Extensions(this)
   readonly passwords = new Passwords(this)
+  readonly autofill = new Autofill(this)
   readonly webApps = new WebApps(this)
   readonly link = new Link(this)
   readonly updates = new Updates(this)
   readonly permissions: Permissions
   readonly httpsOnly: HttpsOnly
+  readonly gpc: Gpc
   readonly pageZoom: PageZoom
 
   // Core: the state rules, then the pages, the broadcast and the layout
@@ -147,7 +151,8 @@ export class Browser {
   ) {
     this.adblock = new Adblock(store)
     this.permissions = new Permissions(store)
-    this.httpsOnly = new HttpsOnly({ store })
+    this.httpsOnly = new HttpsOnly({ store, tabOf: (id) => this.views.tabIdOfContents(id) })
+    this.gpc = new Gpc({ store })
     // The parts use one another: these two shortcuts only read `this.broadcast` when called.
     const changed: Changed = (opts) => this.broadcast.changed(opts)
     const apply = () => this.broadcast.apply()
@@ -169,11 +174,24 @@ export class Browser {
       store,
       window: this,
       create: (tabId, ses) => createTabView(this, tabId, ses),
-      upgradeUrl: (tabId, ses, url) => this.httpsOnly.resolve(tabId, ses, url),
       extensions: this.extensions,
-      changed: () => changed()
+      changed: () => changed(),
+      isPrivate: (tabId) => this.privates.owns(tabId),
+      keep: (tabId) => this.pip.owns(tabId) || this.devtools.isOpen(tabId)
     })
-    this.pageZoom = new PageZoom({ store, views: this.views, persistent: (ses) => !this.privates.hasSession(ses) })
+    this.pageZoom = new PageZoom({
+      store,
+      views: this.views,
+      report: (wc, percent) => {
+        const tabId = this.views.tabIdOfContents(wc.id)
+        if (tabId) this.broadcast.patchTab(tabId, { zoom: percent }, { soft: true })
+      },
+      scope: (ses) => {
+        if (this.privates.hasSession(ses)) return { kind: 'private' }
+        const id = isolatedSpaceOf(ses)
+        return id ? { kind: 'space', id } : { kind: 'shared' }
+      }
+    })
     // Intended order: the mini player renders the page before sleep forgets the tab.
     this.views.onGone((tabId) => this.pip.onGone(tabId))
     this.sleep = new TabSleep({
@@ -229,7 +247,12 @@ export class Browser {
       layout: this.layout,
       floating: this.floating,
       compact: this.compact,
-      passwords: this.passwords,
+      passwords: {
+        dismissPrompt: () => {
+          this.passwords.dismissPrompt()
+          this.autofill.dismissPrompt()
+        }
+      },
       apply,
       changed
     })
@@ -272,6 +295,7 @@ export class Browser {
       views: this.views,
       httpsOnly: this.httpsOnly,
       pageZoom: this.pageZoom,
+      showZoom: (tabId) => this.overlay.openZoom(tabId),
       changed,
       undo: this.undo,
       overlay: this.overlay,

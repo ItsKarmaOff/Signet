@@ -9,11 +9,11 @@ import { ARCHIVE_MAX } from '../model/types'
 import { AtomicWriter, writeFileSyncDurable } from './atomic'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
 import { cleanOverrides } from '@shared/shortcuts'
-import { cleanSiteZoom, isFontSize, isMinFontSize, isZoomPercent, type SiteZoom } from '@shared/pagesettings'
+import { cleanSiteZoom, cleanSiteZoomBySpace, isFontSize, isMinFontSize, isZoomPercent, type SiteZoom, type SiteZoomBySpace } from '@shared/pagesettings'
 import { pruneBookmarks } from '../features/bookmarks'
 import { defaultLanguages, normalizeLanguages, takeStartupState } from '../web/languages'
 import { initLocale, t } from '../app/i18n'
-import { isSearchEngineId } from '@signet/shared/mobile/search'
+import { cleanDefaultEngine, cleanEngineConfig, resolveEngines } from '@signet/shared/searchengines'
 
 export interface ArchivedTab {
   /** Unique identifier (absent from archives predating its addition). */
@@ -113,6 +113,8 @@ export interface State {
   pipBounds: Rectangle | null
   /** Zoom level the user chose per site host (regular windows only; not part of backups). Bounded, see `rememberSiteZoom`. */
   siteZoom: SiteZoom
+  /** Same for each isolated space (key: space id); dropped with the space. */
+  siteZoomBySpace: SiteZoomBySpace
 }
 
 export const SIDEBAR_MIN = 180
@@ -158,7 +160,8 @@ function initialState(): State {
     sitePermissions: {},
     bounds: null,
     pipBounds: null,
-    siteZoom: {}
+    siteZoom: {},
+    siteZoomBySpace: {}
   }
 }
 
@@ -171,10 +174,13 @@ export const CLEAN_SETTING_KEYS = [
   'extensionOrder',
   'pinnedExtensions',
   'searchEngine',
+  'searchEngines',
+  'searchKeywords',
   'downloadDir',
   'fontSize',
   'minimumFontSize',
-  'defaultZoom'
+  'defaultZoom',
+  'globalPrivacyControl'
 ] as const
 
 /**
@@ -213,8 +219,21 @@ export function cleanSettings(patch: Partial<Settings>, base: Settings): Setting
   if (order) out.extensionOrder = order
   const pinned = ids(patch.pinnedExtensions)
   if (pinned) out.pinnedExtensions = pinned
-  // Search engine: known identifier only; otherwise keep the one from `base` (absent = Google).
-  if (isSearchEngineId(patch.searchEngine)) out.searchEngine = patch.searchEngine
+  // Search engines: custom ones and keyword overrides cleaned together (invalid entries dropped, the first duplicate keyword wins).
+  if (patch.searchEngines !== undefined || patch.searchKeywords !== undefined) {
+    const cfg = cleanEngineConfig({
+      searchEngines: patch.searchEngines !== undefined ? patch.searchEngines : base.searchEngines,
+      searchKeywords: patch.searchKeywords !== undefined ? patch.searchKeywords : base.searchKeywords
+    })
+    if (cfg.searchEngines.length) out.searchEngines = cfg.searchEngines
+    else delete out.searchEngines
+    if (Object.keys(cfg.searchKeywords).length) out.searchKeywords = cfg.searchKeywords
+    else delete out.searchKeywords
+  }
+  // Default engine: an existing, enabled one (built-in, preset or custom); a deleted one falls back to Google (absent).
+  const engines = resolveEngines(out)
+  out.searchEngine = cleanDefaultEngine(patch.searchEngine, engines) ?? cleanDefaultEngine(out.searchEngine, engines)
+  if (out.searchEngine === undefined) delete out.searchEngine
   // Downloads folder: absolute path; an empty string falls back to the system folder.
   if (patch.downloadDir === '') delete out.downloadDir
   else if (typeof patch.downloadDir === 'string' && isAbsolute(patch.downloadDir) && patch.downloadDir.length < 4096) out.downloadDir = patch.downloadDir
@@ -222,6 +241,9 @@ export function cleanSettings(patch: Partial<Settings>, base: Settings): Setting
   if (isFontSize(patch.fontSize)) out.fontSize = patch.fontSize
   if (isMinFontSize(patch.minimumFontSize)) out.minimumFontSize = patch.minimumFontSize
   if (isZoomPercent(patch.defaultZoom)) out.defaultZoom = patch.defaultZoom
+  // Global Privacy Control: on or missing (false is stored as missing, anything else keeps the previous value).
+  if (patch.globalPrivacyControl === true) out.globalPrivacyControl = true
+  else if (patch.globalPrivacyControl === false) delete out.globalPrivacyControl
   return out
 }
 
@@ -258,6 +280,7 @@ function sanitize(raw: Partial<State>): State {
   if (!APP_ICONS.some((i) => i.id === state.settings.appIcon)) state.settings.appIcon = 'aurore'
   if (!Array.isArray(state.settings.routes)) state.settings.routes = []
   state.siteZoom = cleanSiteZoom(raw.siteZoom)
+  state.siteZoomBySpace = cleanSiteZoomBySpace(raw.siteZoomBySpace)
   const pb = state.pipBounds as Partial<Rectangle> | null
   if (!pb || ![pb.x, pb.y, pb.width, pb.height].every((n) => Number.isFinite(n))) state.pipBounds = null
   // Migration: without saved languages, follow the system ones.

@@ -68,10 +68,17 @@ else
   section "Fixes" "$fix"
   section "Performance" "$perf"
 fi
-# Known limitations: one `Known-limitation: <text>` trailer per limitation, in any commit of the range.
+# Known limitations: one `Known-limitation: <text>` trailer per limitation, in any commit of the range. A later commit
+# lifts one with `Lifted-limitation: <exact text>`: it is dropped from the list.
+trailers() {
+  git log --no-merges --reverse --format="%(trailers:key=$1,valueonly)" "$previous..$commit"
+}
+lifted=$'\n'"$(trailers Lifted-limitation)"$'\n'
 limitations=''
 while IFS= read -r text; do
-  [[ -n $text ]] && limitations+="- $text"$'\n'
-done <<<"$(git log --no-merges --reverse --format='%(trailers:key=Known-limitation,valueonly)' "$previous..$commit")"
+  [[ -n $text ]] || continue
+  [[ $lifted == *$'\n'"$text"$'\n'* ]] && continue
+  limitations+="- $text"$'\n'
+done <<<"$(trailers Known-limitation)"
 section "Known limitations" "$limitations"
 echo "**Full changelog**: $repo_url/compare/$previous...$tag"

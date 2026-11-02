@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { Puzzle } from 'lucide-react'
+import type { ExtensionActionCounts, ExtensionActionStates } from '@shared/types'
 import { reducedMotion, rubberband } from '../lib/spring'
 import { badgeColors } from '../lib/util'
 
@@ -76,6 +77,77 @@ function useActionState(partition: string): BrowserActionState | undefined {
   return useSyncExternalStore(subscribeTo(partition), () => states.get(partition))
 }
 
+// ───────────────────────── Blocked-request counts (declarativeNetRequest action count) ─────────────────────────
+
+let counts: ExtensionActionCounts = {}
+const countSubscribers = new Set<() => void>()
+let stopCounts: (() => void) | null = null
+
+function setCounts(next: ExtensionActionCounts): void {
+  if (JSON.stringify(next) === JSON.stringify(counts)) return
+  counts = next
+  countSubscribers.forEach((fn) => fn())
+}
+
+function subscribeCounts(fn: () => void): () => void {
+  countSubscribers.add(fn)
+  if (countSubscribers.size === 1) {
+    stopCounts = window.signet.onExtensionActionCounts(setCounts)
+    void window.signet.getExtensionActionCounts().then(setCounts, () => {})
+  }
+  return () => {
+    countSubscribers.delete(fn)
+    if (countSubscribers.size === 0) {
+      stopCounts?.()
+      stopCounts = null
+    }
+  }
+}
+
+function useActionCounts(): ExtensionActionCounts {
+  return useSyncExternalStore(subscribeCounts, () => counts)
+}
+
+// ───────────────────────── Enabled state and badge text color (action.enable, setBadgeTextColor) ─────────────────────────
+
+let actionStates: ExtensionActionStates = {}
+const stateSubscribers = new Set<() => void>()
+let stopStates: (() => void) | null = null
+
+function setActionStates(next: ExtensionActionStates): void {
+  if (JSON.stringify(next) === JSON.stringify(actionStates)) return
+  actionStates = next
+  stateSubscribers.forEach((fn) => fn())
+}
+
+function subscribeStates(fn: () => void): () => void {
+  stateSubscribers.add(fn)
+  if (stateSubscribers.size === 1) {
+    stopStates = window.signet.onExtensionActionStates(setActionStates)
+    void window.signet.getExtensionActionStates().then(setActionStates, () => {})
+  }
+  return () => {
+    stateSubscribers.delete(fn)
+    if (stateSubscribers.size === 0) {
+      stopStates?.()
+      stopStates = null
+    }
+  }
+}
+
+/** The extension's own choices for one tab: the tab's value, else the global one, else the defaults (enabled, no text color). */
+function stateFor(states: ExtensionActionStates, id: string, tabId: number): { enabled: boolean; textColor?: unknown } {
+  const s = states[id]
+  const t = s?.tabs?.[tabId]
+  return { enabled: t?.enabled ?? s?.enabled ?? true, textColor: t?.textColor ?? s?.textColor }
+}
+
+/** Badge text for a count, as Chrome writes it: the number, 999+ beyond. */
+export function countText(n: number | undefined): string {
+  if (!n || n < 1) return ''
+  return n > 999 ? '999+' : `${Math.floor(n)}`
+}
+
 // ───────────────────────── Buttons ─────────────────────────
 
 interface Props {
@@ -103,6 +175,10 @@ const THRESHOLD = 4
 export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, onMenu }: Props) {
   const { t } = useTranslation()
   const state = useActionState(partition)
+  const actionCounts = useActionCounts()
+  const states = useSyncExternalStore(subscribeStates, () => actionStates)
+  const statesRef = useRef(states)
+  statesRef.current = states
   const [local, setLocal] = useState<string[] | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const press = useRef<{ id: string; x: number; pointer: number; slots: { left: number; width: number }[]; index: number; started: boolean } | null>(null)
@@ -234,9 +310,10 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
     else if (press.current?.pointer === e.pointerId) press.current = null
   }
 
-  const activate = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
-    if (skipClick.current) return
-    const r = e.currentTarget.getBoundingClientRect()
+  /** What a click does, for a click, the Extensions menu and a keyboard shortcut: popup (or click event) under `r`. */
+  const launch = (id: string, r: DOMRect) => {
+    // A disabled button (action.disable) does nothing.
+    if (!stateFor(statesRef.current, id, state?.activeTabId ?? -1).enabled) return
     focusTab()
     // -1: the window's active tab, already updated by focusTab.
     void window.browserAction?.activate(partition, {
@@ -248,25 +325,44 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
     })
   }
 
+  const activate = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    if (skipClick.current) return
+    launch(id, e.currentTarget.getBoundingClientRect())
+  }
+
+  // Keyboard shortcut of an extension (`_execute_action`): under its button, or under the Extensions button when the
+  // extension is not pinned. Without either, main gets no answer and opens the popup on its own.
+  const listButton = useRef<HTMLButtonElement>(null)
+  const shortcut = useRef<(id: string) => DOMRect | null>(() => null)
+  const launcher = useRef(launch)
+  launcher.current = launch
+  shortcut.current = (id) => {
+    const own = box.current?.querySelector(`[data-ext="${id}"]`)
+    return (own ?? listButton.current)?.getBoundingClientRect() ?? null
+  }
+  useEffect(
+    () =>
+      window.signet.onRunExtensionAction((token, id) => {
+        const r = shortcut.current(id)
+        if (!r) return
+        // Several toolbars can be mounted: the first to be acknowledged opens it.
+        void window.signet.ackExtensionAction(token).then((taken) => taken && launcher.current(id, r))
+      }),
+    []
+  )
+
   /** Extensions button: menu of all extensions; the chosen one opens under this button. */
   const openList = async (e: React.MouseEvent<HTMLButtonElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     focusTab()
     const id = await window.signet.showExtensionsMenu()
-    if (!id) return
-    void window.browserAction?.activate(partition, {
-      eventType: 'click',
-      extensionId: id,
-      tabId: -1,
-      alignment: 'bottom left',
-      anchorRect: { x: r.left, y: r.top, width: r.width, height: r.height }
-    })
+    if (id) launch(id, r)
   }
 
   if (!state || state.actions.length === 0) return null
   const tabId = state.activeTabId ?? -1
   const list = (
-    <button className="icon ext-list" title={t('toolbar.extensions')} aria-label={t('toolbar.extensions')} onClick={(e) => void openList(e)}>
+    <button ref={listButton} className="icon ext-list" title={t('toolbar.extensions')} aria-label={t('toolbar.extensions')} onClick={(e) => void openList(e)}>
       <Puzzle size={15} />
     </button>
   )
@@ -277,12 +373,16 @@ export function ExtensionButtons({ partition, order, pinned, focusTab, onOrder, 
         {shown.map((id, i) => {
           const a = state.actions.find((x) => x.id === id)!
           const info = { ...a, ...(tabId > -1 ? a.tabs[tabId] : undefined) }
+          // The extension's own badge text wins; otherwise the blocked-request count of the tab shown by this bar.
+          if (!info.text) info.text = countText(actionCounts[tabId]?.[id])
           const mine = drag?.id === id
+          const own = stateFor(states, id, tabId)
           return (
             <ActionButton
               key={id}
               id={id}
-              info={info}
+              info={{ ...info, textColor: own.textColor }}
+              disabled={!own.enabled}
               partition={partition}
               tabId={tabId}
               mine={mine}
@@ -322,7 +422,8 @@ function slotShift(box: HTMLDivElement | null, d: Drag, i: number): number {
 
 interface ButtonProps {
   id: string
-  info: { title?: string; text?: string; color?: unknown; iconModified?: number }
+  info: { title?: string; text?: string; color?: unknown; textColor?: unknown; iconModified?: number }
+  disabled: boolean
   partition: string
   tabId: number
   mine: boolean
@@ -337,7 +438,7 @@ interface ButtonProps {
   onContextMenu: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
-function ActionButton({ id, info, partition, tabId, mine, settling, shift, ...handlers }: ButtonProps) {
+function ActionButton({ id, info, disabled, partition, tabId, mine, settling, shift, ...handlers }: ButtonProps) {
   // The icon may not be ready at first display: a few more attempts before the letter.
   const [tries, setTries] = useState(0)
   const failed = tries > 3
@@ -348,14 +449,21 @@ function ActionButton({ id, info, partition, tabId, mine, settling, shift, ...ha
   const title = info.title ?? ''
   const transform = shift ? `translateX(${shift}px)` : undefined
   return (
-    <button data-ext={id} className={`ext-btn${mine ? ' dragged' : ''}${mine && !settling ? ' held' : ''}`} title={title} style={{ transform }} {...handlers}>
+    <button
+      data-ext={id}
+      className={`ext-btn${mine ? ' dragged' : ''}${mine && !settling ? ' held' : ''}${disabled ? ' off' : ''}`}
+      aria-disabled={disabled || undefined}
+      title={title}
+      style={{ transform }}
+      {...handlers}
+    >
       {failed ? (
         <span className="ext-letter">{title.charAt(0)}</span>
       ) : (
         <img src={src} alt="" draggable={false} onError={() => setTimeout(() => setTries((n) => n + 1), 400)} />
       )}
       {info.text && (
-        <span className="ext-badge" style={badgeColors(info.color)}>
+        <span className="ext-badge" style={badgeColors(info.color, info.textColor)}>
           {info.text}
         </span>
       )}

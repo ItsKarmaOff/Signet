@@ -23,22 +23,29 @@ const RISE = 3 // increasing events that signal a new gesture during the previou
 const DIAG = process.env.SIGNET_SWIPEDIAG === '1' // development diagnostics: logs the decisions (console)
 const LOCK_AT = 6 // cumulative movement (px) from which we decide: horizontal or not
 
-// A form submitted by the user: the main process does not open the resulting navigation in Peek (POST, SSO, payment).
-// Capture, to run before the page's handlers; real submissions only (`isTrusted`).
-window.addEventListener(
-  'submit',
-  (e) => {
-    if (e.isTrusted) ipcRenderer.send('page:submit')
-  },
-  true
-)
+// Main frame only (the preload also runs in subframes); interface views are excluded by the main process (`enabled: false`).
+if (process.isMainFrame) {
+  pageHelpers()
+  start()
+}
 
-/**
- * Extension store pages: it shows a banner and a window offering to switch browsers, although
- * installation works here. We hide them, on its domain only (spotted by semantic attributes).
- */
-if (location.origin === 'https://chromewebstore.google.com') {
-  void webFrame.executeJavaScript(`(() => {
+function pageHelpers(): void {
+  // A form submitted by the user: the main process does not open the resulting navigation in Peek (POST, SSO, payment).
+  // Capture, to run before the page's handlers; real submissions only (`isTrusted`).
+  window.addEventListener(
+    'submit',
+    (e) => {
+      if (e.isTrusted) ipcRenderer.send('page:submit')
+    },
+    true
+  )
+
+  /**
+   * Extension store pages: it shows a banner and a window offering to switch browsers, although
+   * installation works here. We hide them, on its domain only (spotted by semantic attributes).
+   */
+  if (location.origin === 'https://chromewebstore.google.com') {
+    void webFrame.executeJavaScript(`(() => {
     let queued = false
     const hide = () => {
       queued = false
@@ -61,10 +68,8 @@ if (location.origin === 'https://chromewebstore.google.com') {
     }).observe(document, { childList: true, subtree: true })
     hide()
   })()`)
+  }
 }
-
-// Main frame only; interface views are excluded by the main process (`enabled: false`).
-if (process.isMainFrame) start()
 
 function start(): void {
   const diag = (s: string) => {

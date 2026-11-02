@@ -67,8 +67,8 @@ describe('IPC registration', () => {
         .filter((d) => d.kind === 'invoke')
         .map((d) => d.channel),
       ...Object.values(PIP_IPC).map((d) => d.channel),
-      // Web pages: swipe and forms (ipc/page.ts); notes, passwords and extension APIs register themselves (see below and apis/router.test.ts).
-      ...Object.keys(PAGE_IPC).filter((c) => !/^(pw|notes):|^signet-crx$/.test(c))
+      // Web pages: swipe and forms (ipc/page.ts); notes, passwords, autofill and extension APIs register themselves (see below and apis/router.test.ts).
+      ...Object.keys(PAGE_IPC).filter((c) => !/^(pw|af|notes):|^signet-crx$/.test(c))
     ]
     const dupes = ipc.registrations.filter((c, i) => ipc.registrations.indexOf(c) !== i)
     expect(dupes).toEqual([])
@@ -78,10 +78,12 @@ describe('IPC registration', () => {
     expect(extra).toEqual([])
   })
 
-  it('each notes and passwords page channel is handled by its module, and by it alone', () => {
+  it('each notes, passwords and autofill page channel is handled by its module, and by it alone', () => {
     const dir = join(__dirname, '..')
-    const sources = ['features/notes/notes.ts', 'features/passwords/passwords.ts'].map((f) => readFileSync(join(dir, f), 'utf8'))
-    for (const channel of Object.keys(PAGE_IPC).filter((c) => /^(pw|notes):/.test(c))) {
+    const sources = ['features/notes/notes.ts', 'features/passwords/passwords.ts', 'features/autofill/autofill.ts'].map((f) =>
+      readFileSync(join(dir, f), 'utf8')
+    )
+    for (const channel of Object.keys(PAGE_IPC).filter((c) => /^(pw|af|notes):/.test(c))) {
       expect(
         sources.filter((src) => src.includes(`'${channel}'`)),
         channel

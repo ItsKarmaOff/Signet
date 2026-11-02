@@ -1,34 +1,93 @@
 import { join } from 'node:path'
 import type { WebContents } from 'electron'
-import { DEFAULT_SEARCH_ENGINE, isSearchEngineId, searchEngine, searchUrlFor, suggestionsUrlFor, type SearchEngineId } from '@signet/shared/mobile/search'
+import { DEFAULT_SEARCH_ENGINE, parseSuggestions } from '@signet/shared/mobile/search'
+import {
+  cleanEngineConfig,
+  expandTemplate,
+  keywordHint,
+  keywordInfos,
+  parseKeyword,
+  resolveEngines,
+  type EngineConfig,
+  type EngineSpec,
+  type KeywordInfo,
+  type KeywordMatch
+} from '@signet/shared/searchengines'
 import { searchUrl, suggestRegion } from '@signet/shared/urls'
 
 // The pure part (toUrl, searchUrl, fold, siteOf…) lives in @signet/shared; it is re-exported for main-process code.
 export * from '@signet/shared/urls'
 
-/** Chosen search engine (Settings › General); Google until something is set. */
-let searchEngineId: SearchEngineId = DEFAULT_SEARCH_ENGINE
+/** Chosen search engine id (Settings › General); Google until something is set. */
+let searchEngineId: string = DEFAULT_SEARCH_ENGINE
+let engineConfig: EngineConfig = {}
+let engineLocale = 'en'
 
-/** Changes the engine (at startup and on each setting change); an unknown value falls back to Google. */
+/** Changes the default engine (at startup and on each setting change); an unknown or disabled one falls back to Google. */
 export function setSearchEngine(id: unknown): void {
-  searchEngineId = isSearchEngineId(id) ? id : DEFAULT_SEARCH_ENGINE
+  searchEngineId = typeof id === 'string' ? id : DEFAULT_SEARCH_ENGINE
 }
 
-/** URL of the search for `query` at the chosen engine; Google keeps the page language (`hl`). */
+/** Custom engines and keyword overrides (already cleaned by `cleanSettings`). */
+export function setSearchEngines(config: EngineConfig): void {
+  engineConfig = cleanEngineConfig(config)
+}
+
+/** Interface language: the Wikipedia preset follows it. */
+export function setSearchLocale(locale: string): void {
+  engineLocale = locale
+}
+
+/** Every engine with its current keyword. */
+export function searchEngineList(): EngineSpec[] {
+  return resolveEngines(engineConfig, engineLocale)
+}
+
+/** The default engine; Google if the chosen one is gone or turned off. */
+function defaultEngine(): EngineSpec {
+  const all = searchEngineList()
+  return all.find((e) => e.id === searchEngineId && e.enabled) ?? all.find((e) => e.id === DEFAULT_SEARCH_ENGINE)!
+}
+
+/** URL of the search for `query` at `engine`; Google keeps the page language (`hl`). */
+export function searchUrlAt(engine: EngineSpec, query: string): string {
+  return engine.id === 'google' ? searchUrl(query) : expandTemplate(engine.template, query)
+}
+
+/** URL of the search for `query` at the default engine. */
 export function engineSearchUrl(query: string): string {
-  return searchEngineId === 'google' ? searchUrl(query) : searchUrlFor(searchEngineId, query)
+  return searchUrlAt(defaultEngine(), query)
 }
 
-/** Name of the chosen engine ("Google", "DuckDuckGo"…), for labels. */
+/** Name of the default engine ("Google", "DuckDuckGo"…), for labels. */
 export function engineName(): string {
-  return searchEngine(searchEngineId).name
+  return defaultEngine().name
 }
 
-/** Engine whose suggestions are queried, with the query URL (DuckDuckGo receives the `kl` region). */
-export function engineSuggestions(query: string): { id: SearchEngineId; url: string } {
-  const kl = searchEngineId === 'duckduckgo' ? suggestRegion() : ''
-  return { id: searchEngineId, url: suggestionsUrlFor(searchEngineId, query) + (kl ? `&kl=${kl}` : '') }
+/** `keyword query` typed in the bar: the engine and its results URL (query may be empty). */
+export function keywordSearch(input: string): (KeywordMatch & { url: string }) | null {
+  const m = parseKeyword(input, searchEngineList())
+  return m && { ...m, url: searchUrlAt(m.engine, m.query) }
 }
+
+/** Engine whose keyword is exactly `input`, for the "Press Tab" hint. */
+export function keywordHintFor(input: string): EngineSpec | null {
+  return keywordHint(input, searchEngineList())
+}
+
+/** Keywords offered to the command bar. */
+export function keywordList(): KeywordInfo[] {
+  return keywordInfos(searchEngineList())
+}
+
+/** Suggestions request of `engine` (default engine if omitted), or null if it has no suggestions address. DuckDuckGo receives the `kl` region. */
+export function engineSuggestions(query: string, engine: EngineSpec = defaultEngine()): { id: string; url: string } | null {
+  if (!engine.suggest) return null
+  const kl = engine.id === 'duckduckgo' ? suggestRegion() : ''
+  return { id: engine.id, url: expandTemplate(engine.suggest, query) + (kl ? `&kl=${kl}` : '') }
+}
+
+export { parseSuggestions }
 
 /** Path of the preload shared by all interface views. */
 export const preloadPath = join(__dirname, '../preload/index.js')
@@ -36,8 +95,14 @@ export const preloadPath = join(__dirname, '../preload/index.js')
 /** Page script for drag-to-navigate (injected into tabs). */
 export const swipePath = join(__dirname, '../preload/swipe.js')
 
-/** Password page script: on-demand filling and login detection (all frames). */
+/** Page script that sets `navigator.globalPrivacyControl` (registered only while Global Privacy Control is on; all frames). */
+export const gpcPath = join(__dirname, '../preload/gpc.js')
+
+/** Password page script: on-demand filling and login detection (main frame only). */
 export const passwordsPath = join(__dirname, '../preload/passwords.js')
+
+/** Autofill page script: addresses and payment cards under the field being filled (main frame only). */
+export const autofillPath = join(__dirname, '../preload/autofill.js')
 
 /** Page script that fills `window.chrome` like Chrome (without it, Google refuses sign-in; all frames). */
 export const identityPath = join(__dirname, '../preload/identity.js')

@@ -1,15 +1,31 @@
 // Only file (with the preload) that knows the extension libraries; the interface stays neutral.
-import { BrowserWindow, dialog, nativeImage, session, type ContextMenuParams, type MenuItem, type Session, type WebContents } from 'electron'
+import {
+  BrowserWindow,
+  dialog,
+  nativeImage,
+  session,
+  webContents,
+  type ContextMenuParams,
+  type MenuItemConstructorOptions,
+  type Session,
+  type WebContents
+} from 'electron'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 import { installChromeWebStore, installExtension, uninstallExtension } from 'electron-chrome-web-store'
 import { PASSWORD_EXTENSIONS } from '@shared/types'
-import type { ExtensionInfo } from '@shared/types'
+import type { ExtensionActionCounts, ExtensionActionStates, ExtensionInfo } from '@shared/types'
 import type { Browser } from '../../browser/browser'
 import { ExtensionApis } from './apis'
+import { ActionRelay } from './action-relay'
+import type { CommandBinding } from './apis/commands'
+import { ACTION_CONTEXTS, contextsOf, type MenuNode } from './apis/contextmenus'
+import { tabIdsInOrder } from '../../model/navigation'
+import { signetAccelKeys } from '@shared/shortcuts'
 import { peekSession } from '../../web/profiles'
-import { t } from '../../app/i18n'
+import { isUiContents, t } from '../../app/i18n'
+import { pushUi } from '../../ipc/push'
 import { buildMenu, menuIcon } from '../../app/menuicons'
 
 const STORE_URL = 'https://chromewebstore.google.com/'
@@ -88,6 +104,12 @@ function describePermissions(manifest: chrome.runtime.Manifest): string[] {
   const names = (m.permissions ?? []).map(String)
   const patterns = new Set<string>([...(m.host_permissions ?? []).map(String), ...names.filter((p) => p.includes('://') || p === '<all_urls>')])
   for (const cs of m.content_scripts ?? []) for (const p of cs.matches ?? []) patterns.add(String(p))
+  return describeAccess(names, [...patterns])
+}
+
+/** The same sentences for a list of permission names and host match patterns. */
+function describeAccess(names: string[], patternList: string[]): string[] {
+  const patterns = new Set(patternList)
   const out: string[] = []
   if ([...patterns].some((p) => ALL_SITES.has(p))) out.push(t('dialog.extension.perm.allSites'))
   else if (patterns.size) {
@@ -133,17 +155,198 @@ export class Extensions {
   /** Tab last declared active to the library (what Signet displays). */
   private selected: WebContents | undefined
   private watched = new WeakSet<WebContents>()
+  /** A session could not load its extensions: nothing may be concluded from what is missing. */
+  private loadFailed = false
   /** True during our own calls to the library: its callbacks must not change the active tab. */
   private syncing = false
 
   /** APIs Electron lacks (proxy, privacy, alarms…), injected into extension contexts. */
-  private apis = new ExtensionApis()
+  private apis: ExtensionApis
+  /** Opens an extension's popup under its toolbar button when a shortcut asks for it. */
+  private relay = new ActionRelay({ send: (token, id) => this.askToolbar(token, id) })
 
-  constructor(private b: Browser) {}
+  constructor(private b: Browser) {
+    this.apis = new ExtensionApis({
+      signetKeys: () => signetAccelKeys(this.b.store.state.settings.shortcuts, process.platform === 'darwin'),
+      runAction: (id, target) => {
+        const wc = target as WebContents | undefined
+        // A disabled button (action.disable) does nothing, shortcuts included.
+        if (this.apis.actionEnabled(id, wc && !wc.isDestroyed() ? wc.id : undefined)) this.relay.request(id, () => this.clickAction(id, wc))
+      },
+      activeTab: (target) => this.tabDetails(target as WebContents | undefined),
+      activeContents: (windowId) => this.activeContents(windowId),
+      activateAt: (index, windowId) => this.activateAt(index, windowId),
+      setActionIcon: (ses, id, tabId, images) => this.setActionIcon(ses, id, tabId, images)
+    })
+    this.apis.setPermissionPrompt((caller, wanted) => this.askPermissions(caller.ses, caller.extensionId, wanted))
+    this.apis.onActionStates((states) => {
+      for (const wc of webContents.getAllWebContents()) if (isUiContents(wc)) pushUi(wc, 'extensions:action-states', states)
+    })
+    this.apis.onActionCounts((counts) => {
+      for (const wc of webContents.getAllWebContents()) if (isUiContents(wc)) pushUi(wc, 'extensions:action-counts', counts)
+    })
+  }
+
+  // ───────────────────────── Keyboard shortcuts (chrome.commands) ─────────────────────────
+
+  /** Shortcuts of extension commands to register in the application menu. */
+  commandBindings(): CommandBinding[] {
+    return this.apis.commands.bindings()
+  }
+
+  /** Changes when the extension shortcuts do (the menu is rebuilt then). */
+  commandsKey(): string {
+    return this.apis.commands.key()
+  }
+
+  /** A shortcut of an extension was pressed on the tab `tabId` (the window's active tab). */
+  runCommand(extensionId: string, name: string, tabId: string | null): void {
+    const wc = tabId ? this.b.views.viewOf(tabId)?.webContents : undefined
+    this.apis.commands.run(extensionId, name, wc && !wc.isDestroyed() ? wc : undefined)
+  }
+
+  /** The library's internals we reuse (private in its types): its popup/click path and its `tabs.Tab` builder. */
+  private libraryOf(wc: WebContents): {
+    api?: { browserAction?: { activateClick?: (d: unknown) => void }; tabs?: { getTabDetails?: (wc: WebContents) => unknown } }
+  } {
+    return (ElectronChromeExtensions.fromSession(wc.session) ?? {}) as ReturnType<Extensions['libraryOf']>
+  }
+
+  /** The tab shown in a window; Signet has one main window, so any other `windowId` has none. */
+  private activeContents(windowId: number | undefined): WebContents | undefined {
+    const win = this.b.win
+    if (windowId !== undefined && (!win || win.isDestroyed() || win.id !== windowId)) return undefined
+    return this.selected && !this.selected.isDestroyed() ? this.selected : undefined
+  }
+
+  /** `tabs.highlight`: shows the tab at `index` in the bar's order and describes the window (`windows.Window`, without its tabs). */
+  private activateAt(index: number, windowId: number | undefined): unknown {
+    const win = this.b.win
+    if (!win || win.isDestroyed() || (windowId !== undefined && win.id !== windowId)) return undefined
+    const id = tabIdsInOrder(this.b.store.state)[index]
+    if (!id) return undefined
+    this.b.tabs.activate(id)
+    const [left, top] = win.getPosition()
+    const [width, height] = win.getSize()
+    return {
+      id: win.id,
+      focused: win.isFocused(),
+      incognito: false,
+      type: 'normal',
+      state: win.isFullScreen() ? 'fullscreen' : win.isMinimized() ? 'minimized' : win.isMaximized() ? 'maximized' : 'normal',
+      alwaysOnTop: win.isAlwaysOnTop(),
+      left,
+      top,
+      width,
+      height
+    }
+  }
+
+  /**
+   * LIBRARY INTERNAL: the library keeps the button's icon in a private map (`browserAction.getAction`) and refuses imageData
+   * in MV3, so the converted icons are written there. Fails quietly (the icon then stays as it was) if the library changes.
+   */
+  private setActionIcon(ses: Session, extensionId: string, tabId: number | undefined, images: Record<string, string>): void {
+    try {
+      const library = ElectronChromeExtensions.fromSession(ses) as unknown as {
+        api?: {
+          browserAction?: {
+            getAction(id: string): { icon?: unknown; iconModified?: number; tabs: Record<string, { icon?: unknown; iconModified?: number }> }
+            onUpdate(): void
+          }
+        }
+      }
+      const browserAction = library?.api?.browserAction
+      if (!browserAction) return
+      const action = browserAction.getAction(extensionId)
+      const slot = tabId === undefined ? action : (action.tabs[tabId] ??= {})
+      slot.icon = { imageData: images }
+      slot.iconModified = Date.now()
+      browserAction.onUpdate()
+    } catch (e) {
+      console.error('Extensions : action.setIcon', e)
+    }
+  }
+
+  /** The tab in Chrome's `tabs.Tab` shape, as the library builds it for `chrome.tabs`. */
+  private tabDetails(wc: WebContents | undefined): unknown {
+    if (!wc || wc.isDestroyed()) return undefined
+    try {
+      return this.libraryOf(wc).api?.tabs?.getTabDetails?.(wc)
+    } catch {
+      return undefined
+    }
+  }
+
+  /** The toolbar acknowledges a request (see ActionRelay). */
+  ackAction(token: string): boolean {
+    return this.relay.ack(token)
+  }
+
+  /** Asks the interface of the window that owns the active tab to open the button; false if there is none. */
+  private askToolbar(token: string, extensionId: string): boolean {
+    const win = this.b.win
+    const ui = win && !win.isDestroyed() && win.isFocused() ? win.webContents : null
+    if (!ui || ui.isDestroyed() || !isUiContents(ui)) return false
+    pushUi(ui, 'extensions:run-action', token, extensionId)
+    return true
+  }
+
+  /**
+   * What a click on the extension's toolbar button does, without a toolbar to anchor under (the fallback): its popup opens, or `action.onClicked` fires when it has none
+   * (the library decides). The popup opens at the window's top right, like `chrome.action.openPopup`.
+   */
+  private clickAction(extensionId: string, wc: WebContents | undefined): void {
+    if (!wc || wc.isDestroyed()) return
+    const click = this.libraryOf(wc).api?.browserAction
+    if (!click?.activateClick) return
+    const win = BrowserWindow.fromWebContents(wc) ?? this.b.win
+    const [width] = win && !win.isDestroyed() ? win.getContentSize() : [1000]
+    try {
+      click.activateClick({
+        eventType: 'click',
+        extensionId,
+        tabId: wc.id,
+        alignment: 'bottom left',
+        anchorRect: { x: Math.max(0, width - 48), y: 8, width: 32, height: 32 }
+      })
+    } catch (e) {
+      console.error('Extensions :', e)
+    }
+  }
+
+  /** Enabled state and badge text color set by extensions (toolbar). */
+  actionStates(): ExtensionActionStates {
+    return this.apis.actionStates()
+  }
+
+  /** Blocked-request counts per tab and extension (action count badge). */
+  actionCounts(): ExtensionActionCounts {
+    return this.apis.actionCounts()
+  }
 
   /** Channel for extension pages calling the added APIs (see apis/router.ts); registered with the other page channels. */
   registerPageIpc(): void {
     this.apis.registerPageIpc()
+  }
+
+  /**
+   * Startup, once store and unpacked extensions are loaded: drops persisted data (grants, menus, rules...) of extensions that
+   * are no longer installed. Skipped if any load failed or an unpacked extension could not be loaded: a missing id then
+   * proves nothing.
+   */
+  collectGarbage(): void {
+    if (this.loadFailed || this.mirroring === false || this.b.unpacked.failed().length) return
+    const installed = new Set<string>()
+    for (const ses of this.attached) for (const ext of ses.extensions.getAllExtensions()) installed.add(ext.id)
+    if (!installed.size && this.attached.size) return
+    const gone = this.apis.collectGarbage(installed)
+    if (gone.length) console.log(`[extension-apis] dropped data of removed extensions: ${gone.join(', ')}`)
+  }
+
+  /** An extension was really removed (not just unloaded): its persisted data goes. */
+  forgetData(id: string): void {
+    this.apis.forgetExtension(id)
   }
 
   /** Enables extensions and the store in a session (called once per session). */
@@ -174,7 +377,10 @@ export class Extensions {
     const loaded = installChromeWebStore({
       session: ses,
       beforeInstall: (details) => this.confirm(details)
-    }).catch((e) => console.error('Extensions : boutique indisponible', e))
+    }).catch((e) => {
+      this.loadFailed = true
+      console.error('Extensions : boutique indisponible', e)
+    })
     this.loading.push(loaded)
     this.pending.set(ses, loaded)
     // Unpacked extensions: also loaded in a session opened after startup.
@@ -212,7 +418,11 @@ export class Extensions {
     // fail with "Unable to get active tab"), because Signet only reports a selection when the displayed tab changes.
     if (!this.watched.has(wc)) {
       this.watched.add(wc)
-      wc.once('destroyed', () => this.reselect())
+      wc.once('destroyed', () => {
+        this.apis.tabGone(wc.id)
+        this.reselect()
+      })
+      this.apis.watchTab(wc)
     }
   }
 
@@ -229,13 +439,60 @@ export class Extensions {
     setTimeout(() => this.select(this.selected), 0)
   }
 
-  /** Context menu entries added by extensions. */
-  menuItems(wc: WebContents, params: ContextMenuParams): MenuItem[] {
-    try {
-      return ElectronChromeExtensions.fromSession(wc.session)?.getContextMenuItems(wc, params) ?? []
-    } catch {
-      return []
-    }
+  /** Context menu entries added by extensions (`chrome.contextMenus`, kept by Signet), for the extensions of the tab's session. */
+  menuItems(wc: WebContents, params: ContextMenuParams): MenuItemConstructorOptions[] {
+    const contexts = contextsOf(params)
+    return wc.session.extensions.getAllExtensions().flatMap((ext) => this.menuFor(ext, this.apis.contextMenus.tree(ext.id, contexts, params), wc, params))
+  }
+
+  /** Items for one extension: several top-level items go under a submenu named after it, as in Chrome. */
+  private menuFor(ext: Electron.Extension, nodes: MenuNode[], wc: WebContents, params?: ContextMenuParams): MenuItemConstructorOptions[] {
+    if (!nodes.length) return []
+    const entries = this.menuEntries(ext, nodes, wc, params)
+    return nodes.length > 1 ? [{ label: ext.name, icon: this.smallIcon(ext), submenu: entries }] : entries.map((e) => ({ ...e, icon: this.smallIcon(ext) }))
+  }
+
+  private smallIcon(ext: Electron.Extension): Electron.NativeImage | undefined {
+    const url = iconOf(ext)
+    const image = url ? nativeImage.createFromDataURL(url) : undefined
+    return image && !image.isEmpty() ? image.resize({ width: 16, height: 16, quality: 'best' }) : undefined
+  }
+
+  private menuEntries(ext: Electron.Extension, nodes: MenuNode[], wc: WebContents, params?: ContextMenuParams): MenuItemConstructorOptions[] {
+    return nodes.map((node): MenuItemConstructorOptions => {
+      const { item } = node
+      if (item.type === 'separator') return { type: 'separator' }
+      const children = this.menuEntries(ext, node.children, wc, params)
+      return {
+        label: node.label,
+        enabled: item.enabled,
+        ...(children.length
+          ? { submenu: children }
+          : { type: item.type === 'checkbox' || item.type === 'radio' ? item.type : 'normal', checked: item.checked }),
+        click: () => this.menuClicked(ext.id, item.id, wc, params)
+      }
+    })
+  }
+
+  /** A click on an item of `chrome.contextMenus`: `onClicked(info, tab)`, which wakes the extension's worker. */
+  private menuClicked(extensionId: string, itemId: string | number, wc: WebContents, params?: ContextMenuParams): void {
+    if (wc.isDestroyed()) return
+    const info = this.apis.contextMenus.click(extensionId, itemId)
+    this.apis.contextMenus.clicked(
+      extensionId,
+      {
+        ...info,
+        pageUrl: params?.pageURL ?? wc.getURL(),
+        frameUrl: params?.frameURL || undefined,
+        frameId: params?.frameURL ? -1 : 0,
+        linkUrl: params?.linkURL || undefined,
+        srcUrl: params?.srcURL || undefined,
+        mediaType: params?.mediaType && params.mediaType !== 'none' ? params.mediaType : undefined,
+        selectionText: params?.selectionText || undefined,
+        editable: params?.isEditable ?? false
+      },
+      this.tabDetails(wc)
+    )
   }
 
   private run(fn: () => void): void {
@@ -320,6 +577,25 @@ export class Extensions {
     return { action: response === 0 ? 'allow' : 'deny' }
   }
 
+  /** Dialog for `chrome.permissions.request`: lists only what is new; true when the user allows it. */
+  private async askPermissions(ses: Session, id: string, wanted: { permissions: string[]; origins: string[] }): Promise<boolean> {
+    const lines = describeAccess(wanted.permissions, wanted.origins)
+    // Nothing worth warning about (quiet permissions only): granted without a dialog.
+    if (!lines.length) return true
+    const shown = lines.length > MAX_LINES ? [...lines.slice(0, MAX_LINES - 1), t('dialog.extension.more', { count: lines.length - MAX_LINES + 1 })] : lines
+    const options: Electron.MessageBoxOptions = {
+      type: 'question',
+      buttons: [t('dialog.extension.request.allow'), t('dialog.extension.request.deny')],
+      defaultId: 1,
+      cancelId: 1,
+      message: t('dialog.extension.request.message', { name: ses.extensions.getExtension(id)?.name ?? id }),
+      detail: t('dialog.extension.request.detail', { permissions: shown.map((l) => `• ${l}`).join('\n') })
+    }
+    const parent = this.b.win ?? undefined
+    const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options)
+    return response === 0
+  }
+
   openStore(): void {
     this.b.window.show()
     this.b.tabs.open(STORE_URL, { activate: true })
@@ -340,6 +616,7 @@ export class Extensions {
 
   /** Installed extensions, for Settings. */
   list(): ExtensionInfo[] {
+    const commands = this.apis.commands.listAll()
     const loaded = session.defaultSession.extensions.getAllExtensions().map((ext): ExtensionInfo => {
       const manifest = ext.manifest as chrome.runtime.Manifest
       const path = this.b.unpacked.pathOf(ext.id)
@@ -349,6 +626,7 @@ export class Extensions {
         version: ext.version,
         icon: iconOf(ext),
         hasAction: !!(manifest.action || manifest.browser_action),
+        ...(commands.get(ext.id) && { commands: commands.get(ext.id) }),
         ...(path && { unpacked: this.b.unpacked.stateOf(path) })
       }
     })
@@ -367,9 +645,13 @@ export class Extensions {
     const manifest = ext.manifest as chrome.runtime.Manifest
     const page = manifest.options_page ?? manifest.options_ui?.page
     const optionsUrl = page ? new URL(page, `chrome-extension://${id}/`).href : undefined
+    // Items the extension added for its own button (contexts action, browser_action, page_action).
+    const own = this.selected && !this.selected.isDestroyed() ? this.selected : undefined
+    const mine = own ? this.menuEntries(ext, this.apis.contextMenus.tree(id, new Set<string>(['all', ...ACTION_CONTEXTS])), own) : []
     const menu = buildMenu([
       { label: ext.name, enabled: false },
       { type: 'separator' },
+      ...(mine.length ? [...mine, { type: 'separator' as const }] : []),
       { label: t('menu.extension.options'), enabled: !!optionsUrl, click: () => this.openOptions(optionsUrl) },
       { label: t('menu.extension.hide'), click: () => this.setPinned(id, false) },
       { label: t('menu.extension.manage'), click: () => this.manage() },
@@ -464,6 +746,7 @@ export class Extensions {
     for (const ses of this.attached) {
       try {
         await uninstallExtension(id, { session: ses })
+        this.apis.forgetExtension(id)
       } catch (e) {
         console.error('Extensions : retrait impossible', e)
       }

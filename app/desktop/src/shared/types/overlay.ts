@@ -1,6 +1,7 @@
 import type { SiteInfo } from './permissions'
 import type { Rect } from '@signet/shared/types'
 import type { IconTarget } from './tabs'
+import type { KeywordInfo } from '@signet/shared/searchengines'
 
 export type PaletteMode = 'new-tab' | 'edit-url' | 'split'
 
@@ -8,6 +9,8 @@ export type PaletteResult =
   | { kind: 'url'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'search'; id: string; title: string; subtitle?: string; url: string }
   | { kind: 'suggestion'; id: string; title: string; subtitle?: string; url: string }
+  /** "Press Tab to search …": offered when the typed text is exactly a keyword. Handled by the bar itself, never executed. */
+  | { kind: 'keyword'; id: string; title: string; subtitle?: string; keyword: KeywordInfo }
   | { kind: 'history'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
   | { kind: 'archived'; id: string; title: string; subtitle?: string; url: string; favicon?: string; inline?: boolean }
   /** `inline`: set by main on the top row only, when the page was typed or visited enough to complete the input. */
@@ -25,7 +28,7 @@ export type PaletteResult =
 
 /** What the main window's overlay must show. Pushed on `overlay:show`. */
 export type OverlayPayload =
-  | { mode: 'palette'; paletteMode: PaletteMode; initial: string; hue: number; anchor?: Rect }
+  | { mode: 'palette'; paletteMode: PaletteMode; initial: string; hue: number; keywords: KeywordInfo[]; anchor?: Rect }
   | { mode: 'peek'; tabId: string; url: string; title: string; card: Rect; origin?: { x: number; y: number } }
   /** Site panel, anchored under the toolbar's padlock. */
   | { mode: 'site'; info: SiteInfo; anchor: Rect }
@@ -44,6 +47,8 @@ export type OverlayPayload =
       origin: string
       username: string
       update: boolean
+      /** Autofill offer: `username` then holds the summary (address line or masked card). Missing = a password. */
+      kind?: 'address' | 'card'
       card: Rect
       /** Opened from the key button: card under it. */
       anchor?: Rect
@@ -52,6 +57,8 @@ export type OverlayPayload =
   | { mode: 'passwords'; origin: string; logins: { id: string; username: string }[]; anchor: Rect }
   /** Screenshot tool placed over the tab's web view (`rect`, window coordinates). */
   | { mode: 'capture'; tabId: string; rect: Rect; hue: number }
+  /** Zoom bubble at the top right of `card`: the tab's zoom and the default one, in percent. */
+  | { mode: 'zoom'; tabId: string; percent: number; defaultPercent: number; card: Rect; compact: boolean }
   /**
    * Install the site as an app, at the top right of `card`. `icon`: best icon found (data URL), or null;
    * `maskable`: it can fill the whole icon square (otherwise it is placed on a white background).

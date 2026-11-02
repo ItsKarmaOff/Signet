@@ -48,11 +48,18 @@ export class ApiRouter implements ExtensionEmitter {
   /** Events that could not reach a worker that failed to start, per session then extension. */
   private queued = new Map<Session, Map<string, Queued>>()
   private handled = new WeakSet<ServiceWorkerMain>()
+  /** Permissions granted at runtime (chrome.permissions.request), on top of the manifest's. */
+  private granted: (extensionId: string) => readonly string[] = () => []
 
   /** Declares `method` (e.g. `alarms.create`), usable by extensions with `permission`. */
   register(permission: string | string[], method: string, fn: ApiHandler): void {
     if (this.handlers.has(method)) throw new Error(`Extension API ${method} already registered`)
     this.handlers.set(method, { permissions: ([] as string[]).concat(permission).filter(Boolean), fn })
+  }
+
+  /** Where the permissions granted at runtime come from (see permissions.ts). */
+  useGrants(granted: (extensionId: string) => readonly string[]): void {
+    this.granted = granted
   }
 
   // ───────────────────────── Calls ─────────────────────────
@@ -64,7 +71,7 @@ export class ApiRouter implements ExtensionEmitter {
       if (!entry) throw new ApiError(`Unknown Extension API - ${String(method)}`)
       const ext = ses.extensions.getExtension(extensionId)
       if (!ext) throw new ApiError('Extension is not loaded.')
-      if (entry.permissions.length && !entry.permissions.some((p) => hasPermission(ext.manifest, p))) {
+      if (entry.permissions.length && !entry.permissions.some((p) => hasPermission(ext.manifest, p, this.granted(extensionId)))) {
         throw new ApiError(`Access to extension API denied: the '${entry.permissions.join("' or '")}' permission is required.`)
       }
       if (!Array.isArray(args)) throw new ApiError('Invalid arguments.')
@@ -83,14 +90,23 @@ export class ApiRouter implements ExtensionEmitter {
     if (!app.isPackaged && method !== INSTALLED_METHOD) console.log(`[extension-apis] ${extensionId} ${String(method)} ${outcome}`.slice(0, 300))
   }
 
-  /** Extension pages: only the main frame of a chrome-extension:// page, whose URL names the extension. */
+  /**
+   * Extension pages: any frame whose URL is chrome-extension://<id>/ (the page itself, or a frame of the same extension
+   * inside it); the id comes from the frame's URL, which Chromium sets. Sandboxed pages never get the bridge (preload).
+   */
   registerPageIpc(): void {
     ipcMain.handle(CRX_INVOKE, (e, method: unknown, args: unknown): Promise<CrxResult> => {
       const frame = e.senderFrame
-      const id = frame && frame === e.sender.mainFrame ? extensionOfPage(frame.url) : null
+      const id = frame ? extensionOfPage(frame.url) : null
       if (!id) return Promise.resolve({ ok: false, error: 'Access to extension API denied.' })
       const wc = e.sender
-      const context: ApiContext = { kind: 'page', id: `page-${wc.id}`, url: frame!.url, onGone: (fn) => wc.once('destroyed', fn) }
+      const main = frame === wc.mainFrame
+      const context: ApiContext = {
+        kind: 'page',
+        id: main ? `page-${wc.id}` : `frame-${wc.id}-${frame!.processId}-${frame!.routingId}`,
+        url: frame!.url,
+        onGone: (fn) => wc.once('destroyed', fn)
+      }
       return this.dispatch(wc.session, id, method, args, context)
     })
   }
@@ -158,7 +174,15 @@ export class ApiRouter implements ExtensionEmitter {
       for (const { worker } of running) worker.send(CRX_EVENT, name, args)
       if (!running.length && wake) this.wakeAndSend(ses, extensionId, name, args, queue)
       for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed() && wc.session === ses && extensionOfPage(wc.getURL()) === extensionId) wc.send(CRX_EVENT, name, args)
+        if (wc.isDestroyed() || wc.session !== ses) continue
+        if (extensionOfPage(wc.getURL()) === extensionId) wc.send(CRX_EVENT, name, args)
+        // `wc.send` reaches the main frame only: frames of the extension inside it (or inside a web page) get it directly.
+        try {
+          for (const frame of wc.mainFrame?.framesInSubtree ?? [])
+            if (frame !== wc.mainFrame && extensionOfPage(frame.url) === extensionId) frame.send(CRX_EVENT, name, args)
+        } catch {
+          // frame gone meanwhile
+        }
       }
     }
   }
@@ -214,7 +238,8 @@ export class ApiRouter implements ExtensionEmitter {
 
   extensionsWith(permission: string): string[] {
     const ids = new Set<string>()
-    for (const ses of this.sessions) for (const ext of ses.extensions.getAllExtensions()) if (hasPermission(ext.manifest, permission)) ids.add(ext.id)
+    for (const ses of this.sessions)
+      for (const ext of ses.extensions.getAllExtensions()) if (hasPermission(ext.manifest, permission, this.granted(ext.id))) ids.add(ext.id)
     return [...ids]
   }
 
@@ -225,7 +250,8 @@ export class ApiRouter implements ExtensionEmitter {
   }
 }
 
-export function hasPermission(manifest: unknown, permission: string): boolean {
+/** Declared in the manifest `permissions`, or among the `granted` ones (optional permissions the user allowed). */
+export function hasPermission(manifest: unknown, permission: string, granted: readonly string[] = []): boolean {
   const list = (manifest as { permissions?: unknown } | undefined)?.permissions
-  return Array.isArray(list) && list.includes(permission)
+  return (Array.isArray(list) && list.includes(permission)) || granted.includes(permission)
 }

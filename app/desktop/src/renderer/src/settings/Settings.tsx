@@ -26,18 +26,23 @@ import {
   SquareTerminal,
   Cpu,
   ExternalLink,
-  RotateCw
+  RotateCw,
+  Search,
+  TextCursorInput
 } from 'lucide-react'
 import type { BrowsingDataKind, DevAlias, ImportKind, SettingsInfo } from '@shared/types'
 import { aliasTarget, isAliasName } from '@shared/devhosts'
 import { DEFAULT_FONT_SIZE, DEFAULT_ZOOM, FONT_SIZES, MIN_FONT_SIZES, ZOOM_PERCENTS } from '@shared/pagesettings'
 import { useHue } from '../lib/util'
 import { RoutingSettings } from './RoutingSettings'
-import { DEFAULT_SEARCH_ENGINE, SEARCH_ENGINES, type SearchEngineId } from '@signet/shared/mobile/search'
+import { SearchSettings } from './SearchSettings'
+import { DEFAULT_SEARCH_ENGINE } from '@signet/shared/mobile/search'
+import { resolveEngines } from '@signet/shared/searchengines'
 import { LanguageSettings } from './LanguageSettings'
 import { ExtensionSettings } from './ExtensionSettings'
 import { ShortcutSettings } from './ShortcutSettings'
 import { LiveFolderSettings } from './LiveFolderSettings'
+import { AutofillSettings } from './AutofillSettings'
 import { PasswordSettings } from './PasswordSettings'
 import { BackupSettings } from './BackupSettings'
 import { SitePermissionSettings } from './SitePermissionSettings'
@@ -53,6 +58,7 @@ const REPO = 'https://github.com/ItsKarmaOff/Signet'
 const SECTIONS = [
   { id: 'general', group: 'basics', label: 'settings.section.general', icon: Cog },
   { id: 'appearance', group: 'basics', label: 'settings.section.appearance', icon: Palette },
+  { id: 'search', group: 'basics', label: 'settings.section.search', icon: Search },
   { id: 'shortcuts', group: 'basics', label: 'settings.section.shortcuts', icon: Keyboard },
   { id: 'boosts', group: 'browsing', label: 'settings.section.boosts', icon: Rocket },
   { id: 'routing', group: 'browsing', label: 'settings.section.routing', icon: Signpost },
@@ -62,6 +68,7 @@ const SECTIONS = [
   { id: 'devices', group: 'browsing', label: 'settings.section.devices', icon: Smartphone },
   { id: 'privacy', group: 'data', label: 'settings.section.privacy', icon: Shield },
   { id: 'passwords', group: 'data', label: 'settings.section.passwords', icon: KeyRound },
+  { id: 'autofill', group: 'data', label: 'settings.section.autofill', icon: TextCursorInput },
   { id: 'backup', group: 'data', label: 'settings.section.backup', icon: ArchiveRestore },
   { id: 'import', group: 'data', label: 'settings.section.import', icon: Download },
   { id: 'mods', group: 'advanced', label: 'settings.section.mods', icon: Paintbrush },
@@ -135,6 +142,7 @@ export function Settings() {
               {section === 'appearance' && <Appearance info={info} />}
               {section === 'privacy' && <Privacy info={info} />}
               {section === 'passwords' && <PasswordSettings info={info} />}
+              {section === 'autofill' && <AutofillSettings info={info} />}
               {section === 'backup' && <BackupSettings />}
               {section === 'import' && <Import info={info} />}
               {section === 'boosts' && <Boosts info={info} />}
@@ -142,6 +150,7 @@ export function Settings() {
               {section === 'extensions' && <ExtensionSettings info={info} />}
               {section === 'apps' && <WebAppSettings />}
               {section === 'devices' && <DeviceSettings />}
+              {section === 'search' && <SearchSettings info={info} />}
               {section === 'shortcuts' && <ShortcutSettings info={info} />}
               {section === 'mods' && <ModSettings />}
               {section === 'developer' && <Developer info={info} />}
@@ -421,13 +430,15 @@ function General({ info }: { info: SettingsInfo }) {
           <select
             className="st-select"
             value={settings.searchEngine ?? DEFAULT_SEARCH_ENGINE}
-            onChange={(e) => signet.updateSettings({ searchEngine: e.target.value as SearchEngineId })}
+            onChange={(e) => signet.updateSettings({ searchEngine: e.target.value })}
           >
-            {SEARCH_ENGINES.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
+            {resolveEngines(settings, i18n.language)
+              .filter((e) => e.enabled)
+              .map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.name}
+                </option>
+              ))}
           </select>
         </Row>
       </Group>
@@ -806,6 +817,13 @@ function Privacy({ info }: { info: SettingsInfo }) {
             on={info.settings.httpsOnly === true}
             label={t('settings.privacy.httpsOnly')}
             onChange={(on) => window.signet.updateSettings({ httpsOnly: on })}
+          />
+        </Row>
+        <Row label={t('settings.privacy.gpc')} hint={t('settings.privacy.gpcHint')}>
+          <Switch
+            on={info.settings.globalPrivacyControl === true}
+            label={t('settings.privacy.gpc')}
+            onChange={(on) => window.signet.updateSettings({ globalPrivacyControl: on })}
           />
         </Row>
       </Group>

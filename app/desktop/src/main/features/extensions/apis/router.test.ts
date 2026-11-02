@@ -65,6 +65,10 @@ describe('helpers', () => {
     expect(hasPermission({ host_permissions: ['alarms'] }, 'alarms')).toBe(false)
     expect(hasPermission(undefined, 'alarms')).toBe(false)
   })
+  it('hasPermission also counts permissions granted at runtime', () => {
+    expect(hasPermission({ optional_permissions: ['alarms'] }, 'alarms')).toBe(false)
+    expect(hasPermission({ optional_permissions: ['alarms'] }, 'alarms', ['alarms'])).toBe(true)
+  })
 })
 
 describe('ApiRouter.dispatch', () => {
@@ -114,6 +118,22 @@ describe('ApiRouter.dispatch', () => {
   })
 })
 
+describe('runtime grants', () => {
+  it('refuses an optional permission until it is granted, then lets the call through without a reload', async () => {
+    const router = new ApiRouter()
+    router.register('alarms', 'alarms.get', () => 'ok')
+    const granted = new Map<string, string[]>()
+    router.useGrants((id) => granted.get(id) ?? [])
+    const { ses } = fakeSession({ [A]: { permissions: [], optional_permissions: ['alarms'] } as never })
+    router.attach(ses)
+    expect(await router.dispatch(ses, A, 'alarms.get', [])).toMatchObject({ ok: false, error: expect.stringMatching(/'alarms' permission is required/) })
+    expect(router.extensionsWith('alarms')).toEqual([])
+    granted.set(A, ['alarms'])
+    expect(await router.dispatch(ses, A, 'alarms.get', [])).toEqual({ ok: true, value: 'ok' })
+    expect(router.extensionsWith('alarms')).toEqual([A])
+  })
+})
+
 describe('sender checks', () => {
   function setup() {
     const router = new ApiRouter()
@@ -133,10 +153,15 @@ describe('sender checks', () => {
     expect(await call(event(ses, `chrome-extension://${B}/popup.html`), 'alarms.get', [])).toEqual({ ok: true, value: B })
   })
 
-  it('page: refuses web pages, subframes and missing frames', async () => {
+  it('page: an extension subframe is served as its own extension', async () => {
+    const { ses, call } = setup()
+    expect(await call(event(ses, `chrome-extension://${A}/p.html`, false), 'alarms.get', [])).toEqual({ ok: true, value: A })
+  })
+
+  it('page: refuses web pages (also subframes) and missing frames', async () => {
     const { ses, call } = setup()
     expect(await call(event(ses, 'https://example.com/'), 'alarms.get', [])).toMatchObject({ ok: false })
-    expect(await call(event(ses, `chrome-extension://${A}/p.html`, false), 'alarms.get', [])).toMatchObject({ ok: false })
+    expect(await call(event(ses, 'https://example.com/', false), 'alarms.get', [])).toMatchObject({ ok: false })
     expect(await call({ senderFrame: null, sender: { session: ses } }, 'alarms.get', [])).toMatchObject({ ok: false })
   })
 

@@ -38,6 +38,11 @@
 .ext-btn:hover {
   background: var(--bar-hover);
 }
+.ext-btn.off img,
+.ext-btn.off .ext-letter {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
 .ext-btn img {
   width: 16px;
   height: 16px;

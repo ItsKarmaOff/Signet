@@ -14,6 +14,10 @@ export function registerTabsIpc(b: Browser, { handle }: Registrar): void {
   handle('toggleMute', (_c, id) => b.tabs.toggleMute(id))
   handle('resetPinned', (_c, id) => b.tabs.resetPinned(id))
   handle('toggleReader', (_c, id) => b.reader.toggle(id))
+  handle('zoomPage', (_c, id, delta) => {
+    if (Number.isFinite(delta) && Math.abs(delta) <= 1) b.tabs.zoom(id, delta)
+  })
+  handle('openZoom', (_c, id) => void b.overlay.openZoom(id))
   handle('toggleTranslation', (_c, id) => b.translator.toggle(id))
   // Malformed capture: `{ ok: false }` rather than an error (the capture tool expects a reply).
   handle('takeCapture', (_c, id, target, action) => b.capture.take(id, target, action), { onInvalid: () => ({ ok: false }) })

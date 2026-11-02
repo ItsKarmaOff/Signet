@@ -31,6 +31,8 @@ import { Favicon } from '../ui/Favicon'
 import { platformKeys } from '@signet/shared/i18n'
 import { highlightRange } from '@shared/highlight'
 import { canComplete, inlineCompletion } from '@shared/inline'
+import type { KeywordInfo } from '@signet/shared/searchengines'
+import { keywordOnly, keywordPrefix, keywordQuery } from './keywordMode'
 
 type PalettePayload = Extract<OverlayPayload, { mode: 'palette' }>
 
@@ -75,6 +77,8 @@ function ResultIcon({ r }: { r: PaletteResult }) {
     case 'history':
     case 'archived':
       return <Favicon src={r.favicon} size={18} />
+    case 'keyword':
+      return <Favicon src={r.keyword.favicon} size={18} />
     case 'search':
     case 'suggestion':
       return <Search size={17} strokeWidth={1.8} />
@@ -111,9 +115,13 @@ const PLACEHOLDERS = {
 export function Palette({ payload }: { payload: PalettePayload }) {
   const { t } = useTranslation()
   const signet = window.signet
-  const { paletteMode: mode, initial, hue, anchor } = payload
+  const { paletteMode: mode, initial, hue, anchor, keywords } = payload
 
   const [query, setQuery] = useState(initial)
+  // Keyword mode: the engine chip, `query` is then only the text after the keyword.
+  const [kw, setKw] = useState<KeywordInfo | null>(null)
+  // What main receives.
+  const text = kw ? keywordQuery(kw, query) : query
   const [base, setBase] = useState<PaletteResult[]>([])
   const [baseFor, setBaseFor] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<PaletteResult[]>([])
@@ -139,11 +147,11 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     const send = () => {
       lastSent.current = performance.now()
       signet
-        .paletteQuery(query, mode)
+        .paletteQuery(text, mode)
         .then((r) => {
           if (mine !== seq.current) return
           setBase(r)
-          setBaseFor(query)
+          setBaseFor(text)
         })
         .catch(() => {})
     }
@@ -152,11 +160,11 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     if (!query.trim()) return () => clearTimeout(queryTimer)
     const timer = setTimeout(() => {
       signet
-        .paletteSuggest(query)
+        .paletteSuggest(text)
         .then((r) => {
           if (mine !== seq.current) return
           setSuggestions(r)
-          setSuggestFor(query)
+          setSuggestFor(text)
         })
         .catch(() => {})
     }, 150)
@@ -164,13 +172,13 @@ export function Palette({ payload }: { payload: PalettePayload }) {
       clearTimeout(queryTimer)
       clearTimeout(timer)
     }
-  }, [query, mode, signet])
+  }, [query, text, mode, signet])
 
   // Complete only from results for the text currently typed, and only after typing (never after a deletion).
   useEffect(() => {
-    if (baseFor !== query) return
-    setCompletion(allowCompletion.current ? inlineCompletion(query, base[0]) : '')
-  }, [base, baseFor, query])
+    if (baseFor !== text) return
+    setCompletion(allowCompletion.current && !kw ? inlineCompletion(query, base[0]) : '')
+  }, [base, baseFor, query, text, kw])
 
   // Focus on open (text preselected to edit the address) and when focus returns.
   useEffect(() => {
@@ -187,7 +195,7 @@ export function Palette({ payload }: { payload: PalettePayload }) {
   const results = useMemo(() => {
     // Suggestions from a previous input: keep only those that still match.
     const q = query.trim().toLowerCase()
-    const current = suggestFor === query ? suggestions : suggestions.filter((r) => r.title.toLowerCase().startsWith(q))
+    const current = suggestFor === text ? suggestions : suggestions.filter((r) => r.title.toLowerCase().startsWith(q))
     if (!current.length) return base
     const seen = new Set(base.map((r) => r.title.toLowerCase()))
     const extra = current.filter((r) => !seen.has(r.title.toLowerCase()))
@@ -195,7 +203,7 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     const search = base.findIndex((r) => r.kind === 'search')
     const at = search >= 0 && search < 3 ? search + 1 : 1
     return [...base.slice(0, at), ...extra, ...base.slice(at)]
-  }, [base, suggestions, suggestFor, query])
+  }, [base, suggestions, suggestFor, query, text])
 
   const selIndex = Math.max(
     0,
@@ -215,6 +223,15 @@ export function Palette({ payload }: { payload: PalettePayload }) {
 
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
+    // A keyword followed by a space (or pasted with its query) becomes the chip.
+    const entered = !kw && !composing.current ? keywordPrefix(value, keywords) : null
+    if (entered) {
+      allowCompletion.current = false
+      setCompletion('')
+      setKw(entered.info)
+      setQuery(entered.rest)
+      return
+    }
     const ok = canComplete(query, value, (e.nativeEvent as InputEvent).inputType, composing.current)
     // Typing what the completion already shows keeps the rest of it, so it does not flicker.
     const typed = value.slice(query.length)
@@ -223,10 +240,34 @@ export function Palette({ payload }: { payload: PalettePayload }) {
     setQuery(value)
   }
 
-  const run = (r: PaletteResult) => signet.paletteExecute(r, mode)
+  const enter = (info: KeywordInfo) => {
+    allowCompletion.current = false
+    setCompletion('')
+    setKw(info)
+    setQuery('')
+  }
+
+  const run = (r: PaletteResult) => (r.kind === 'keyword' ? enter(r.keyword) : signet.paletteExecute(r, mode))
 
   const onKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return
+    if (e.key === 'Tab' && !e.shiftKey && !kw) {
+      // Tab on a lone keyword enters keyword mode; anything else keeps the default.
+      const info = keywordOnly(query, keywords)
+      if (info) {
+        e.preventDefault()
+        enter(info)
+      }
+      return
+    }
+    if (e.key === 'Backspace' && kw && !query && e.currentTarget.selectionStart === 0 && e.currentTarget.selectionEnd === 0) {
+      // Empty query: leave the mode and give the keyword text back.
+      e.preventDefault()
+      allowCompletion.current = false
+      setQuery(kw.keyword)
+      setKw(null)
+      return
+    }
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
       if (!results.length) return
@@ -246,11 +287,11 @@ export function Palette({ payload }: { payload: PalettePayload }) {
       setQuery(field)
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (baseFor === query) {
+      if (baseFor === text) {
         if (results[selIndex]) void run(results[selIndex])
       } else {
         // Results not up to date yet: query directly for the current input.
-        const fresh = await signet.paletteQuery(query, mode)
+        const fresh = await signet.paletteQuery(text, mode)
         if (fresh[0]) void run(fresh[0])
       }
     }
@@ -266,13 +307,18 @@ export function Palette({ payload }: { payload: PalettePayload }) {
               <Columns2 size={12} /> {t('palette.splitTag')}
             </span>
           )}
-          <span className="input-ico">
+          {kw && (
+            <span className="mode-tag kw-tag">
+              <Favicon src={kw.favicon} size={14} /> {t('palette.searchSite', { engine: kw.name })}
+            </span>
+          )}
+          <span className="input-ico" hidden={!!kw}>
             {shown ? <Favicon src={'favicon' in results[0] ? results[0].favicon : undefined} size={18} /> : <Search size={17} strokeWidth={1.8} />}
           </span>
           <input
             ref={inputRef}
             value={field}
-            placeholder={t(PLACEHOLDERS[mode])}
+            placeholder={kw ? t('palette.keywordPlaceholder') : t(PLACEHOLDERS[mode])}
             spellCheck={false}
             autoComplete="off"
             role="combobox"

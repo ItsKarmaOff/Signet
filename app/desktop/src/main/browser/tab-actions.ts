@@ -3,7 +3,7 @@ import { matchRoute } from '@signet/shared/routes'
 import type { PaletteMode } from '@shared/types'
 import { resolveAlias } from '@shared/devhosts'
 import type { Store } from '../core/store'
-import { httpFallback, isHttpsFallbackError, isUiAddress, isUpgradedInput, engineSearchUrl, toUrl } from '../core/urls'
+import { httpFallback, isHttpsFallbackError, isUiAddress, isUpgradedInput, engineSearchUrl, keywordSearch, toUrl } from '../core/urls'
 import type { Model } from '../model'
 import type { OpenOptions } from '../model/opening'
 import { isHorizontal } from '../model/chrome'
@@ -28,8 +28,10 @@ export interface TabActionsDeps {
   store: Store
   model: Model
   views: Pick<Views, 'viewOf' | 'tabIdOfContents' | 'dropSession' | 'saveHistory'>
-  httpsOnly: Pick<HttpsOnly, 'resolve' | 'noteTyped' | 'forget'>
+  httpsOnly: Pick<HttpsOnly, 'noteTyped' | 'forget'>
   pageZoom: Pick<PageZoom, 'userZoomed' | 'reset'>
+  /** Shows the zoom bubble of the tab (a zoom command ran). */
+  showZoom: (tabId: string) => void
   changed: Changed
   undo: Pick<Undo, 'announce'>
   overlay: Pick<Overlay, 'close'>
@@ -192,9 +194,9 @@ export class TabActions {
     this.d.httpsOnly.forget(tabId)
     if (!tab || isUiAddress(url) || this.d.openShortcut(url)) return
     const wc = this.d.views.viewOf(tabId)?.webContents
-    // HTTPS-only mode: an http address opens over https (a tab without a view upgrades when its view is created).
-    const target = wc ? this.d.httpsOnly.resolve(tabId, wc.session, resolveInternal(url)) : resolveInternal(url)
-    tab.url = target === resolveInternal(url) ? url : target
+    // HTTPS-only mode upgrades an http address when the request leaves (see HttpsOnly.sync).
+    const target = resolveInternal(url)
+    tab.url = url
     if (typed) this.typedNav.mark(tabId, target)
     wc?.loadURL(target).catch(() => {})
     this.d.changed()
@@ -202,6 +204,9 @@ export class TabActions {
 
   /** Address typed in the toolbar or a private window. */
   navigate(tabId: string, input: string): void {
+    // `keyword query` (e.g. `yt cats`) searches that engine; a lone keyword stays what it was.
+    const kw = keywordSearch(input)
+    if (kw?.query) return this.loadUrl(tabId, refuseEngineInput(kw.url))
     // A local name (`mysite/admin`) takes precedence over everything: otherwise `mysite.test` looks like a domain.
     const aliased = resolveAlias(input, this.d.store.state.settings.devAliases)
     const typed = aliased ? null : toUrl(input)
@@ -302,8 +307,11 @@ export class TabActions {
   zoom(tabId: string | null, delta: number): void {
     const wc = tabId ? this.d.views.viewOf(tabId)?.webContents : undefined
     if (!wc) return
-    if (delta === 0) return this.d.pageZoom.reset(wc)
-    wc.setZoomLevel(wc.getZoomLevel() + delta)
-    this.d.pageZoom.userZoomed(wc) // this site keeps its zoom on top of the default
+    if (delta === 0) this.d.pageZoom.reset(wc)
+    else {
+      wc.setZoomLevel(wc.getZoomLevel() + delta)
+      this.d.pageZoom.userZoomed(wc) // this site keeps its zoom on top of the default
+    }
+    if (tabId) this.d.showZoom(tabId)
   }
 }

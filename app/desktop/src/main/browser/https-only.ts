@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { Session } from 'electron'
 import type { Store } from '../core/store'
-import { httpsUpgrade, isInsecureSiteError, isUpgradeOf } from '../core/https-only'
+import { NetworkOrder, networkHub } from '../web/network'
+import { httpsUpgrade, isInsecureSiteError, isUpgradeOf, type UpgradeOptions } from '../core/https-only'
 
 /** Upgrades of the same host within this delay, beyond which the site is considered to redirect back to http (loop). */
 const LOOP_WINDOW = 10_000
@@ -22,21 +23,65 @@ interface Warning {
 /** Prefix of the title the warning page sets to ask for "Continue to site" (followed by the token). */
 export const CONTINUE_TITLE = 'signet-https-continue:'
 
+const NAME = 'https-only'
+
 /**
- * HTTPS-only mode (Settings › Privacy). Decides in the navigation events (not `session.webRequest`, which the ad
- * blocker and extensions use) and remembers, per tab, the http:// address that was upgraded so that a failure of
- * the https:// load can show a warning instead of an error page.
+ * HTTPS-only mode (Settings › Privacy). The upgrade happens on the request (a consumer of the network hub, only while
+ * the mode is on): Chromium follows the redirect internally as a 307, so a form keeps its method and data. It remembers,
+ * per tab, the http:// address that was upgraded so that a failure of the https:// load can show a warning instead of
+ * an error page.
  */
 export class HttpsOnly {
   /** Hosts the user allowed through the warning, per session (a private window has its own session): in memory only. */
   private allowed = new WeakMap<Session, Set<string>>()
   private attempts = new Map<string, Attempt>()
   private warnings = new Map<string, Warning>()
+  private sessions = new Set<Session>()
 
-  constructor(private readonly d: { store: Pick<Store, 'state'> }) {}
+  constructor(private readonly d: { store: Pick<Store, 'state'>; tabOf: (webContentsId: number) => string | null }) {}
 
   get enabled(): boolean {
     return this.d.store.state.settings.httpsOnly === true
+  }
+
+  /** Adds a session (regular, isolated or private); the upgrade is active on it while the mode is on. */
+  attach(ses: Session): void {
+    this.sessions.add(ses)
+    this.sync()
+  }
+
+  /** Removes a session (private window closed). */
+  detach(ses: Session): void {
+    if (!this.sessions.delete(ses)) return
+    networkHub(ses).release(NAME)
+  }
+
+  /** Registers or releases the request consumer on all sessions, depending on the setting. */
+  sync(): void {
+    for (const ses of this.sessions) {
+      const hub = networkHub(ses)
+      if (!this.enabled) {
+        hub.release(NAME)
+        continue
+      }
+      // Pages only, like Chrome: frames and subresources are left to Chromium (mixed content rules); a frame upgraded
+      // to an https:// that does not exist would fail without the warning page.
+      hub.on('onBeforeRequest', NAME, NetworkOrder.httpsOnly, { urls: ['http://*/*'], types: ['mainFrame'] }, (d, cb) => {
+        const https = this.upgradeRequest(ses, d)
+        cb(https ? { redirectURL: https } : {})
+      })
+    }
+  }
+
+  /** The https:// address to redirect a document request to, or null to let it through. */
+  private upgradeRequest(ses: Session, d: { url: string; resourceType: string; webContentsId?: number }): string | null {
+    if (d.webContentsId === undefined) return null
+    const tabId = this.d.tabOf(d.webContentsId)
+    return tabId ? this.resolveFor(tabId, ses, d.url) : null
+  }
+
+  private options(ses: Session): UpgradeOptions {
+    return { allowedHosts: this.allowed.get(ses), aliasTargets: this.d.store.state.settings.devAliases?.map((a) => a.target) }
   }
 
   /**
@@ -44,16 +89,20 @@ export class HttpsOnly {
    * Always `url` when the mode is off.
    */
   resolve(tabId: string, ses: Session, url: string): string {
-    if (!this.enabled) return url
-    const { devAliases } = this.d.store.state.settings
-    const https = httpsUpgrade(url, { allowedHosts: this.allowed.get(ses), aliasTargets: devAliases?.map((a) => a.target) })
-    if (!https) return url
+    return this.resolveFor(tabId, ses, url) ?? url
+  }
+
+  /** Same as `resolve`, null instead of `url` when it is not upgraded. */
+  private resolveFor(tabId: string, ses: Session, url: string): string | null {
+    if (!this.enabled) return null
+    const https = httpsUpgrade(url, this.options(ses))
+    if (!https) return null
     const now = Date.now()
     const prev = this.attempts.get(tabId)
     const again = prev && now - prev.at < LOOP_WINDOW && isSameHost(prev.httpUrl, url)
     const count = again ? prev.count + 1 : 1
     // A site that sends back to http each time we go to https: stop upgrading, the page loads over http.
-    if (count > LOOP_LIMIT) return url
+    if (count > LOOP_LIMIT) return null
     this.attempts.set(tabId, { httpUrl: url, at: now, count })
     return https
   }
@@ -70,7 +119,9 @@ export class HttpsOnly {
    */
   insecureFailure(tabId: string, failedUrl: string, code: number): string | null {
     const attempt = this.attempts.get(tabId)
-    if (!this.enabled || !attempt || !isInsecureSiteError(code) || !isUpgradeOf(attempt.httpUrl, failedUrl)) return null
+    if (!this.enabled || !attempt || !isInsecureSiteError(code)) return null
+    // The failed address is the https:// one (the redirect is followed internally); the http:// one is accepted just in case.
+    if (!isUpgradeOf(attempt.httpUrl, failedUrl) && !(/^http:/i.test(failedUrl) && isSameHost(attempt.httpUrl, failedUrl))) return null
     return attempt.httpUrl
   }
 

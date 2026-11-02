@@ -233,6 +233,16 @@ describe('Store: normalization', () => {
     expect(open().state.siteZoom).toEqual({})
   })
 
+  it('siteZoomBySpace: cleaned when read, written back, empty by default', () => {
+    write('state.json', { siteZoomBySpace: { s1: { 'a.com': 2, 'b.com': 'big' }, s2: {}, s3: 5 } })
+    const store = open()
+    expect(store.state.siteZoomBySpace).toEqual({ s1: { 'a.com': 2 } })
+    store.state.siteZoomBySpace.s9 = { 'z.com': 1 }
+    expect(JSON.parse(JSON.stringify(store.state)).siteZoomBySpace).toEqual({ s1: { 'a.com': 2 }, s9: { 'z.com': 1 } })
+    write('state.json', {})
+    expect(open().state.siteZoomBySpace).toEqual({})
+  })
+
   it('tabs: only known fields are kept', () => {
     write('state.json', {
       tabs: {
@@ -448,6 +458,17 @@ describe('cleanSettings / applyCleaned', () => {
     expect(cleanSettings({ tabSleepMinutes: 30 }, base).tabSleepMinutes).toBe(30)
   })
 
+  it('Global Privacy Control: true is kept, false removes it, anything else keeps the previous value', () => {
+    const on = { ...base, globalPrivacyControl: true } as Settings
+    expect(cleanSettings({ globalPrivacyControl: true }, base).globalPrivacyControl).toBe(true)
+    expect(cleanSettings({ globalPrivacyControl: false }, on).globalPrivacyControl).toBeUndefined()
+    expect(cleanSettings({ globalPrivacyControl: 'yes' as never }, on).globalPrivacyControl).toBe(true)
+    expect(cleanSettings({ globalPrivacyControl: 1 as never }, base).globalPrivacyControl).toBeUndefined()
+    const target = { ...on } as Settings
+    applyCleaned(target, cleanSettings({ globalPrivacyControl: false }, on))
+    expect('globalPrivacyControl' in target).toBe(false)
+  })
+
   it('web page settings: only values from the choice lists', () => {
     expect(cleanSettings({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 }, base)).toMatchObject({ fontSize: 20, minimumFontSize: 12, defaultZoom: 125 })
     const out = cleanSettings({ fontSize: 15, minimumFontSize: 7, defaultZoom: 101 } as Partial<Settings>, base)
@@ -468,6 +489,19 @@ describe('cleanSettings / applyCleaned', () => {
     const target = { ...base, searchEngine: 'nope' } as unknown as Settings
     applyCleaned(target, cleanSettings(target, base))
     expect(target.searchEngine).toBeUndefined()
+  })
+
+  it('search engines: cleaned, default falls back when its engine is deleted', () => {
+    const docs = { id: 'custom-abc123', name: 'Docs', keyword: 'd', template: 'https://docs.example/s?q=%s' }
+    const withDocs = cleanSettings({ searchEngines: [docs, { ...docs, id: 'custom-dup999' }, { ...docs, id: 'x' }], searchEngine: docs.id }, base)
+    expect(withDocs.searchEngines).toEqual([docs])
+    expect(withDocs.searchEngine).toBe(docs.id)
+    const deleted = cleanSettings({ searchEngines: [] }, withDocs)
+    expect(deleted.searchEngines).toBeUndefined()
+    expect(deleted.searchEngine).toBeUndefined()
+    const off = cleanSettings({ searchKeywords: { youtube: { disabled: true }, bing: { keyword: 'bb' } } }, base)
+    expect(off.searchKeywords).toEqual({ youtube: { disabled: true }, bing: { keyword: 'bb' } })
+    expect(cleanSettings({ searchEngine: 'youtube' }, off).searchEngine).toBeUndefined()
   })
 
   it('downloadDir: absolute path kept, relative discarded, empty = system folder', () => {

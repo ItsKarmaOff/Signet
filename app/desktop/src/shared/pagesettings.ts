@@ -37,6 +37,14 @@ export function fontPreferences(settings: { fontSize?: unknown; minimumFontSize?
   }
 }
 
+/**
+ * The `webPreferences` page fields of a tab's view: fonts, and the default zoom as the page's first zoom so that a new
+ * page paints at it (no zoom field when no default is chosen). They can only be given at creation.
+ */
+export function pagePreferences(settings: { fontSize?: unknown; minimumFontSize?: unknown; defaultZoom?: unknown }): FontPreferences & { zoomFactor?: number } {
+  return { ...fontPreferences(settings), ...(isZoomPercent(settings.defaultZoom) && { zoomFactor: settings.defaultZoom / 100 }) }
+}
+
 /** Host whose zoom Chromium shares between tabs: the host name of an http(s) page, null for anything else (internal pages, files, PDFs). */
 export function zoomHost(url: string): string | null {
   try {
@@ -68,6 +76,24 @@ export function cleanSiteZoom(raw: unknown): SiteZoom {
   return Object.fromEntries(entries.slice(-SITE_ZOOM_MAX))
 }
 
+/** Most isolated spaces whose zoom memory is kept. */
+const SITE_ZOOM_SPACES_MAX = 200
+
+/** Zoom memory of each isolated space (key: space id), like Arc profiles; normal spaces share `siteZoom`. */
+export type SiteZoomBySpace = Record<string, SiteZoom>
+
+/** Per-space zoom memory read from disk: cleaned maps only, empty ones dropped. */
+export function cleanSiteZoomBySpace(raw: unknown): SiteZoomBySpace {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: SiteZoomBySpace = {}
+  for (const [id, map] of Object.entries(raw as Record<string, unknown>)) {
+    if (!id || id.length > 100) continue
+    const clean = cleanSiteZoom(map)
+    if (Object.keys(clean).length) out[id] = clean
+  }
+  return Object.fromEntries(Object.entries(out).slice(-SITE_ZOOM_SPACES_MAX))
+}
+
 /** Remembers a host's zoom level as the most recent one, within the bound. Mutates and returns `map`. */
 export function rememberSiteZoom(map: SiteZoom, host: string, level: number): SiteZoom {
   delete map[host]
@@ -87,4 +113,31 @@ export function defaultZoomFactor(opts: { defaultPercent: unknown; url: string; 
   if (!host || opts.userHosts.has(host)) return null
   const target = opts.defaultPercent / 100
   return Math.abs(opts.currentFactor - target) < 0.005 ? null : target
+}
+
+/** Page zoom in percent for a zoom factor (110 for the 0.5 level step, as in Chrome). */
+export const zoomPercentOf = (factor: number): number => Math.round(factor * 100)
+
+/** Zoom percent to report for a page: null when it does not follow page zoom (internal page, PDF). */
+export function reportedZoom(url: string, factor: number): number | null {
+  return zoomHost(url) ? zoomPercentOf(factor) : null
+}
+
+/** The default zoom in percent (100 without a valid choice). */
+export const defaultZoomPercent = (setting: unknown): number => (isZoomPercent(setting) ? setting : DEFAULT_ZOOM)
+
+/** Toolbar zoom indicator: shown when the page zoom differs from the default; `in` when above it, `out` when below. */
+export function zoomIndicator(percent: number | undefined, defaultPercent: unknown): 'in' | 'out' | null {
+  if (percent === undefined) return null
+  const def = defaultZoomPercent(defaultPercent)
+  return percent === def ? null : percent > def ? 'in' : 'out'
+}
+
+/** "110%" in English, "110 %" (narrow no-break space) in French. */
+export function formatZoomPercent(percent: number, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 }).format(percent / 100)
+  } catch {
+    return `${percent}%`
+  }
 }

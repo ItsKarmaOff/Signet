@@ -14,8 +14,10 @@ import type {
   SpaceDraft,
   SplitLayout
 } from '@signet/shared/types'
+import type { AddressInput, AutofillInfo, CardInput } from './autofill'
 import type { BackupInfo, BackupMode, BackupSection, BackupSummary, ImportKind } from './data'
 import type { DevToolsWindowState } from './devtools'
+import type { ExtensionActionCounts, ExtensionActionStates } from './extensions'
 import type { LinkState } from './link'
 import type { BoostEditorState, ModsInfo } from './mods'
 import type { OverlayPayload, PaletteMode, PaletteResult, PopoverRequest, QuitHudState } from './overlay'
@@ -55,6 +57,10 @@ export interface SignetApi {
   resetPinned(tabId: string): Promise<void>
   /** Enters or leaves the tab's reader mode. */
   toggleReader(tabId: string): Promise<void>
+  /** Zooms the tab's page by `delta` levels (shortcut code path); 0 goes back to the default. Shows the zoom bubble. */
+  zoomPage(tabId: string, delta: number): Promise<void>
+  /** Opens the zoom bubble (click on the toolbar's zoom icon). */
+  openZoom(tabId: string): Promise<void>
 
   // Live folders
   /** Creates a live folder (`folderId` null) or changes its source; returns a translated error message, or null. */
@@ -260,6 +266,16 @@ export interface SignetApi {
   showAppMenu(): Promise<void>
   /** Extensions button menu: all extensions with a button, and their pinning. Returns the one to open, or null. */
   showExtensionsMenu(): Promise<string | null>
+  /** Counts of requests blocked per tab and extension (`declarativeNetRequest` action count badge). */
+  getExtensionActionCounts(): Promise<ExtensionActionCounts>
+  onExtensionActionCounts(cb: (counts: ExtensionActionCounts) => void): () => void
+  /** Enabled state and badge text color set by extensions on their buttons. */
+  getExtensionActionStates(): Promise<ExtensionActionStates>
+  onExtensionActionStates(cb: (states: ExtensionActionStates) => void): () => void
+  /** An extension shortcut asks the toolbar to open an extension's button (token to acknowledge, extension id). */
+  onRunExtensionAction(cb: (token: string, extensionId: string) => void): () => void
+  /** The toolbar takes the request; false if it was already taken or main gave up waiting. */
+  ackExtensionAction(token: string): Promise<boolean>
 
   // Passwords (Settings › Passwords; never a password without `revealPassword`)
   listPasswords(): Promise<PasswordsInfo>
@@ -280,6 +296,17 @@ export interface SignetApi {
   answerPasswordPrompt(token: string, answer: 'save' | 'never' | 'dismiss'): Promise<void>
   /** Key button of the address bar: reopens the pending prompt, otherwise lists the site's accounts, under `anchor`. */
   openPasswordKey(tabId: string, anchor: Rect): Promise<void>
+
+  // Autofill (Settings > Autofill; a card number only leaves main through `revealCard`, after authentication)
+  listAutofill(): Promise<AutofillInfo>
+  /** Adds (null id) or edits an address. Returns an error message, or null. */
+  saveAddress(id: string | null, address: AddressInput): Promise<string | null>
+  deleteAddress(id: string): Promise<void>
+  /** Adds (null id) or edits a card; a new number for an existing card asks for authentication. Returns an error message, or null. */
+  saveCard(id: string | null, card: CardInput): Promise<string | null>
+  deleteCard(id: string): Promise<void>
+  /** Full card number, after the system's authentication; null if refused. */
+  revealCard(id: string): Promise<string | null>
 
   // Mode compact (lot A)
   toggleCompact(): Promise<void>

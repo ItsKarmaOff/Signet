@@ -129,6 +129,10 @@ export class SpaceActions {
       if (settled) return
       settled = true
       if (timer) clearTimeout(timer)
+      if (store.state.siteZoomBySpace[space.id]) {
+        delete store.state.siteZoomBySpace[space.id]
+        store.schedule()
+      }
       if (isIsolated(space))
         void clearSpaceData(space.id).then(
           () => clearPendingWipe(space.id),
