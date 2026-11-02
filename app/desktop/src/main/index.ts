@@ -1,3 +1,5 @@
+// First: rewrites the dev UI address before any module reads it.
+import './core/dev-url'
 import { app, BrowserWindow } from 'electron'
 import { Browser } from './browser/browser'
 import { History } from './core/history'
