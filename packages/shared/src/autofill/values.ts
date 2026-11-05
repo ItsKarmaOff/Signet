@@ -2,6 +2,7 @@
 import type { AddressInput } from '../types/autofill'
 import type { AddressKind } from './classify'
 import { normalizeText } from './classify'
+import { COUNTRY_CODES, COUNTRY_NAMES } from './countries'
 
 /** Given and family names from a full name (`Last, First` and particles such as `van der` are understood). */
 export function splitName(full: string): { given: string; family: string } {
@@ -25,11 +26,48 @@ export const fullName = (a: Pick<AddressInput, 'givenName' | 'familyName'>): str
 
 const LOCALES = ['en', 'fr']
 
-/** ISO 3166-1 alpha-2 codes (current countries and territories). */
-const CODES =
-  'AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW'.split(
-    ' '
-  )
+interface RegionNames {
+  of(code: string): string | undefined
+}
+
+/** `Intl.DisplayNames` for a locale, or null where it is missing (Hermes) or the locale is unknown. */
+function displayNames(locale: string): RegionNames | null {
+  try {
+    return new Intl.DisplayNames([locale], { type: 'region' })
+  } catch {
+    return null
+  }
+}
+
+/** Name of a country in a locale: from Intl when it knows it, else from the static table (English and French only). */
+function regionName(names: RegionNames | null, locale: string, code: string): string {
+  let name: string | undefined
+  try {
+    name = names?.of(code)
+  } catch {
+    name = undefined
+  }
+  if (name && name !== code) return name
+  const entry = COUNTRY_NAMES[code]
+  const lang = locale.slice(0, 2).toLowerCase()
+  return entry && (lang === 'fr' || lang === 'en') ? entry[lang] : ''
+}
+
+/** Display name of a country in a locale (the code itself if unknown). Works without Intl.DisplayNames. */
+export function countryName(code: string, locale: string): string {
+  if (!COUNTRY_NAMES[code]) return code
+  return regionName(displayNames(locale), locale, code) || code
+}
+
+/** All countries as code and name in a locale, sorted by name (accents and case ignored). */
+export function countryList(locale: string): { code: string; name: string }[] {
+  const names = displayNames(locale)
+  return COUNTRY_CODES.map((code) => ({ code, name: regionName(names, locale, code) || code })).sort((a, b) => {
+    const x = normalizeText(a.name)
+    const y = normalizeText(b.name)
+    return x < y ? -1 : x > y ? 1 : 0
+  })
+}
 
 let countryNames: Map<string, string> | null = null
 
@@ -39,44 +77,34 @@ export function countryCode(input: string, extra: string[] = []): string {
   if (!text) return ''
   if (/^[A-Za-z]{2}$/.test(text)) return text.toUpperCase()
   if (!countryNames) {
-    countryNames = new Map()
-    try {
-      for (const locale of LOCALES) {
-        const names = new Intl.DisplayNames([locale], { type: 'region' })
-        for (const code of CODES) {
-          const name = names.of(code)
-          if (name && name !== code && !countryNames.has(normalizeText(name))) countryNames.set(normalizeText(name), code)
-        }
+    const map = new Map<string, string>()
+    for (const locale of LOCALES) {
+      const names = displayNames(locale)
+      for (const code of COUNTRY_CODES) {
+        const name = regionName(names, locale, code)
+        if (name && !map.has(normalizeText(name))) map.set(normalizeText(name), code)
       }
-    } catch {
-      // no ICU data: codes only
     }
+    countryNames = map
   }
   const key = normalizeText(text)
   const hit = countryNames.get(key)
   if (hit) return hit
   for (const locale of extra) {
-    try {
-      const names = new Intl.DisplayNames([locale], { type: 'region' })
-      for (const code of CODES) if (normalizeText(names.of(code)) === key) return code
-    } catch {
-      // unknown locale
-    }
+    const names = displayNames(locale)
+    if (!names) continue
+    for (const code of COUNTRY_CODES) if (normalizeText(regionName(names, locale, code)) === key) return code
   }
   return ''
 }
 
 /** Names of a country in the languages a form may use. */
 export function countryNamesOf(code: string, extra: string[] = []): string[] {
-  if (!CODES.includes(code)) return []
+  if (!COUNTRY_NAMES[code]) return []
   const out: string[] = []
   for (const locale of [...extra, ...LOCALES]) {
-    try {
-      const name = new Intl.DisplayNames([locale], { type: 'region' }).of(code)
-      if (name && name !== code && !out.includes(name)) out.push(name)
-    } catch {
-      // unknown locale
-    }
+    const name = regionName(displayNames(locale), locale, code)
+    if (name && !out.includes(name)) out.push(name)
   }
   return out
 }

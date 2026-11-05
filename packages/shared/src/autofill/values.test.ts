@@ -1,6 +1,18 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AddressInput } from '../types/autofill'
-import { addressValue, countryCode, fullName, countryNamesOf, joinName, pickMonthOption, pickOption, placeCandidates, splitName } from './values'
+import {
+  addressValue,
+  countryCode,
+  countryList,
+  countryName,
+  fullName,
+  countryNamesOf,
+  joinName,
+  pickMonthOption,
+  pickOption,
+  placeCandidates,
+  splitName
+} from './values'
 
 const address: AddressInput = {
   givenName: 'Jeanne',
@@ -78,6 +90,46 @@ describe('countries', () => {
   it('names of a code', () => {
     expect(countryNamesOf('DE', ['fr'])).toEqual(['Allemagne', 'Germany'])
     expect(countryNamesOf('zz')).toEqual([])
+  })
+})
+
+describe('countries without Intl.DisplayNames (Hermes)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  async function withoutIntl() {
+    vi.resetModules()
+    vi.stubGlobal('Intl', { ...Intl, DisplayNames: undefined })
+    return import('./values')
+  }
+
+  it('finds codes from English and French names', async () => {
+    const v = await withoutIntl()
+    expect(v.countryCode('France')).toBe('FR')
+    expect(v.countryCode('Allemagne')).toBe('DE')
+    expect(v.countryCode('etats-unis')).toBe('US')
+    expect(v.countryCode('Nowhereland')).toBe('')
+  })
+
+  it('lists names and display names from the static table', async () => {
+    const v = await withoutIntl()
+    expect(v.countryNamesOf('DE')).toEqual(['Germany', 'Allemagne'])
+    expect(v.countryName('DE', 'fr')).toBe('Allemagne')
+    expect(v.countryName('DE', 'en-US')).toBe('Germany')
+    expect(v.countryList('fr').find((c) => c.code === 'ES')?.name).toBe('Espagne')
+  })
+})
+
+describe('country list', () => {
+  it('has a sorted, complete list', () => {
+    const list = countryList('en')
+    expect(list.length).toBeGreaterThan(240)
+    expect(list.find((c) => c.code === 'FR')?.name).toBe('France')
+    expect(countryName('FR', 'fr')).toBe('France')
+    expect(countryName('ZZ', 'en')).toBe('ZZ')
+    expect(list[0].name.localeCompare(list[10].name)).toBeLessThan(0)
   })
 })
 

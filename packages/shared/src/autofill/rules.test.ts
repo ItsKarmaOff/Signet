@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AutofillAddress } from '@shared/types'
+import type { AutofillAddress } from '../types/autofill'
 import {
   canFill,
   cleanAddress,

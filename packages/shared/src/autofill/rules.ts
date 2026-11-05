@@ -1,9 +1,9 @@
 // Autofill rules that need no Electron: where filling is allowed, what is worth offering to save, and when a
 // submission matches something already saved. Kept apart so they can be tested without the app.
-import type { AddressInput, AutofillAddress, CardNetwork } from '@shared/types'
-import { cardDigits, detectNetwork, fullYear, isExpired, luhn, parseExpiry } from '@shared/autofill/card'
-import { countryCode, fullName, splitName } from '@shared/autofill/values'
-import { normalizeText } from '@shared/autofill/classify'
+import type { AddressInput, AutofillAddress, CardNetwork } from '../types/autofill'
+import { cardDigits, detectNetwork, fullYear, isExpired, luhn, parseExpiry } from './card'
+import { countryCode, fullName, splitName } from './values'
+import { normalizeText } from './classify'
 
 export type AutofillKind = 'address' | 'card'
 

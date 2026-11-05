@@ -43,6 +43,9 @@ describe('settings', () => {
     expect(DEFAULT_MOBILE_SETTINGS.offerToSavePasswords).toBe(true)
     expect(sanitizeSettings({ searchSuggestions: false, offerToSavePasswords: false })).toMatchObject({ searchSuggestions: false, offerToSavePasswords: false })
     expect(sanitizeSettings({ searchSuggestions: 'no', offerToSavePasswords: 0 })).toMatchObject({ searchSuggestions: true, offerToSavePasswords: true })
+    expect(DEFAULT_MOBILE_SETTINGS).toMatchObject({ autofillAddresses: true, autofillCards: true })
+    expect(sanitizeSettings({ autofillAddresses: false, autofillCards: false })).toMatchObject({ autofillAddresses: false, autofillCards: false })
+    expect(sanitizeSettings({ autofillAddresses: 'x', autofillCards: 1 })).toMatchObject({ autofillAddresses: true, autofillCards: true })
     expect(patchSettings(DEFAULT_MOBILE_SETTINGS, { searchSuggestions: false }).searchSuggestions).toBe(false)
   })
   it('master link switch: on by default, boolean only', () => {

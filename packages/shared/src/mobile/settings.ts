@@ -30,6 +30,10 @@ export interface MobileSettings {
   searchSuggestions: boolean
   /** Offer to save passwords typed in pages. */
   offerToSavePasswords: boolean
+  /** Fill and offer to save addresses. */
+  autofillAddresses: boolean
+  /** Fill and offer to save payment cards. */
+  autofillCards: boolean
   /** Retours haptiques. */
   haptics: boolean
   /** Master switch of the link with computers ("Sync"). Off: no link connects, the links stay. */
@@ -49,6 +53,8 @@ export const DEFAULT_MOBILE_SETTINGS: MobileSettings = {
   openLinksInNewTab: true,
   searchSuggestions: true,
   offerToSavePasswords: true,
+  autofillAddresses: true,
+  autofillCards: true,
   haptics: true,
   linkEnabled: true,
   appIcon: DEFAULT_APP_ICON
@@ -81,6 +87,8 @@ export function sanitizeSettings(raw: unknown, base: MobileSettings = DEFAULT_MO
     openLinksInNewTab: bool(r.openLinksInNewTab, base.openLinksInNewTab),
     searchSuggestions: bool(r.searchSuggestions, base.searchSuggestions),
     offerToSavePasswords: bool(r.offerToSavePasswords, base.offerToSavePasswords),
+    autofillAddresses: bool(r.autofillAddresses, base.autofillAddresses),
+    autofillCards: bool(r.autofillCards, base.autofillCards),
     haptics: bool(r.haptics, base.haptics),
     linkEnabled: bool(r.linkEnabled, base.linkEnabled),
     appIcon: isAppIconId(r.appIcon) ? r.appIcon : base.appIcon

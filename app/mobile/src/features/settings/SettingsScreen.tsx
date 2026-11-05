@@ -116,6 +116,7 @@ export function SettingsScreen() {
           onValueChange={(privateLock) => setSettings({ privateLock })}
         />
         <ListRow title={t('passwords.title')} icon={icons.Key} iconColor="#f59e0b" onPress={() => router.push('/settings/passwords')} />
+        <ListRow title={t('autofill.title')} icon={icons.CreditCard} iconColor="#34a56f" onPress={() => router.push('/settings/autofill')} />
         <ListRow title={t('settings.data')} icon={icons.Trash} iconColor="#ef4444" onPress={() => router.push('/settings/data')} />
       </ListSection>
 
