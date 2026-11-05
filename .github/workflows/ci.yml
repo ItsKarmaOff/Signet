@@ -44,6 +44,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck -w @signet/mobile
+      # The autofill page script is generated from TypeScript: the committed copy must match its sources.
+      - run: npm run autofill:page -w @signet/mobile -- --check
       # Proves that Metro resolves @signet/shared and that the app compiles for Hermes.
       - run: npx expo export --platform ios --output-dir "$RUNNER_TEMP/export-ios"
         working-directory: app/mobile
