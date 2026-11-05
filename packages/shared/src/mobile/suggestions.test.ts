@@ -8,7 +8,7 @@ const NOW = 1_000_000
 const tabs = [{ ...newTab('https://docs.rs/serde', 'Serde docs'), lastActive: 5 }, newTab('', '')]
 const bookmarks = addBookmark([], { title: 'Rust book', url: 'https://doc.rust-lang.org/book' })
 const history = addVisit(addVisit([], { url: 'https://docs.rs/serde', title: 'Serde docs' }, NOW), { url: 'https://rustup.rs', title: 'Rustup' }, NOW)
-const src = { tabs, bookmarks, history, engine: 'duckduckgo' as const, now: NOW }
+const src = { tabs, bookmarks, history, searchUrl: (q: string) => `https://duckduckgo.com/?q=${encodeURIComponent(q)}`, now: NOW }
 
 describe('suggest', () => {
   it('empty input: non-empty open tabs only', () => {
@@ -38,7 +38,7 @@ describe('suggest', () => {
 describe('withRemoteSuggestions', () => {
   it('adds engine suggestions below local ones, no duplicates, at most max', () => {
     const local = suggest('rust', src)
-    const out = withRemoteSuggestions(local, ['rust', 'Rust lang', 'rust book', 'rustup', 'rust game', 'rust ide', 'rust x'], 'duckduckgo', 3)
+    const out = withRemoteSuggestions(local, ['rust', 'Rust lang', 'rust book', 'rustup', 'rust game', 'rust ide', 'rust x'], src.searchUrl, 3)
     expect(out.slice(0, local.length)).toEqual(local)
     const remote = out.slice(local.length)
     expect(remote.map((s) => (s.kind === 'search' ? s.query : ''))).toEqual(['Rust lang', 'rust book', 'rustup'])
@@ -46,6 +46,6 @@ describe('withRemoteSuggestions', () => {
   })
   it('nothing to add: local as is', () => {
     const local = suggest('rust', src)
-    expect(withRemoteSuggestions(local, [], 'google')).toEqual(local)
+    expect(withRemoteSuggestions(local, [], src.searchUrl)).toEqual(local)
   })
 })

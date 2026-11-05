@@ -1,7 +1,8 @@
 // Mobile app settings: type, default values and sanitizing (tolerant: any malformed value falls back to the default).
 import type { Theme, UiLanguage } from '../types'
 import { toUrl } from '../urls'
-import { DEFAULT_SEARCH_ENGINE, isSearchEngineId, type SearchEngineId } from './search'
+import { cleanDefaultEngine, cleanEngineConfig, resolveEngines, type CustomEngine, type KeywordOverrides } from '../searchengines'
+import { DEFAULT_SEARCH_ENGINE } from './search'
 
 export type HomepageMode = 'start' | 'blank' | 'custom'
 export type NewTabPosition = 'start' | 'end'
@@ -13,7 +14,12 @@ export const DEFAULT_APP_ICON: AppIconId = 'aurore'
 export const isAppIconId = (v: unknown): v is AppIconId => APP_ICON_IDS.includes(v as AppIconId)
 
 export interface MobileSettings {
-  searchEngine: SearchEngineId
+  /** Id of the default engine: a built-in, an enabled preset or a custom engine. */
+  searchEngine: string
+  /** Engines added by the user. */
+  searchEngines: CustomEngine[]
+  /** Changed keywords and turned-off presets. */
+  searchKeywords: KeywordOverrides
   theme: Theme
   /** `system` follows the device language. */
   language: UiLanguage
@@ -44,6 +50,8 @@ export interface MobileSettings {
 
 export const DEFAULT_MOBILE_SETTINGS: MobileSettings = {
   searchEngine: DEFAULT_SEARCH_ENGINE,
+  searchEngines: [],
+  searchKeywords: {},
   theme: 'system',
   language: 'system',
   contentBlocking: true,
@@ -75,8 +83,16 @@ export function sanitizeSettings(raw: unknown, base: MobileSettings = DEFAULT_MO
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const homepageUrl = 'homepageUrl' in r ? cleanHomepageUrl(r.homepageUrl) : base.homepageUrl
   const homepage = oneOf<HomepageMode>(r.homepage ?? base.homepage, ['start', 'blank', 'custom'], base.homepage)
+  const engines = cleanEngineConfig({
+    searchEngines: 'searchEngines' in r ? r.searchEngines : base.searchEngines,
+    searchKeywords: 'searchKeywords' in r ? r.searchKeywords : base.searchKeywords
+  })
+  const resolved = resolveEngines(engines)
+  // The default must exist and be enabled: otherwise the previous one if still valid, then Google.
+  const searchEngine = cleanDefaultEngine(r.searchEngine, resolved) ?? cleanDefaultEngine(base.searchEngine, resolved) ?? DEFAULT_SEARCH_ENGINE
   return {
-    searchEngine: isSearchEngineId(r.searchEngine) ? r.searchEngine : base.searchEngine,
+    searchEngine,
+    ...engines,
     theme: oneOf<Theme>(r.theme ?? base.theme, ['system', 'light', 'dark'], base.theme),
     language: oneOf<UiLanguage>(r.language ?? base.language, ['system', 'en', 'fr'], base.language),
     contentBlocking: bool(r.contentBlocking, base.contentBlocking),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   cleanDefaultEngine,
   cleanEngineConfig,
+  engineById,
   expandTemplate,
   isSearchTemplate,
   keywordHint,
@@ -9,8 +10,11 @@ import {
   normalizeKeyword,
   parseKeyword,
   resolveEngines,
+  searchUrlAt,
+  suggestionsUrlAt,
   validateEngineDraft,
-  wikipediaHost
+  wikipediaHost,
+  withOverride
 } from './searchengines'
 import { parseSuggestions } from './mobile/search'
 
@@ -138,5 +142,27 @@ describe('default engine and suggestions', () => {
   it('custom engine suggestions are read as OpenSearch', () => {
     expect(parseSuggestions(custom.id, ['re', ['react', 'redux', 're']], 're')).toEqual(['react', 'redux'])
     expect(parseSuggestions(custom.id, { nope: 1 }, 're')).toEqual([])
+  })
+})
+
+describe('engine helpers', () => {
+  it('engineById: enabled engine or Google', () => {
+    expect(engineById(engines, 'bing').id).toBe('bing')
+    expect(engineById(engines, 'nope').id).toBe('google')
+    const off = resolveEngines({ searchKeywords: { youtube: { disabled: true } } }, 'en')
+    expect(engineById(off, 'youtube').id).toBe('google')
+  })
+  it('search and suggestions addresses', () => {
+    expect(searchUrlAt(engineById(engines, 'google'), 'a b&c')).toBe('https://www.google.com/search?q=a%20b%26c')
+    expect(suggestionsUrlAt(engineById(engines, 'youtube'), 'x y')).toContain('q=x%20y')
+    expect(suggestionsUrlAt(engineById(engines, 'github'), 'x')).toBeNull()
+  })
+  it('withOverride: default keyword or enabled preset leaves no entry', () => {
+    const yt = { id: 'youtube', defaultKeyword: 'yt' }
+    const a = withOverride({}, yt, { keyword: 'v' })
+    expect(a).toEqual({ youtube: { keyword: 'v' } })
+    expect(withOverride(a, yt, { disabled: true })).toEqual({ youtube: { keyword: 'v', disabled: true } })
+    expect(withOverride(a, yt, { keyword: 'yt' })).toEqual({})
+    expect(withOverride({ youtube: { disabled: true } }, yt, { disabled: false })).toEqual({})
   })
 })

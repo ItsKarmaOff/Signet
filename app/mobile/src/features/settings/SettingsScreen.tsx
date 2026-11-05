@@ -2,11 +2,11 @@
 import { Linking, Platform, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { LOCALES, type UiLanguage } from '@signet/shared/i18n'
-import { searchEngine } from '@signet/shared/mobile/search'
 import { siteOf } from '@signet/shared/site'
 import type { Theme } from '@signet/shared/types'
 import { useActiveComputers } from '@/features/link'
 import { useT } from '@/lib/i18n'
+import { useSearchEngines } from '@/lib/searchEngines'
 import { useStore } from '@/state'
 import { ListRow, ListSection, Screen, SegmentedControl, SwitchRow, icons, space } from '@/ui'
 import { ThemePreview } from './ThemePreview'
@@ -18,6 +18,7 @@ export function SettingsScreen() {
   const router = useRouter()
   const settings = useStore((s) => s.settings)
   const setSettings = useStore((s) => s.setSettings)
+  const { defaultEngine } = useSearchEngines()
   const biometrics = useBiometrics()
   const computers = useStore((s) => s.links.length)
   const connected = useActiveComputers().length
@@ -44,7 +45,7 @@ export function SettingsScreen() {
           title={t('settings.searchEngine')}
           icon={icons.Search}
           iconColor="#3a82f7"
-          value={searchEngine(settings.searchEngine).name}
+          value={defaultEngine.name}
           onPress={() => router.push('/settings/search-engine')}
         />
         <ListRow title={t('settings.homepage')} icon={icons.Home} iconColor="#34a56f" value={homepageValue} onPress={() => router.push('/settings/homepage')} />

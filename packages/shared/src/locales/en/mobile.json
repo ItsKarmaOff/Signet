@@ -130,7 +130,10 @@
     "switchToTab": "Switch to tab",
     "empty": "Search your tabs, bookmarks and history.",
     "spaces": "Spaces",
-    "newTabTitle": "New tab"
+    "newTabTitle": "New tab",
+    "placeholderKeyword": "Type your search",
+    "searchSite": "Search {{engine}}",
+    "leaveKeyword": "Stop searching {{engine}}"
   },
   "linkMenu": {
     "openNewTab": "Open in New Tab",
@@ -329,7 +332,8 @@
     "privateLockUnavailable": "Not available: set up Face ID, Touch ID or a passcode on this device first.",
     "importExport": "Import & export",
     "searchSuggestions": "Search suggestions",
-    "searchSuggestionsFooter": "Shows suggestions from your search engine as you type. What you type is sent to the search engine to get them. Not used in private tabs."
+    "searchSuggestionsFooter": "Shows suggestions from your search engine as you type. What you type is sent to the search engine to get them. Not used in private tabs.",
+    "enginesAndKeywords": "Engines and keywords"
   },
   "appIcons": {
     "aurore": "Aurora",
@@ -637,5 +641,38 @@
       "updated": "Updated",
       "neverDone": "Won't offer to save addresses or cards on {{site}}."
     }
+  },
+  "engines": {
+    "title": "Engines and keywords",
+    "editTitle": "Edit engine",
+    "addTitle": "Add engine",
+    "intro": "Type a keyword then a space in the search bar to search a site directly, for example “yt cats”.",
+    "engines": "Engines",
+    "builtin": "Built-in",
+    "preset": "Site search",
+    "custom": "Custom",
+    "default": "Default",
+    "add": "Add engine",
+    "keyword": "Keyword",
+    "keywordFooter": "Leave empty to use the default keyword.",
+    "name": "Name",
+    "namePlaceholder": "My engine",
+    "url": "Search address",
+    "urlPlaceholder": "https://example.com/search?q=%s",
+    "suggestUrl": "Suggestions address (optional)",
+    "suggestPlaceholder": "https://example.com/suggest?q=%s",
+    "formHint": "Use %s where the search text goes. Suggestions must answer in the OpenSearch JSON format.",
+    "save": "Save",
+    "delete": "Delete engine",
+    "deleteTitle": "Delete this engine?",
+    "deleteMessage": "Its keyword will stop working.",
+    "deleted": "Engine deleted",
+    "saved": "Engine saved",
+    "notFound": "Engine not found",
+    "errorName": "Enter a name of up to 60 characters.",
+    "errorKeyword": "The keyword is required, without spaces, and up to 32 characters.",
+    "errorKeywordTaken": "This keyword is already used by another engine.",
+    "errorTemplate": "The search address must start with http:// or https:// and contain %s.",
+    "errorSuggest": "The suggestions address must start with http:// or https:// and contain %s."
   }
 }

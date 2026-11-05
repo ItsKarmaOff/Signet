@@ -11,6 +11,8 @@ export default function SettingsLayout() {
       <Stack screenOptions={options}>
         <Stack.Screen name="index" options={{ title: t('settings.title'), headerRight: () => <HeaderDone /> }} />
         <Stack.Screen name="search-engine" options={{ title: t('settings.searchEngine') }} />
+        <Stack.Screen name="search-keywords" options={{ title: t('engines.title') }} />
+        <Stack.Screen name="search-engine-edit" options={{ title: t('engines.editTitle') }} />
         <Stack.Screen name="homepage" options={{ title: t('settings.homepage') }} />
         <Stack.Screen name="app-icon" options={{ title: t('settings.appIcon') }} />
         <Stack.Screen name="data" options={{ title: t('settings.data') }} />

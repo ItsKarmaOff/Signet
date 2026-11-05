@@ -44,6 +44,18 @@ What could not be tested automatically: it needs a real mouse, a real trackpad, 
 - [ ] Font sizes: set Font size to Very large and Minimum font size to 16; open a new tab on a text page: the text is bigger. A tab that was visible keeps its size until reopened; a hidden tab has the new size when you come back to it.
 - [ ] Default zoom: set Page zoom to 150 %; open a site you never zoomed: 150 %. Zoom another site with the zoom shortcut: it keeps its zoom when you change the default again. Actual Size gives the default zoom (150 %), not 100 %. Settings, notes and `signet://` pages are not zoomed. Quit and relaunch Signet: the site you zoomed by hand still has its zoom; after Actual Size it follows the default. A zoom set in a private window is forgotten at relaunch.
 
+## Mobile: search keywords (iPhone)
+
+- [ ] In the command bar, type `yt`: a "Search YouTube" row shows at the top; tapping it puts a YouTube chip in the field.
+- [ ] Type or paste `yt cats`: the chip appears on its own, the field keeps `cats` and the suggestions come from YouTube. Submitting opens YouTube results; submitting an empty query does nothing.
+- [ ] In keyword mode with an empty field, Backspace leaves the mode and gives `yt` back; tapping the chip does the same.
+- [ ] `w.org` and a lone `w` behave as before (address, or search on the default engine).
+- [ ] In a private tab, the private icon stays visible next to the chip.
+- [ ] Settings › Search engine lists the enabled presets and custom engines, and any of them can be the default.
+- [ ] Engines and keywords: turn YouTube off, then `yt cats` no longer enters the mode. Change `g` to `gg`, then clear it: `g` works again.
+- [ ] Add a custom engine (`https://example.com/search?q=%s`, keyword `ex`): errors show for a missing `%s` and a keyword already taken. Make it the default, then delete it: the default goes back to Google.
+- [ ] With the app in French, `w` searches fr.wikipedia.org.
+
 ## Interface that disappears
 
 - [ ] If the sidebar and the toolbar disappear: the interface should come back on its own. If not, View › Reload Interface.

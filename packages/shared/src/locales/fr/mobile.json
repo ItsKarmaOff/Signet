@@ -130,7 +130,10 @@
     "switchToTab": "Passer à l'onglet",
     "empty": "Cherchez dans vos onglets, signets et historique.",
     "spaces": "Espaces",
-    "newTabTitle": "Nouvel onglet"
+    "newTabTitle": "Nouvel onglet",
+    "placeholderKeyword": "Saisissez votre recherche",
+    "searchSite": "Rechercher sur {{engine}}",
+    "leaveKeyword": "Arrêter de chercher sur {{engine}}"
   },
   "linkMenu": {
     "openNewTab": "Ouvrir dans un nouvel onglet",
@@ -329,7 +332,8 @@
     "privateLockUnavailable": "Indisponible : configurez d'abord Face ID, Touch ID ou un code sur cet appareil.",
     "importExport": "Import et export",
     "searchSuggestions": "Suggestions de recherche",
-    "searchSuggestionsFooter": "Affiche les suggestions de votre moteur de recherche pendant la saisie. Ce que vous tapez lui est envoyé pour les obtenir. Désactivé dans les onglets privés."
+    "searchSuggestionsFooter": "Affiche les suggestions de votre moteur de recherche pendant la saisie. Ce que vous tapez lui est envoyé pour les obtenir. Désactivé dans les onglets privés.",
+    "enginesAndKeywords": "Moteurs et mots-clés"
   },
   "appIcons": {
     "aurore": "Aurore",
@@ -637,5 +641,38 @@
       "updated": "Mise à jour",
       "neverDone": "Signet ne proposera plus d'enregistrer d'adresses ni de cartes sur {{site}}."
     }
+  },
+  "engines": {
+    "title": "Moteurs et mots-clés",
+    "editTitle": "Modifier le moteur",
+    "addTitle": "Ajouter un moteur",
+    "intro": "Saisissez un mot-clé puis une espace dans la barre de recherche pour chercher directement sur un site, par exemple « yt chats ».",
+    "engines": "Moteurs",
+    "builtin": "Intégré",
+    "preset": "Recherche de site",
+    "custom": "Personnalisé",
+    "default": "Par défaut",
+    "add": "Ajouter un moteur",
+    "keyword": "Mot-clé",
+    "keywordFooter": "Laissez vide pour utiliser le mot-clé par défaut.",
+    "name": "Nom",
+    "namePlaceholder": "Mon moteur",
+    "url": "Adresse de recherche",
+    "urlPlaceholder": "https://exemple.com/search?q=%s",
+    "suggestUrl": "Adresse des suggestions (facultatif)",
+    "suggestPlaceholder": "https://exemple.com/suggest?q=%s",
+    "formHint": "Mettez %s là où va le texte recherché. Les suggestions doivent répondre au format JSON OpenSearch.",
+    "save": "Enregistrer",
+    "delete": "Supprimer le moteur",
+    "deleteTitle": "Supprimer ce moteur ?",
+    "deleteMessage": "Son mot-clé ne fonctionnera plus.",
+    "deleted": "Moteur supprimé",
+    "saved": "Moteur enregistré",
+    "notFound": "Moteur introuvable",
+    "errorName": "Saisissez un nom de 60 caractères au maximum.",
+    "errorKeyword": "Le mot-clé est obligatoire, sans espace, et fait 32 caractères au maximum.",
+    "errorKeywordTaken": "Ce mot-clé est déjà utilisé par un autre moteur.",
+    "errorTemplate": "L’adresse de recherche doit commencer par http:// ou https:// et contenir %s.",
+    "errorSuggest": "L’adresse des suggestions doit commencer par http:// ou https:// et contenir %s."
   }
 }

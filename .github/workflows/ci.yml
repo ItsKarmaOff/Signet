@@ -66,6 +66,24 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # Electron downloads its binary on first launch, from GitHub releases, which sometimes answer 504. The download is
+      # cached between runs and done once here, with retries, so a test never has to fetch it.
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/electron-cache
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: electron-${{ runner.os }}-
+      - name: Install the Electron binary
+        env:
+          electron_config_cache: ${{ runner.temp }}/electron-cache
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            npx --no install-electron && exit 0
+            echo "Electron download failed (attempt $attempt), retrying in 30 s"
+            sleep 30
+          done
+          exit 1
       # Linux: no display, so we provide a virtual one.
       - if: runner.os == 'Linux'
         run: xvfb-run --auto-servernum npm run test:e2e

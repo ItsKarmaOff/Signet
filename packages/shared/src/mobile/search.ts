@@ -33,11 +33,16 @@ export function searchUrlFor(id: SearchEngineId, query: string): string {
   return searchEngine(id).template.replace('%s', encodeURIComponent(query))
 }
 
-/** Input -> address to load: a URL if the input is one, otherwise a search; `null` if the input is empty. */
-export function resolveInput(input: string, engine: SearchEngineId = DEFAULT_SEARCH_ENGINE): string | null {
+/** Input -> address to load: a URL if the input is one, otherwise a search with `searchUrl`; `null` if the input is empty. */
+export function resolveInputWith(input: string, searchUrl: (query: string) => string): string | null {
   const text = input.trim()
   if (!text) return null
-  return toUrl(text) ?? searchUrlFor(engine, text)
+  return toUrl(text) ?? searchUrl(text)
+}
+
+/** Same as `resolveInputWith` with a built-in engine. */
+export function resolveInput(input: string, engine: SearchEngineId = DEFAULT_SEARCH_ENGINE): string | null {
+  return resolveInputWith(input, (q) => searchUrlFor(engine, q))
 }
 
 // ───────────── Search suggestions from the engine (network) ─────────────

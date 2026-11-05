@@ -29,12 +29,22 @@ describe('persist', () => {
     s.workspace = openTab(setPrivateMode(s.workspace, true), { url: 'https://secret.com' })
     s.history = addVisit([], { url: 'https://a.com', title: 'A' }, 5)
     s.bookmarks = addBookmark([], { title: 'A', url: 'https://a.com' })
-    s = { ...s, settings: { ...s.settings, theme: 'dark', searchEngine: 'brave' }, ui: { onboardingDone: true } }
+    s = {
+      ...s,
+      settings: {
+        ...s.settings,
+        theme: 'dark',
+        searchEngine: 'custom-abcd1234',
+        searchEngines: [{ id: 'custom-abcd1234', name: 'Mine', keyword: 'mine', template: 'https://m.test/?q=%s' }]
+      },
+      ui: { onboardingDone: true }
+    }
     const text = serializePersisted(s)
     expect(text).not.toContain('secret.com')
     expect(JSON.parse(text).version).toBe(2)
     const back = parsePersisted(text, ctx)
-    expect(back.settings).toMatchObject({ theme: 'dark', searchEngine: 'brave' })
+    expect(back.settings).toMatchObject({ theme: 'dark', searchEngine: 'custom-abcd1234' })
+    expect(back.settings.searchEngines).toHaveLength(1)
     expect(back.history).toEqual(s.history)
     expect(back.bookmarks).toEqual(s.bookmarks)
     expect(back.ui.onboardingDone).toBe(true)
@@ -76,6 +86,7 @@ describe('persist', () => {
     )
     expect(s.settings.theme).toBe('light')
     expect(s.settings.searchEngine).toBe('google')
+    expect(s.settings.searchEngines).toEqual([])
     expect(s.history).toEqual([])
     expect(s.bookmarks).toHaveLength(1)
     expect(s.ui.onboardingDone).toBe(false)
