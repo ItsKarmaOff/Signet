@@ -8,12 +8,14 @@ import { parseFindMessage, type FindResult } from '@signet/shared/mobile/find'
 import { isCancelledLoad } from '@signet/shared/mobile/load-errors'
 import { parseReaderMessage, type ReaderArticle } from '@signet/shared/mobile/reader'
 import { parseIconsMessage, pickBestIcon } from '@signet/shared/mobile/favicons'
+import { hasToken, newPageToken } from '@signet/shared/mobile/autofill-messages'
 import { parseLinkMenuMessage, type LinkMenuMessage } from '@signet/shared/mobile/link-menu'
 import { historyKey } from '@signet/shared/mobile/history'
 import { startDownload } from '@/features/library'
 import { useContentBlocker } from '../../../modules/signet-web'
 import { useStore } from '@/state'
 import { useLocalhostAttach } from '@/features/link'
+import { useAutofillBridge } from '@/features/autofill'
 import { usePasswordBridge } from '@/features/passwords'
 import { useColors } from '@/ui'
 import { ErrorView } from './ErrorView'
@@ -70,7 +72,11 @@ export const BrowserView = forwardRef<BrowserViewHandle, Props>(function Browser
   const c = useColors()
   const web = useRef<WebView<object>>(null)
   const view = useTabView(tab.id)
-  const pw = usePasswordBridge(web, tab, isPrivate, visible)
+  // Session token of this WebView: only the main frame's injected scripts know it, every `pw:` and `af:` message must carry it.
+  const token = useRef('')
+  token.current ||= newPageToken()
+  const pw = usePasswordBridge(web, tab, isPrivate, visible, token.current)
+  const af = useAutofillBridge(web, tab, isPrivate, visible, token.current, bottomInset, pw.prompting)
   const blocking = useStore((s) => s.settings.contentBlocking)
   const box = useRef<ComponentRef<typeof View>>(null) // the WebView does not expose a native ref: we go through the surrounding view (the module looks for the WKWebView inside it)
   useContentBlocker(box, blocking) // native WebKit blocking (compiled iOS build); no effect elsewhere
@@ -183,7 +189,11 @@ export const BrowserView = forwardRef<BrowserViewHandle, Props>(function Browser
     const data = e.nativeEvent.data
     const msg = parse(data)
     if (!msg) return
-    if (msg.type?.startsWith('pw:')) return pw.onMessage(msg)
+    if (msg.type?.startsWith('pw:') || msg.type?.startsWith('af:')) {
+      // A frame of the page can post any message: without the session token it is dropped.
+      if (!hasToken(msg, token.current)) return
+      return msg.type.startsWith('pw:') ? pw.onMessage(msg) : af.onMessage(msg)
+    }
     if (msg.type === 'icons') {
       const m = parseIconsMessage(data)
       const icon = m ? pickBestIcon(m.icons, m.base) : null
@@ -258,7 +268,7 @@ export const BrowserView = forwardRef<BrowserViewHandle, Props>(function Browser
         onFileDownload={Platform.OS === 'ios' ? (e) => void startDownload(e.nativeEvent.downloadUrl, isPrivate) : undefined}
         injectedJavaScriptBeforeContentLoaded={`${blocking ? cosmeticScript() : ''}${zoomScript(view.zoom)}${LINK_MENU_SCRIPT}${Platform.OS === 'android' && view.desktop ? DESKTOP_VIEWPORT_SCRIPT : ''}`}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly={false}
-        injectedJavaScript={(Platform.OS === 'android' ? META_SCRIPT + SCROLL_SCRIPT : META_SCRIPT) + pw.injectedScript}
+        injectedJavaScript={(Platform.OS === 'android' ? META_SCRIPT + SCROLL_SCRIPT : META_SCRIPT) + pw.injectedScript + af.injectedScript}
         allowsBackForwardNavigationGestures
         allowsLinkPreview={false}
         geolocationEnabled
@@ -273,6 +283,8 @@ export const BrowserView = forwardRef<BrowserViewHandle, Props>(function Browser
         sharedCookiesEnabled={!isPrivate}
       />
       {pw.overlay}
+      {af.overlay}
+      {af.bar}
       {view.error ? <ErrorView failure={view.error} bottomInset={0} onRetry={() => go(view.error?.url || tab.url)} /> : null}
     </View>
   )

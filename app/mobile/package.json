@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "export": "expo export",
     "icons": "node scripts/app-icons.mjs",
+    "autofill:page": "node scripts/autofill-page.mjs",
     "ios:device": "bash scripts/install-ios.sh"
   },
   "dependencies": {

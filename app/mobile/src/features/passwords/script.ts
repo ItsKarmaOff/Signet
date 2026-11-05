@@ -16,10 +16,15 @@ var tagged=ins.filter(function(i){return textLike(i)&&/\\b(username|email)\\b/.t
 var before=pw?ins.slice(0,ins.indexOf(pw)):ins;return before.reverse().filter(textLike)[0]||null};
 `
 
-/** After loading: reports whether there is a login form, and posts the submitted credentials. */
-export const PASSWORD_SCRIPT = `(function(){try{
-if(window.__signetPw||!/^https?:$/.test(location.protocol))return;window.__signetPw=1;
-var post=function(o){try{window.ReactNativeWebView.postMessage(JSON.stringify(o))}catch(e){}};
+/**
+ * After loading (main frame only): reports whether there is a login form, and posts the submitted credentials.
+ * Every message carries the WebView's session `token` (kept in this closure): the app drops messages without it, so a frame
+ * of the page cannot forge one.
+ */
+export const passwordScript = (token: string): string => `(function(){try{
+if(window.top!==window||window.__signetPw||!/^https?:$/.test(location.protocol))return;window.__signetPw=1;
+var TOKEN=${JSON.stringify(token)};
+var post=function(o){try{o.k=TOKEN;window.ReactNativeWebView.postMessage(JSON.stringify(o))}catch(e){}};
 ${COMMON}
 var lastHas=null,lastHref='',timer=0;
 var scan=function(){timer=0;var has=pwsOf(document).some(function(p){return auto(p)!=='new-password'});
@@ -53,10 +58,11 @@ var ps=document.querySelectorAll('input[type="password"]');for(var i=0;i<ps.leng
 
 /** Fills the page's form, provided it is still on `origin` (the page may have changed during authentication). */
 export const fillScript = (
+  token: string,
   origin: string,
   username: string,
   password: string
-): string => `(function(o,u,p){var res=function(ok){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'pw:filled',ok:ok}))}catch(e){}};
+): string => `(function(o,u,p){var res=function(ok){try{window.ReactNativeWebView.postMessage(JSON.stringify({type:'pw:filled',ok:ok,k:${JSON.stringify(token)}}))}catch(e){}};
 try{if(location.origin!==o)return res(false);
 ${COMMON}
 var set=function(el,v){var d=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');

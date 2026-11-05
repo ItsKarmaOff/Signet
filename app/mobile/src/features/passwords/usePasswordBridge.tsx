@@ -12,7 +12,7 @@ import { toast } from '@/ui'
 import { patchTabView } from '../browser/viewStore'
 import { authenticate } from './auth'
 import { PasswordOverlay, type SavePrompt } from './PasswordOverlay'
-import { fillScript, PASSWORD_SCRIPT } from './script'
+import { fillScript, passwordScript } from './script'
 import { addCredential, credentialsFor, getNever, neverSaveFor, updateCredential, useVaultMetas } from './vault'
 
 /** An unanswered offer is forgotten after 2 minutes. */
@@ -43,9 +43,11 @@ export interface PasswordBridge {
   fill: () => void
   /** To show in the tab's view: save offer and key button. */
   overlay: ReactNode
+  /** A save card is showing: other offers wait (one prompt at a time, passwords first). */
+  prompting: boolean
 }
 
-export function usePasswordBridge(webRef: { current: WebHandle | null }, tab: TabInfo, isPrivate: boolean, visible: boolean): PasswordBridge {
+export function usePasswordBridge(webRef: { current: WebHandle | null }, tab: TabInfo, isPrivate: boolean, visible: boolean, token: string): PasswordBridge {
   const offer = useStore((s) => s.settings.offerToSavePasswords)
   const metas = useVaultMetas()
   const [hasForm, setHasForm] = useState(false)
@@ -133,11 +135,11 @@ export function usePasswordBridge(webRef: { current: WebHandle | null }, tab: Ta
     (c: Credential) => {
       const origin = originOf(urlRef.current)
       if (!origin || !matchesPage(c.origin, urlRef.current)) return
-      webRef.current?.injectJavaScript(fillScript(origin, c.username, c.password))
+      webRef.current?.injectJavaScript(fillScript(token, origin, c.username, c.password))
       void updateCredential(c.id, { lastUsed: Date.now() })
       haptic('success')
     },
-    [webRef]
+    [webRef, token]
   )
 
   const onFill = useCallback(async () => {
@@ -186,5 +188,5 @@ export function usePasswordBridge(webRef: { current: WebHandle | null }, tab: Ta
     />
   ) : null
 
-  return { injectedScript: PASSWORD_SCRIPT, onMessage, overlay, fill: () => void onFill() }
+  return { injectedScript: passwordScript(token), onMessage, overlay, prompting: !!prompt, fill: () => void onFill() }
 }

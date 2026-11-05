@@ -620,6 +620,22 @@
       "duplicateAddress": "An address with the same name and street is already saved.",
       "auth": "Authentication failed.",
       "failed": "Couldn't save. Try again."
+    },
+    "fillBarLabel": "Autofill suggestions",
+    "fillAddressLabel": "Fill address {{name}}",
+    "fillCardLabel": "Fill card {{name}}",
+    "manage": "Manage",
+    "authFill": "Fill your card",
+    "fillFailed": "Couldn't fill this form.",
+    "offer": {
+      "saveAddressTitle": "Save this address for {{site}}?",
+      "updateAddressTitle": "Update this address for {{site}}?",
+      "saveCardTitle": "Save this card for {{site}}?",
+      "updateCardTitle": "Update this card for {{site}}?",
+      "cardSummary": "{{label}}, exp. {{date}}",
+      "saved": "Saved",
+      "updated": "Updated",
+      "neverDone": "Won't offer to save addresses or cards on {{site}}."
     }
   }
 }
