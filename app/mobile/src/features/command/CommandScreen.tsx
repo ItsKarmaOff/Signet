@@ -9,7 +9,9 @@ import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSpring
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { siteOf } from '@signet/shared/site'
 import { toUrl } from '@signet/shared/urls'
-import { parseSuggestions, resolveInput, searchEngine, suggestionsUrlFor, type SearchEngineId } from '@signet/shared/mobile/search'
+import { parseSuggestions, resolveInputWith } from '@signet/shared/mobile/search'
+import { keywordPrefix } from '@signet/shared/keywordmode'
+import { keywordHint, keywordInfos, parseKeyword, searchUrlAt, suggestionsUrlAt, type EngineSpec } from '@signet/shared/searchengines'
 import { suggest, withRemoteSuggestions, type Suggestion } from '@signet/shared/mobile/suggestions'
 import { visibleTabIds, tabsOf } from '@signet/shared/mobile/workspace'
 import { haptic } from '@/lib/haptics'
@@ -17,6 +19,7 @@ import { captureCurrentThumbnail } from '@/lib/liveCapture'
 import { isLoopbackUrl } from '@signet/shared/link/loopback'
 import { resolveLocalhostUrl } from '@/features/link'
 import { useT } from '@/lib/i18n'
+import { engineIcon, useSearchEngines } from '@/lib/searchEngines'
 import { useCurrentTab, usePrivateMode, useSpaces, useStore } from '@/state'
 import {
   Favicon,
@@ -36,25 +39,31 @@ import {
 } from '@/ui'
 
 type GroupKey = 'top' | 'tab' | 'bookmark' | 'history' | 'web'
-type Row = { type: 'header'; key: string; title: string } | { type: 'paste'; key: string } | { type: 'item'; key: string; s: Suggestion }
+type Row =
+  | { type: 'header'; key: string; title: string }
+  | { type: 'paste'; key: string }
+  | { type: 'hint'; key: string; engine: EngineSpec }
+  | { type: 'item'; key: string; s: Suggestion }
 
 const groupOf = (s: Suggestion): GroupKey => (s.kind === 'search' && s.remote ? 'web' : s.kind === 'url' || s.kind === 'search' ? 'top' : s.kind)
 
 /** Engine suggestions for `query`: after 150 ms without typing, cancelable request (1.5 s at most). Never when the setting is off or in private browsing. */
-function useRemoteSuggestions(query: string, engine: SearchEngineId, enabled: boolean): string[] {
+function useRemoteSuggestions(query: string, engine: EngineSpec, enabled: boolean): string[] {
   const [list, setList] = useState<string[]>([])
+  const { id, suggest: suggestAddress } = engine
   useEffect(() => {
     const q = query.trim()
-    if (!enabled || !q || toUrl(q)) {
+    const address = suggestionsUrlAt({ suggest: suggestAddress }, q)
+    if (!enabled || !q || !address || toUrl(q)) {
       setList([])
       return
     }
     const ctrl = new AbortController()
     const timeout = setTimeout(() => ctrl.abort(), 1500)
     const delay = setTimeout(() => {
-      fetch(suggestionsUrlFor(engine, q), { signal: ctrl.signal, headers: { Accept: 'application/json' } })
+      fetch(address, { signal: ctrl.signal, headers: { Accept: 'application/json' } })
         .then((r) => (r.ok ? (r.json() as Promise<unknown>) : null))
-        .then((json) => setList(json ? parseSuggestions(engine, json, q) : []))
+        .then((json) => setList(json ? parseSuggestions(id, json, q) : []))
         .catch(() => undefined)
         .finally(() => clearTimeout(timeout))
     }, 150)
@@ -63,7 +72,7 @@ function useRemoteSuggestions(query: string, engine: SearchEngineId, enabled: bo
       clearTimeout(timeout)
       ctrl.abort()
     }
-  }, [query, engine, enabled])
+  }, [query, id, suggestAddress, enabled])
   return enabled ? list : []
 }
 
@@ -81,7 +90,8 @@ export function CommandScreen() {
   const privateMode = usePrivateMode()
   const spaces = useSpaces()
   const activeSpaceId = useStore((s) => s.workspace.activeSpaceId)
-  const engine = useStore((s) => s.settings.searchEngine)
+  const { engines, defaultEngine } = useSearchEngines()
+  const keywords = useMemo(() => keywordInfos(engines), [engines])
   const bookmarks = useStore((s) => s.bookmarks)
   const history = useStore((s) => s.history)
   const workspace = useStore((s) => s.workspace)
@@ -92,7 +102,35 @@ export function CommandScreen() {
   const [text, setText] = useState(__DEV__ && params.q ? params.q : initial)
   const input = useRef<ComponentRef<typeof TextInput>>(null)
   const [hasClipboardUrl, setHasClipboardUrl] = useState(false)
-
+  // Keyword mode: the engine chip replaces the keyword, the text is the query for that engine.
+  const [kw, setKw] = useState<EngineSpec | null>(null)
+  const engine = kw ?? defaultEngine
+  const searchUrl = (q: string) => searchUrlAt(engine, q)
+  const onChangeText = (value: string) => {
+    const entered = kw ? null : keywordPrefix(value, keywords)
+    const found = entered && engines.find((e) => e.id === entered.info.id)
+    if (found && entered) {
+      setKw(found)
+      setText(entered.rest)
+    } else setText(value)
+  }
+  const enterMode = (e: EngineSpec) => {
+    haptic('selection')
+    setKw(e)
+    setText('')
+  }
+  // Leaves the mode and gives the keyword (and what was typed after it) back as text.
+  const leaveMode = () => {
+    if (!kw) return
+    setText(text ? `${kw.keyword} ${text}` : kw.keyword)
+    setKw(null)
+  }
+  // Text -> address: `keyword query` searches that engine, otherwise address or search at the default engine.
+  const resolveText = (raw: string): string | null => {
+    const m = parseKeyword(raw, engines)
+    if (m) return m.query ? searchUrlAt(m.engine, m.query) : null
+    return resolveInputWith(raw, (q) => searchUrlAt(defaultEngine, q))
+  }
   useEffect(() => {
     let alive = true
     // `hasUrlAsync` does not trigger iOS's "Paste from..." warning; the read only happens on tap.
@@ -146,10 +184,13 @@ export function CommandScreen() {
   const query = text === initial ? '' : text
   const wantsRemote = useStore((s) => s.settings.searchSuggestions) && !privateMode
   const remote = useRemoteSuggestions(query, engine, wantsRemote)
+  const hint = !kw && query ? keywordHint(query, engines) : null
   const tabs = useMemo(() => tabsOf(workspace, visibleTabIds(workspace)), [workspace])
   const rows = useMemo<Row[]>(() => {
-    const local = suggest(query, { tabs: tabs.filter((tb) => tb.id !== tab?.id || !!query), bookmarks, history: privateMode ? [] : history, engine }, 8)
-    const suggestions = withRemoteSuggestions(local, remote, engine, 5)
+    const all = suggest(query, { tabs: tabs.filter((tb) => tb.id !== tab?.id || !!query), bookmarks, history: privateMode ? [] : history, searchUrl }, 8)
+    // In keyword mode only searches on that engine are offered, like on desktop.
+    const local = kw ? all.filter((s) => s.kind === 'search') : all
+    const suggestions = withRemoteSuggestions(local, remote, searchUrl, 5)
     // Consecutive groups; displayed bottom to top (the best next to the field), so the header comes after the rows in the inverted list.
     const groups: { key: GroupKey; items: Suggestion[] }[] = []
     for (const s of suggestions) {
@@ -159,6 +200,7 @@ export function CommandScreen() {
       else groups.push({ key, items: [s] })
     }
     const out: Row[] = []
+    if (hint) out.push({ type: 'hint', key: 'hint', engine: hint })
     if (!query && hasClipboardUrl) out.push({ type: 'paste', key: 'paste' })
     groups.forEach((g, gi) => {
       g.items.forEach((s, i) => out.push({ type: 'item', key: `${gi}:${i}:${s.url}`, s }))
@@ -176,7 +218,7 @@ export function CommandScreen() {
     })
     return out
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `t` follows the language; the rest is listed
-  }, [query, tabs, bookmarks, history, engine, privateMode, hasClipboardUrl, tab?.id, remote])
+  }, [query, tabs, bookmarks, history, engine, kw, hint, keywords, privateMode, hasClipboardUrl, tab?.id, remote])
 
   // Local address (`localhost`, `127.0.0.1`...): with a connected computer it goes through it (see features/link).
   const open = (raw: string) => {
@@ -201,7 +243,8 @@ export function CommandScreen() {
     haptic('light')
   }
   const submit = () => {
-    const url = resolveInput(text, engine)
+    // In keyword mode an empty query does nothing; the query is always a search (even if it looks like an address).
+    const url = kw ? (text.trim() ? searchUrlAt(kw, text.trim()) : null) : resolveText(text)
     if (url) open(url)
   }
   const pick = (s: Suggestion) => {
@@ -216,7 +259,7 @@ export function CommandScreen() {
   }
   const pasteAndGo = async () => {
     const pasted = Platform.OS === 'ios' ? ((await Clipboard.getUrlAsync()) ?? '') : await Clipboard.getStringAsync()
-    const url = resolveInput(pasted, engine)
+    const url = resolveText(pasted)
     if (url) open(url)
   }
 
@@ -244,6 +287,13 @@ export function CommandScreen() {
                     <Text variant="caption" color="secondary" weight="600" style={styles.header}>
                       {item.title.toUpperCase()}
                     </Text>
+                  ) : item.type === 'hint' ? (
+                    <PressableScale accessibilityRole="button" onPress={() => enterMode(item.engine)} style={styles.row} scaleTo={0.985}>
+                      <Favicon uri={engineIcon(item.engine.template)} url={item.engine.template} size={32} />
+                      <Text variant="body" weight="500" style={{ color: c.accent }} numberOfLines={1}>
+                        {t('command.searchSite', { engine: item.engine.name })}
+                      </Text>
+                    </PressableScale>
                   ) : item.type === 'paste' ? (
                     <PressableScale accessibilityRole="button" onPress={() => void pasteAndGo()} style={styles.row} scaleTo={0.985}>
                       <View style={[styles.glyph, { backgroundColor: c.selection }]}>
@@ -254,7 +304,7 @@ export function CommandScreen() {
                       </Text>
                     </PressableScale>
                   ) : (
-                    <SuggestionRow s={item.s} engineName={searchEngine(engine).name} onPress={() => pick(item.s)} />
+                    <SuggestionRow s={item.s} engineName={engine.name} onPress={() => pick(item.s)} />
                   )
                 }
               />
@@ -303,13 +353,30 @@ export function CommandScreen() {
                 <View style={[styles.field, { backgroundColor: c.surface2 }]}>
                   {privateMode ? (
                     <icons.VenetianMask size={18} color={c.accent} strokeWidth={2} />
-                  ) : (
+                  ) : kw ? null : (
                     <icons.Search size={18} color={c.textTertiary} strokeWidth={2} />
                   )}
+                  {kw ? (
+                    <PressableScale
+                      accessibilityRole="button"
+                      accessibilityLabel={t('command.leaveKeyword', { engine: kw.name })}
+                      onPress={leaveMode}
+                      style={[styles.kwChip, { backgroundColor: c.selection }]}
+                      scaleTo={0.96}
+                    >
+                      <Favicon uri={engineIcon(kw.template)} url={kw.template} size={18} />
+                      <Text variant="footnote" weight="600" color="accent" numberOfLines={1} style={styles.kwLabel}>
+                        {t('command.searchSite', { engine: kw.name })}
+                      </Text>
+                    </PressableScale>
+                  ) : null}
                   <TextInput
                     ref={input}
                     value={text}
-                    onChangeText={setText}
+                    onChangeText={onChangeText}
+                    onKeyPress={(e) => {
+                      if (kw && text === '' && e.nativeEvent.key === 'Backspace') leaveMode()
+                    }}
                     onSubmitEditing={submit}
                     autoFocus
                     selectTextOnFocus
@@ -318,11 +385,11 @@ export function CommandScreen() {
                     keyboardType="web-search"
                     returnKeyType="go"
                     enablesReturnKeyAutomatically
-                    placeholder={t('command.placeholder')}
+                    placeholder={t(kw ? 'command.placeholderKeyword' : 'command.placeholder')}
                     placeholderTextColor={c.textTertiary}
                     keyboardAppearance={scheme}
                     selectionColor={c.accent}
-                    accessibilityLabel={t('command.placeholder')}
+                    accessibilityLabel={t(kw ? 'command.placeholderKeyword' : 'command.placeholder')}
                     style={[styles.input, fontStyle('body'), { color: c.text }]}
                   />
                   {text ? <IconButton icon={icons.X} size={16} tone="muted" label={t('browser.clear')} onPress={() => setText('')} /> : null}
@@ -402,6 +469,18 @@ const styles = StyleSheet.create({
   newLabel: { paddingBottom: space.xs, letterSpacing: 0.4 },
   spaces: { gap: space.sm, paddingHorizontal: space.xs, paddingBottom: space.sm },
   chip: { flexDirection: 'row', alignItems: 'center', gap: space.xs, height: 32, paddingHorizontal: space.md, borderRadius: radius.pill },
+  kwChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    height: 30,
+    paddingLeft: space.sm,
+    paddingRight: space.md,
+    borderRadius: radius.pill,
+    flexShrink: 1,
+    maxWidth: '55%'
+  },
+  kwLabel: { flexShrink: 1 },
   fieldRow: { flexDirection: 'row' },
   field: {
     flex: 1,

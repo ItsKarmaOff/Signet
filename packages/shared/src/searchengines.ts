@@ -221,6 +221,42 @@ export function keywordHint(input: string, engines: readonly EngineSpec[]): Engi
   return engines.find((e) => e.enabled && e.keyword === token) ?? null
 }
 
+/** Overrides with `change` applied to `engine` (built-in or preset): a default keyword or an enabled preset leaves no entry. */
+export function withOverride(
+  overrides: KeywordOverrides,
+  engine: Pick<EngineSpec, 'id' | 'defaultKeyword'>,
+  change: { keyword?: string; disabled?: boolean }
+): KeywordOverrides {
+  const next: KeywordOverrides = { ...overrides }
+  const cur = { ...next[engine.id] }
+  if ('keyword' in change) {
+    if (change.keyword && change.keyword !== engine.defaultKeyword) cur.keyword = change.keyword
+    else delete cur.keyword
+  }
+  if ('disabled' in change) {
+    if (change.disabled) cur.disabled = true
+    else delete cur.disabled
+  }
+  if (cur.keyword || cur.disabled) next[engine.id] = cur
+  else delete next[engine.id]
+  return next
+}
+
+/** The engine with this id, else Google (deleted or unknown default). */
+export function engineById(engines: readonly EngineSpec[], id: string | undefined): EngineSpec {
+  return engines.find((e) => e.id === id && e.enabled) ?? engines.find((e) => e.id === 'google') ?? engines[0]
+}
+
+/** Address of the search for `query` at `engine` (plain template; desktop adds `hl` to Google on its own). */
+export function searchUrlAt(engine: Pick<EngineSpec, 'template'>, query: string): string {
+  return expandTemplate(engine.template, query)
+}
+
+/** Address of the suggestions request of `engine` for `query`, or null if it has none. */
+export function suggestionsUrlAt(engine: Pick<EngineSpec, 'suggest'>, query: string): string | null {
+  return engine.suggest ? expandTemplate(engine.suggest, query) : null
+}
+
 /** Address of the engine's icon (its site's `/favicon.ico`), or undefined. */
 export function engineFavicon(e: Pick<EngineSpec, 'template'>): string | undefined {
   try {

@@ -1,5 +1,5 @@
 // Keyword mode of the command bar: "yt " (or "yt" + Tab) turns the keyword into a chip, the rest is the query.
-import type { KeywordInfo } from '@signet/shared/searchengines'
+import type { KeywordInfo } from './searchengines'
 
 const find = (keywords: readonly KeywordInfo[], token: string) => keywords.find((k) => k.keyword === token.toLowerCase())
 

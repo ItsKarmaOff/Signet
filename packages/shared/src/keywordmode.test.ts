@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { KeywordInfo } from '@signet/shared/searchengines'
-import { keywordOnly, keywordPrefix, keywordQuery } from './keywordMode'
+import type { KeywordInfo } from './searchengines'
+import { keywordOnly, keywordPrefix, keywordQuery } from './keywordmode'
 
 const kws: KeywordInfo[] = [
   { id: 'youtube', keyword: 'yt', name: 'YouTube' },

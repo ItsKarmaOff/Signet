@@ -2,6 +2,8 @@
 // `registerThumbnailCleaner`: the tabs screen registers with it so that "Clear data" can empty the previews.
 export { SettingsScreen } from './SettingsScreen'
 export { SearchEngineScreen } from './SearchEngineScreen'
+export { SearchKeywordsScreen } from './SearchKeywordsScreen'
+export { SearchEngineEditScreen } from './SearchEngineEditScreen'
 export { HomepageScreen } from './HomepageScreen'
 export { AppIconScreen } from './AppIconScreen'
 export { APP_ICON_IMAGES } from './appIconImages'
