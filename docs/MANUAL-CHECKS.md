@@ -89,3 +89,17 @@ What could not be tested automatically: it needs a real mouse, a real trackpad, 
 - [ ] Microsoft sign-in with a passkey from the phone; without a phone, "Cancel" leads to "Use my password".
 - [ ] The same thing in a private window: the QR code window opens above the private window.
 - [ ] Linux: check first (the Mac has already been validated) that BlueZ detects the phone; if it fails, note the `Passkey:` and `Bluetooth:` lines from the terminal (`npm run dev`).
+
+## Mobile: autofill (iPhone)
+
+- [ ] Settings › Autofill asks for Face ID; cancelling shows a locked screen with an Unlock button.
+- [ ] Add an address with every field (street stops at 4 lines; the country list finds "Allemagne" in French and "Germany" in English). Saving the same name and street again shows "already saved".
+- [ ] Add a card 4242 4242 4242 4242: a past expiry and a bad number (…4241) are refused; with a future expiry it shows as "Visa •••• 4242". There is no security code field.
+- [ ] Open the card: the number is masked; Show and Change ask for Face ID. Leaving the app and coming back locks the screen again and hides the number.
+- [ ] On an https checkout page, tap a name or street field: a bar with the saved addresses and "Manage" shows above the keyboard. Tapping an address fills the whole group (selects included) and the keyboard stays up.
+- [ ] Tap a card number field: the card shows in the bar; tapping it asks for Face ID, then fills number, expiry and holder, never the security code. On an http page (not localhost) no card is offered.
+- [ ] Moving between fields does not make the bar flicker; typing in a field hides it; tapping the field again after closing the keyboard brings it back.
+- [ ] With the switches off, no bar. In a private tab, filling works but nothing is offered for saving.
+- [ ] Send a form with a new address and a new card: Signet offers to save the address, then the card (Save, Not now, Never for this site). Changing only one field of a saved address offers Update. "Never for this site" adds the site to the list in Settings.
+- [ ] A password prompt and an autofill offer at the same time: the password one shows first.
+- [ ] Password fill and save still work, including on a login page that embeds iframes.

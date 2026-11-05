@@ -1,7 +1,9 @@
 import type {
+  AddressInput,
   Appearance,
   ArchivedEntry,
   BookmarkTarget,
+  CardInput,
   DevResponsive,
   DevToolsDock,
   HistoryEntry,
@@ -14,7 +16,7 @@ import type {
   SpaceDraft,
   SplitLayout
 } from '@signet/shared/types'
-import type { AddressInput, AutofillInfo, CardInput } from './autofill'
+import type { AutofillInfo } from './autofill'
 import type { BackupInfo, BackupMode, BackupSection, BackupSummary, ImportKind } from './data'
 import type { DevToolsWindowState } from './devtools'
 import type { ExtensionActionCounts, ExtensionActionStates } from './extensions'

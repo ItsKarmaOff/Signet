@@ -4,21 +4,22 @@
 
 ## What's inside
 
-| Module             | Content                                                                                                                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `types/`           | The data model: tabs, spaces, bookmarks, settings, history, passwords, developer tools.                                                                                                                     |
-| `model.ts`         | Model factories and sanitizers (`newSpace`, `newTab`, `cleanSpaceDraft`).                                                                                                                                   |
-| `tree.ts`          | Tree utilities: tab lists, folders, split views, groups.                                                                                                                                                    |
-| `tab-list.ts`      | Reducer for a flat tab list with an active tab (used by mobile).                                                                                                                                            |
-| `split.ts`         | Split view: computing the rectangles and dividers, inserting a tab.                                                                                                                                         |
-| `urls.ts`          | Input to address or search (`toUrl`, `searchUrl`).                                                                                                                                                          |
-| `site.ts`          | `siteOf`: the domain of a site (public suffix list).                                                                                                                                                        |
-| `routes.ts`        | Rules that route links to a space.                                                                                                                                                                          |
-| `feeds.ts`         | Reading RSS and Atom feeds (dynamic folders).                                                                                                                                                               |
-| `ids.ts`           | `newId`: a unique identifier, with a fallback if `crypto.randomUUID` is missing.                                                                                                                            |
-| `i18n.ts`          | Creating the i18next instance (`createI18n`), picking the language (`resolveLocale`).                                                                                                                       |
-| `mobile/`          | Mobile app logic: `workspace` (spaces and tabs), `history`, `bookmarks`, `settings`, `search`, `suggestions`, `color` (space tints), `persist` (saved document, versions, migrations). One test per module. |
-| `locales/{en,fr}/` | The text catalogs: `main.json` (desktop, main process), `ui.json` (desktop, interface), `mobile.json`.                                                                                                      |
+| Module             | Content                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `types/`           | The data model: tabs, spaces, bookmarks, settings, history, passwords, autofill, developer tools.                                                                                                                       |
+| `model.ts`         | Model factories and sanitizers (`newSpace`, `newTab`, `cleanSpaceDraft`).                                                                                                                                               |
+| `tree.ts`          | Tree utilities: tab lists, folders, split views, groups.                                                                                                                                                                |
+| `tab-list.ts`      | Reducer for a flat tab list with an active tab (used by mobile).                                                                                                                                                        |
+| `split.ts`         | Split view: computing the rectangles and dividers, inserting a tab.                                                                                                                                                     |
+| `urls.ts`          | Input to address or search (`toUrl`, `searchUrl`).                                                                                                                                                                      |
+| `site.ts`          | `siteOf`: the domain of a site (public suffix list).                                                                                                                                                                    |
+| `routes.ts`        | Rules that route links to a space.                                                                                                                                                                                      |
+| `feeds.ts`         | Reading RSS and Atom feeds (dynamic folders).                                                                                                                                                                           |
+| `ids.ts`           | `newId`: a unique identifier, with a fallback if `crypto.randomUUID` is missing.                                                                                                                                        |
+| `i18n.ts`          | Creating the i18next instance (`createI18n`), picking the language (`resolveLocale`).                                                                                                                                   |
+| `autofill/`        | Autofill logic: `classify` (form fields), `values` (what to type, countries), `countries` (static names for Hermes), `card` (Luhn, networks, expiry), `rules` (when to fill or offer, save plans). One test per module. |
+| `mobile/`          | Mobile app logic: `workspace` (spaces and tabs), `history`, `bookmarks`, `settings`, `search`, `suggestions`, `color` (space tints), `persist` (saved document, versions, migrations). One test per module.             |
+| `locales/{en,fr}/` | The text catalogs: `main.json` (desktop, main process), `ui.json` (desktop, interface), `mobile.json`.                                                                                                                  |
 
 ## The rule
 

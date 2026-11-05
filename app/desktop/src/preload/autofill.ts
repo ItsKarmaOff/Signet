@@ -13,9 +13,9 @@ import {
   sameGroup,
   type FieldClass,
   type FieldDescriptor
-} from '@shared/autofill/classify'
-import { formatExpiry, formatYear, groupCardNumber, NETWORK_NAMES } from '@shared/autofill/card'
-import { addressValue, pickMonthOption, pickOption, placeCandidates, yearCandidates } from '@shared/autofill/values'
+} from '@signet/shared/autofill/classify'
+import { formatExpiry, formatYear, groupCardNumber, NETWORK_NAMES } from '@signet/shared/autofill/card'
+import { addressValue, pickMonthOption, pickOption, placeCandidates, yearCandidates } from '@signet/shared/autofill/values'
 import type { AddressInput, CardNetwork } from '@shared/types'
 
 // Main frame only (the preload also runs in subframes).

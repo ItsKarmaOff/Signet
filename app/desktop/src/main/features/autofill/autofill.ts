@@ -6,8 +6,8 @@ import { copyFileSync, readFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { join } from 'node:path'
 import type { AddressInput, AutofillAddress, AutofillCard, AutofillInfo, CardInput, CardNetwork } from '@shared/types'
-import { fullName, splitName } from '@shared/autofill/values'
-import { cardDigits, detectNetwork, formatExpiry, fullYear, luhn, NETWORK_NAMES } from '@shared/autofill/card'
+import { fullName, splitName } from '@signet/shared/autofill/values'
+import { cardDigits, detectNetwork, formatExpiry, fullYear, luhn, NETWORK_NAMES } from '@signet/shared/autofill/card'
 import { isPlain } from '@shared/ipc/validate'
 import type { Browser } from '../../browser/browser'
 import { AtomicWriter } from '../../core/atomic'
@@ -26,7 +26,7 @@ import {
   sameAddress,
   type AutofillKind,
   type CardCandidate
-} from './rules'
+} from '@signet/shared/autofill/rules'
 
 /** Card as written on disk: the number is encrypted (base64). */
 interface StoredCard extends AutofillCard {

@@ -20,6 +20,10 @@ export default function SettingsLayout() {
         <Stack.Screen name="passwords" options={{ title: t('passwords.title') }} />
         <Stack.Screen name="passwords-detail" options={{ title: t('passwords.title') }} />
         <Stack.Screen name="passwords-never" options={{ title: t('passwords.never') }} />
+        <Stack.Screen name="autofill" options={{ title: t('autofill.title') }} />
+        <Stack.Screen name="autofill-address" options={{ title: t('autofill.editAddress') }} />
+        <Stack.Screen name="autofill-card" options={{ title: t('autofill.editCard') }} />
+        <Stack.Screen name="autofill-never" options={{ title: t('autofill.never') }} />
         <Stack.Screen name="computers" options={{ title: t('link.title') }} />
         <Stack.Screen name="pair" options={{ title: t('link.pair') }} />
         <Stack.Screen name="pair-confirm" options={{ title: t('link.pair'), gestureEnabled: false }} />

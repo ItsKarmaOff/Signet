@@ -4,6 +4,7 @@ import type { Locale, UiLanguage } from '../i18n'
 export type { Locale, UiLanguage }
 
 export * from './devtools'
+export * from './autofill'
 export * from './library'
 export * from './passwords'
 export * from './settings'
