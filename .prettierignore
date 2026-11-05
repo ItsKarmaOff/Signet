@@ -12,3 +12,4 @@ android
 test-results
 playwright-report
 app/mobile/modules/signet-web/ios/rules
+app/mobile/src/features/autofill/pageScript.generated.ts

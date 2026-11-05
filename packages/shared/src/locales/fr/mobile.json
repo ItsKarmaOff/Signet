@@ -620,6 +620,22 @@
       "duplicateAddress": "Une adresse avec le même nom et la même rue est déjà enregistrée.",
       "auth": "L'authentification a échoué.",
       "failed": "Enregistrement impossible. Réessayez."
+    },
+    "fillBarLabel": "Suggestions de saisie automatique",
+    "fillAddressLabel": "Remplir avec l'adresse {{name}}",
+    "fillCardLabel": "Remplir avec la carte {{name}}",
+    "manage": "Gérer",
+    "authFill": "Remplir avec votre carte",
+    "fillFailed": "Impossible de remplir ce formulaire.",
+    "offer": {
+      "saveAddressTitle": "Enregistrer cette adresse pour {{site}} ?",
+      "updateAddressTitle": "Mettre à jour cette adresse pour {{site}} ?",
+      "saveCardTitle": "Enregistrer cette carte pour {{site}} ?",
+      "updateCardTitle": "Mettre à jour cette carte pour {{site}} ?",
+      "cardSummary": "{{label}}, exp. {{date}}",
+      "saved": "Enregistrée",
+      "updated": "Mise à jour",
+      "neverDone": "Signet ne proposera plus d'enregistrer d'adresses ni de cartes sur {{site}}."
     }
   }
 }
