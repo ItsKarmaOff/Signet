@@ -3,7 +3,6 @@ import type { Bookmark, HistoryEntry, TabInfo } from '../types'
 import { toUrl } from '../urls'
 import { searchBookmarks } from './bookmarks'
 import { searchHistory } from './history'
-import { searchUrlFor, type SearchEngineId } from './search'
 
 export type Suggestion =
   | { kind: 'url'; url: string }
@@ -19,7 +18,8 @@ export interface SuggestSources {
   bookmarks: readonly Bookmark[]
   /** Empty in private browsing. */
   history: readonly HistoryEntry[]
-  engine: SearchEngineId
+  /** Address of the search for a query at the engine in use. */
+  searchUrl: (query: string) => string
   now?: number
 }
 
@@ -40,7 +40,7 @@ export function suggest(input: string, src: SuggestSources, limit = 8): Suggesti
   const words = text.toLowerCase().split(/\s+/).filter(Boolean)
   if (text) {
     const url = toUrl(text)
-    push(url ? { kind: 'url', url } : { kind: 'search', query: text, url: searchUrlFor(src.engine, text) })
+    push(url ? { kind: 'url', url } : { kind: 'search', query: text, url: src.searchUrl(text) })
   }
   const tabs = [...src.tabs].filter((t) => t.url).sort((a, b) => b.lastActive - a.lastActive)
   for (const t of tabs) {
@@ -51,12 +51,12 @@ export function suggest(input: string, src: SuggestSources, limit = 8): Suggesti
   for (const b of searchBookmarks(src.bookmarks, text)) push({ kind: 'bookmark', id: b.id, title: b.title, url: b.url, favicon: b.favicon })
   for (const h of searchHistory(src.history, text, src.now, limit)) push({ kind: 'history', title: h.title || h.url, url: h.url, favicon: h.favicon })
   // A search is still offered as a last resort when the typed address is a URL.
-  if (toUrl(text)) push({ kind: 'search', query: text, url: searchUrlFor(src.engine, text) })
+  if (toUrl(text)) push({ kind: 'search', query: text, url: src.searchUrl(text) })
   return out
 }
 
 /** Adds the engine's suggestions below the local results: no search duplicates, `max` at most. */
-export function withRemoteSuggestions(local: readonly Suggestion[], remote: readonly string[], engine: SearchEngineId, max = 5): Suggestion[] {
+export function withRemoteSuggestions(local: readonly Suggestion[], remote: readonly string[], searchUrl: (query: string) => string, max = 5): Suggestion[] {
   const out = [...local]
   const seen = new Set(local.filter((s) => s.kind === 'search').map((s) => (s as { query: string }).query.toLowerCase()))
   let added = 0
@@ -65,7 +65,7 @@ export function withRemoteSuggestions(local: readonly Suggestion[], remote: read
     const key = query.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ kind: 'search', query, url: searchUrlFor(engine, query), remote: true })
+    out.push({ kind: 'search', query, url: searchUrl(query), remote: true })
     added++
   }
   return out

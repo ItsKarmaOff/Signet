@@ -52,4 +52,28 @@ describe('settings', () => {
     expect(patchSettings(DEFAULT_MOBILE_SETTINGS, { linkEnabled: false }).linkEnabled).toBe(false)
     expect(patchSettings(sanitizeSettings({ linkEnabled: false }), { linkEnabled: 1 as never }).linkEnabled).toBe(false)
   })
+  it('custom engines and keywords: cleaned, default falls back', () => {
+    const custom = { id: 'custom-abcd1234', name: 'Mine', keyword: 'mine', template: 'https://m.test/?q=%s' }
+    const s = sanitizeSettings({ searchEngine: custom.id, searchEngines: [custom, { id: 'bad', name: 'x' }], searchKeywords: { youtube: { keyword: 'Y' } } })
+    expect(s.searchEngines).toEqual([custom])
+    expect(s.searchEngine).toBe(custom.id)
+    expect(s.searchKeywords).toEqual({ youtube: { keyword: 'y' } })
+    // Engine deleted: the default falls back to Google.
+    expect(patchSettings(s, { searchEngines: [] }).searchEngine).toBe('google')
+    // Preset turned off while default: same.
+    const yt = sanitizeSettings({ searchEngine: 'youtube' })
+    expect(yt.searchEngine).toBe('youtube')
+    expect(patchSettings(yt, { searchKeywords: { youtube: { disabled: true } } }).searchEngine).toBe('google')
+    expect(sanitizeSettings({ searchEngine: 'youtube', searchKeywords: { youtube: { disabled: true } } }).searchEngine).toBe('google')
+  })
+  it('duplicate keyword: the first engine wins', () => {
+    const a = { id: 'custom-aaaa1111', name: 'A', keyword: 'k', template: 'https://a.test/?q=%s' }
+    const b = { id: 'custom-bbbb2222', name: 'B', keyword: 'k', template: 'https://b.test/?q=%s' }
+    expect(sanitizeSettings({ searchEngines: [a, b] }).searchEngines).toEqual([a])
+    expect(sanitizeSettings({ searchEngines: [{ ...a, keyword: 'g' }] }).searchEngines).toEqual([])
+  })
+  it('old saved settings (no engine fields) keep working', () => {
+    const s = sanitizeSettings({ searchEngine: 'brave' })
+    expect(s).toMatchObject({ searchEngine: 'brave', searchEngines: [], searchKeywords: {} })
+  })
 })

@@ -32,7 +32,7 @@ import { platformKeys } from '@signet/shared/i18n'
 import { highlightRange } from '@shared/highlight'
 import { canComplete, inlineCompletion } from '@shared/inline'
 import type { KeywordInfo } from '@signet/shared/searchengines'
-import { keywordOnly, keywordPrefix, keywordQuery } from './keywordMode'
+import { keywordOnly, keywordPrefix, keywordQuery } from '@signet/shared/keywordmode'
 
 type PalettePayload = Extract<OverlayPayload, { mode: 'palette' }>
 
