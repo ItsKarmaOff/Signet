@@ -119,7 +119,7 @@ jobs:
           openbox >"$WORK/openbox.log" 2>&1 &
           sleep 2
           # Screenshot of the running app, taken in the background while the self-test runs.
-          ( for i in 1 2 3 4; do sleep 25; import -window root "$WORK/screenshot-$i.png"; done ) >/dev/null 2>&1 &
+          ( for i in 1 2 3 4; do sleep 25; import -window root "$WORK/screenshot-$i.png"; xwininfo -root -tree > "$WORK/xwininfo-$i.txt"; done ) >/dev/null 2>&1 &
           scripts/selftest.sh --release
           code=$?
           import -window root "$WORK/screenshot-end.png" >/dev/null 2>&1
