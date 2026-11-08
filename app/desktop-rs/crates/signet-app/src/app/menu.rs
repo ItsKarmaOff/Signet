@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn accelerators_become_keystrokes() {
-        let main = if IS_MAC { "cmd" } else { "super" };
+        let main = if IS_MAC { "cmd" } else { "ctrl" };
         assert_eq!(keystrokes("CmdOrCtrl+T"), vec![format!("{main}-t")]);
         assert_eq!(keystrokes("Shift+CmdOrCtrl+T"), vec![format!("shift-{main}-t")]);
         assert_eq!(keystrokes("Ctrl+Tab"), vec!["ctrl-tab".to_string()]);
