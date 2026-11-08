@@ -241,6 +241,8 @@ impl Core {
         if std::env::var_os("SIGNET_SELFTEST").is_some_and(|v| !v.is_empty() && v != "0") {
             let held = now_ms() - self.quit_hold.press_start();
             println!("[selftest] {} quit.hold - confirmed after {held} ms (gauge {HOLD_MS} ms or the repeat delay + {POST_REPEAT_MS} ms)", if held >= HOLD_MS { "PASS" } else { "FAIL" });
+            // The process exits right after: a piped stdout is block buffered and the line would be lost.
+            let _ = std::io::Write::flush(&mut std::io::stdout());
         }
         self.quit.shown = false;
         self.emit(UiEvent::QuitState(QuitHudState::default()));
