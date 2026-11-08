@@ -246,6 +246,7 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
         }
         (xlib.XCloseDisplay)(dpy);
         if !ok {
+            crate::app::rlog(&format!("native_geometry: XGetWindowAttributes failed for {id:#x}"));
             return None;
         }
         let hidden = a.map_state != x11_dl::xlib::IsViewable;
@@ -287,7 +288,7 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
 pub(crate) fn describe(id: usize) -> String {
     match native_geometry(id) {
         Some((x, y, w, h, hidden, pw, ph)) => format!("frame=({x:.0},{y:.0},{w:.0},{h:.0}) hidden={hidden} parent={pw:.0}x{ph:.0}"),
-        None => "null".into(),
+        None => format!("null (native window {id:#x} unavailable)"),
     }
 }
 
