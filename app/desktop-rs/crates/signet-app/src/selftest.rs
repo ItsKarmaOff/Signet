@@ -357,7 +357,15 @@ impl T {
         // ---------------------------------------------------------------- tab, load, rect, page scripts
         let m = self.mark();
         let tab = self.open_and_load(&format!("{base}/index.html")).await;
-        let info = self.tab_info(&tab);
+        // The very first page load can be slow on a cold machine (CI): give the title and the end of loading some time.
+        let mut info = self.tab_info(&tab);
+        for _ in 0..30 {
+            if info.contains("Signet Test Page") && info.contains("loading=false") {
+                break;
+            }
+            self.sleep(500).await;
+            info = self.tab_info(&tab);
+        }
         self.rec("tab.load", info.contains("Signet Test Page") && info.contains("loading=false"), info);
         let win = self.core().win.as_ref().map(|w| w.size).unwrap_or((0.0, 0.0));
         let frame = self.frame_of(&tab);
