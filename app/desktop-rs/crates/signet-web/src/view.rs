@@ -40,6 +40,7 @@ pub(crate) fn attach_browser(id: ViewId, browser: Browser) {
         return;
     }
     if let (Some((parent, b, vis)), Some(host)) = (geom, browser.host()) {
+        crate::platform::adopt(id.0, &host);
         crate::platform::apply(&host, parent, b, vis);
         // The view was created at (0,0) and moved just now: tell Chromium the final size and scale before the first paint.
         host.notify_screen_info_changed();
@@ -111,7 +112,7 @@ impl WebView {
 
         let rect = Rect { x: 0, y: 0, width: opts.bounds.width.max(1.0) as i32, height: opts.bounds.height.max(1.0) as i32 };
         let mut wi = WindowInfo { runtime_style: RuntimeStyle::from(sys::cef_runtime_style_t::CEF_RUNTIME_STYLE_ALLOY), ..Default::default() }
-            .set_as_child(crate::platform::native_parent(parent), &rect);
+            .set_as_child(crate::platform::native_parent(crate::platform::host_parent(id.0, parent, opts.bounds)), &rect);
         wi.size = std::mem::size_of::<WindowInfo>();
         let bs = BrowserSettings { size: std::mem::size_of::<BrowserSettings>(), ..Default::default() };
         let mut client = make_client(id);

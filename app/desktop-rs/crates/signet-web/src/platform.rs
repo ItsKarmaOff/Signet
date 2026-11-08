@@ -34,6 +34,122 @@ pub(crate) fn native_parent(parent: usize) -> cef::sys::cef_window_handle_t {
     parent as _
 }
 
+/// GPUI windows on X11 use a 32-bit ARGB visual; a CEF child window created straight in one fails (BadMatch, so the
+/// browser window never exists). Each browser therefore lives in a small wrapper window created with the screen's default
+/// depth, visual and colormap, itself a child of the GPUI window. The connection stays open: X resources die with it.
+#[cfg(target_os = "linux")]
+pub(crate) mod x11host {
+    use std::collections::HashMap;
+    use std::os::raw::{c_int, c_uint, c_ulong};
+    use std::sync::{Mutex, OnceLock};
+
+    pub struct Conn {
+        pub xlib: x11_dl::xlib::Xlib,
+        pub dpy: *mut x11_dl::xlib::Display,
+    }
+    // SAFETY: the connection is only used from the main thread (CEF runs on it, see `assert_main_thread`).
+    unsafe impl Send for Conn {}
+    unsafe impl Sync for Conn {}
+
+    pub fn conn() -> Option<&'static Conn> {
+        static CONN: OnceLock<Option<Conn>> = OnceLock::new();
+        CONN.get_or_init(|| {
+            let xlib = x11_dl::xlib::Xlib::open().ok()?;
+            let dpy = unsafe { (xlib.XOpenDisplay)(std::ptr::null()) };
+            if dpy.is_null() { None } else { Some(Conn { xlib, dpy }) }
+        })
+        .as_ref()
+    }
+
+    static PENDING: Mutex<Option<HashMap<u64, c_ulong>>> = Mutex::new(None);
+    static WRAPPERS: Mutex<Option<HashMap<usize, c_ulong>>> = Mutex::new(None);
+
+    pub fn scale() -> f32 {
+        std::env::var("GDK_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0)
+    }
+
+    /// Creates the wrapper of view `view` under `parent`; returns the window CEF must use as its parent.
+    pub fn create_wrapper(view: u64, parent: usize, b: crate::types::Bounds) -> usize {
+        let Some(c) = conn() else { return parent };
+        let s = scale();
+        unsafe {
+            let screen = (c.xlib.XDefaultScreen)(c.dpy);
+            let mut attrs: x11_dl::xlib::XSetWindowAttributes = std::mem::zeroed();
+            attrs.colormap = (c.xlib.XDefaultColormap)(c.dpy, screen);
+            attrs.border_pixel = 0;
+            let w = (c.xlib.XCreateWindow)(
+                c.dpy,
+                parent as c_ulong,
+                (b.x * s) as c_int,
+                (b.y * s) as c_int,
+                (b.width * s).max(1.0) as c_uint,
+                (b.height * s).max(1.0) as c_uint,
+                0,
+                (c.xlib.XDefaultDepth)(c.dpy, screen),
+                x11_dl::xlib::InputOutput as c_uint,
+                (c.xlib.XDefaultVisual)(c.dpy, screen),
+                x11_dl::xlib::CWColormap | x11_dl::xlib::CWBorderPixel,
+                &mut attrs,
+            );
+            if w == 0 {
+                return parent;
+            }
+            (c.xlib.XMapWindow)(c.dpy, w);
+            (c.xlib.XSync)(c.dpy, 0);
+            PENDING.lock().unwrap().get_or_insert_with(HashMap::new).insert(view, w);
+            w as usize
+        }
+    }
+
+    /// Links the wrapper of `view` to the window CEF made for the browser.
+    pub fn adopt(view: u64, handle: usize) {
+        if handle == 0 {
+            return;
+        }
+        if let Some(w) = PENDING.lock().unwrap().as_mut().and_then(|m| m.remove(&view)) {
+            WRAPPERS.lock().unwrap().get_or_insert_with(HashMap::new).insert(handle, w);
+        }
+    }
+
+    pub fn wrapper_of(handle: usize) -> Option<c_ulong> {
+        WRAPPERS.lock().unwrap().as_ref().and_then(|m| m.get(&handle).copied())
+    }
+
+    pub fn destroy_wrapper(handle: usize) {
+        let w = WRAPPERS.lock().unwrap().as_mut().and_then(|m| m.remove(&handle));
+        if let (Some(w), Some(c)) = (w, conn()) {
+            unsafe {
+                (c.xlib.XDestroyWindow)(c.dpy, w);
+                (c.xlib.XFlush)(c.dpy);
+            }
+        }
+    }
+}
+
+/// Window CEF should use as the parent of the browser of `view` (see `x11host`); the parent itself elsewhere.
+pub(crate) fn host_parent(view: u64, parent: usize, b: Bounds) -> usize {
+    #[cfg(target_os = "linux")]
+    {
+        x11host::create_wrapper(view, parent, b)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = (view, b);
+        parent
+    }
+}
+
+/// Called once the browser exists: remembers which wrapper belongs to its native window.
+pub(crate) fn adopt(view: u64, host: &cef::BrowserHost) {
+    #[cfg(target_os = "linux")]
+    {
+        use cef::ImplBrowserHost as _;
+        x11host::adopt(view, host.window_handle() as usize);
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = (view, host);
+}
+
 /// Takes the native view of a closing browser out of its parent. `DoClose` returns true (the app owns the window), so
 /// CEF waits for the view to go away before it calls `OnBeforeClose`; without this the browser lingers until
 /// `cef::shutdown` (seconds at quit).
@@ -69,6 +185,7 @@ pub(crate) fn destroy_native(host: &cef::BrowserHost) {
                     }
                 }
             }
+            x11host::destroy_wrapper(handle as usize);
         }
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
@@ -114,29 +231,25 @@ pub(crate) fn apply(host: &cef::BrowserHost, parent: usize, b: Bounds, visible: 
     #[cfg(target_os = "linux")]
     {
         // X11 window coordinates are in pixels; GPUI reports points, scale with GDK_SCALE if set.
-        let scale: f32 = std::env::var("GDK_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+        let scale = x11host::scale();
         let _ = parent;
-        if let Ok(xlib) = x11_dl::xlib::Xlib::open() {
+        if let Some(c) = x11host::conn() {
             unsafe {
-                let dpy = (xlib.XOpenDisplay)(std::ptr::null());
-                if !dpy.is_null() {
-                    let w = handle as std::os::raw::c_ulong;
-                    if visible {
-                        (xlib.XMoveResizeWindow)(
-                            dpy,
-                            w,
-                            (b.x * scale) as i32,
-                            (b.y * scale) as i32,
-                            (b.width * scale).max(1.0) as u32,
-                            (b.height * scale).max(1.0) as u32,
-                        );
-                        (xlib.XMapWindow)(dpy, w);
-                    } else {
-                        (xlib.XUnmapWindow)(dpy, w);
+                let wrapper = x11host::wrapper_of(handle as usize);
+                let target = wrapper.unwrap_or(handle as std::os::raw::c_ulong);
+                let (w, h) = ((b.width * scale).max(1.0) as u32, (b.height * scale).max(1.0) as u32);
+                if visible {
+                    (c.xlib.XMoveResizeWindow)(c.dpy, target, (b.x * scale) as i32, (b.y * scale) as i32, w, h);
+                    (c.xlib.XMapWindow)(c.dpy, target);
+                    if wrapper.is_some() {
+                        // The browser fills its wrapper.
+                        (c.xlib.XMoveResizeWindow)(c.dpy, handle as std::os::raw::c_ulong, 0, 0, w, h);
+                        (c.xlib.XMapWindow)(c.dpy, handle as std::os::raw::c_ulong);
                     }
-                    (xlib.XFlush)(dpy);
-                    (xlib.XCloseDisplay)(dpy);
+                } else {
+                    (c.xlib.XUnmapWindow)(c.dpy, target);
                 }
+                (c.xlib.XFlush)(c.dpy);
             }
         }
     }
@@ -167,7 +280,8 @@ pub(crate) fn reparent(host: &cef::BrowserHost, parent: usize, b: Bounds) {
             unsafe {
                 let dpy = (xlib.XOpenDisplay)(std::ptr::null());
                 if !dpy.is_null() {
-                    (xlib.XReparentWindow)(dpy, handle as std::os::raw::c_ulong, parent as std::os::raw::c_ulong, b.x as i32, b.y as i32);
+                    let target = x11host::wrapper_of(handle as usize).unwrap_or(handle as std::os::raw::c_ulong);
+                    (xlib.XReparentWindow)(dpy, target, parent as std::os::raw::c_ulong, b.x as i32, b.y as i32);
                     (xlib.XFlush)(dpy);
                     (xlib.XCloseDisplay)(dpy);
                 }
@@ -256,6 +370,8 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
     }
     let xlib = x11_dl::xlib::Xlib::open().ok()?;
     let scale: f64 = std::env::var("GDK_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+    // The wrapper holds the position inside the app window (the browser window fills it).
+    let id = x11host::wrapper_of(id).map(|w| w as usize).unwrap_or(id);
     unsafe {
         let dpy = (xlib.XOpenDisplay)(std::ptr::null());
         if dpy.is_null() {
