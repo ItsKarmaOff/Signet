@@ -114,6 +114,11 @@ The first launch of the phone link triggers the Windows Firewall prompt: allow p
 | `scripts/bundle-{macos.sh,linux.sh,windows.ps1}` (release) | the bundle layout (CEF runtime, helper, manifest, icons) is complete |
 | `scripts/selftest.sh --release` | the bundle starts and every `[selftest] PASS|FAIL` line passes; Linux runs under `xvfb-run` with `openbox`, macOS and Windows use the runner desktop |
 
+Checks that need a focused window are listed in `ALLOW_FAIL` of the workflow (macOS: key window checks of the space form,
+sidebar toggle and welcome window; Linux and Windows: `win.welcome`): `scripts/selftest.sh` prints them as "known environment limit"
+and does not fail on them, any other FAIL fails the job. On Linux the CEF windows live in a small wrapper window created with the
+screen's default depth (GPUI windows use a 32-bit visual, in which Chromium cannot create its child window).
+
 `cargo fmt --check` is not run: the tree is not rustfmt-clean yet. CEF (`CEF_PATH`), `target/` and the cargo registry are cached per system
 (saved even when a step fails, so a first long build is not lost).
 
