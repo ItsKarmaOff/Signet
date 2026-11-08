@@ -66,6 +66,7 @@ pub(crate) fn ensure_attached(view: ViewId, host: &BrowserHost) {
     if attached {
         return;
     }
+    crate::view::tlog(|| format!("CDP ensure_attached view={} (first use)", view.0));
     let mut obs = SignetDevTools::new(view);
     let reg = host.add_dev_tools_message_observer(Some(&mut obs));
     with_state(|st| {
@@ -122,6 +123,7 @@ pub(crate) fn send(host: &BrowserHost, view: ViewId, method: &str, params_json: 
         c.next_id
     });
     let Some(id) = id else { return done(Err("not initialized".into())) };
+    crate::view::tlog(|| format!("CDP send view={} {}", view.0, method));
     ensure_attached(view, host);
     let msg = serde_json::json!({"id": id, "method": method, "params": params}).to_string();
     with_state(|st| st.cdp.entry(view).or_default().pending.insert(id, done));

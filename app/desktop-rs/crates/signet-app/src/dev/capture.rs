@@ -75,6 +75,12 @@ fn apply_main_options(b: &Rc<Browser>, cx: &AsyncApp) {
             }
         });
     }
+    // Test hook: SIGNET_RELOAD=<ms>,<ms>... reloads the active tab (the same path as Cmd+R) at those delays.
+    if let Some(list) = var("SIGNET_RELOAD") {
+        for ms in list.split(',').filter_map(|m| m.trim().parse::<u64>().ok()) {
+            later(cx, b, ms, |c| c.reload_tab(None, false));
+        }
+    }
     if let Some(url) = var("SIGNET_OPEN") {
         let bg = num("SIGNET_OPEN_BG").unwrap_or(0);
         let id = b.core.borrow_mut().open_tab(&url, OpenOptions { activate: bg == 0, ..Default::default() });

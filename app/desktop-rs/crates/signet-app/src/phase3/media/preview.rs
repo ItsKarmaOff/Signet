@@ -12,13 +12,11 @@ use signet_core::ids::now_ms;
 use signet_core::types::{PreviewFrom, Rect, TabPreviewPayload};
 use signet_web::{ImageFormat, ScreenshotOptions};
 
-use super::capture::{Metrics, METRICS_JS};
 use super::{base64, Done};
 use crate::browser::Core;
 
 /// Thumbnails kept in memory (the oldest go first).
 const MAX_THUMBS: usize = 60;
-const THUMB_W: f64 = 560.0;
 /// Delay before capturing a tab that was just displayed (time for it to paint).
 const SHOWN_DELAY_MS: i64 = 900;
 /// A page already captured less than 60 s ago is not recaptured.
@@ -106,19 +104,6 @@ pub(super) fn capturable(url: &str) -> bool {
     ["http:", "https:", "file:", "signet:"].iter().any(|p| l.starts_with(p))
 }
 
-/// Request for a thumbnail: the visible area scaled to `THUMB_W` pixels wide.
-pub(super) fn thumb_options(m: &Metrics) -> Option<ScreenshotOptions> {
-    if m.vw < 1.0 || m.vh < 1.0 {
-        return None;
-    }
-    Some(ScreenshotOptions {
-        clip: Some(signet_web::Bounds::new(m.x as f32, m.y as f32, m.vw as f32, m.vh as f32)),
-        format: ImageFormat::Jpeg(72),
-        scale: (THUMB_W / m.vw).min(1.0 / 0.1) as f32,
-        capture_beyond_viewport: false,
-    })
-}
-
 fn enabled(core: &Core) -> bool {
     core.state().settings.tab_preview != Some(false)
 }
@@ -156,22 +141,12 @@ fn capture_thumb(core: &mut Core, tab: &str) {
     core.phase3.media.preview.inflight = Some(tab.to_string());
     core.phase3.media.preview.due.remove(tab);
     let id = tab.to_string();
-    let params = serde_json::json!({ "expression": METRICS_JS, "returnByValue": true }).to_string();
-    view.execute_devtools_method("Runtime.evaluate", &params, move |r| {
-        let opts = r
-            .and_then(|json| {
-                let v: serde_json::Value = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-                let text = v["result"]["value"].as_str().ok_or("no page measures")?;
-                serde_json::from_str::<Metrics>(text).map_err(|e| e.to_string())
-            })
-            .and_then(|m| thumb_options(&m).ok_or_else(|| "empty page".to_string()));
-        match opts {
-            Err(e) => outbox.push(Done::Thumb(Thumb { tab: id, page, url: Err(e) })),
-            Ok(o) => view.capture_screenshot(&o, move |r| {
-                let url = r.map(|jpg| format!("data:image/jpeg;base64,{}", base64(&jpg)));
-                outbox.push(Done::Thumb(Thumb { tab: id, page, url }));
-            }),
-        }
+    // The whole visible area, no clip and no scale: a clipped or scaled capture makes the engine resize the page
+    // for a moment, which flashes on screen. The card scales the image down.
+    let opts = ScreenshotOptions { clip: None, format: ImageFormat::Jpeg(72), scale: 1.0, capture_beyond_viewport: false };
+    view.capture_screenshot(&opts, move |r| {
+        let url = r.map(|jpg| format!("data:image/jpeg;base64,{}", base64(&jpg)));
+        outbox.push(Done::Thumb(Thumb { tab: id, page, url }));
     });
 }
 
@@ -364,15 +339,5 @@ mod tests {
         assert!(capturable("signet://note/x"));
         assert!(!capturable("about:blank"));
         assert!(!capturable("data:text/html,x"));
-    }
-
-    #[test]
-    fn thumbnail_is_scaled_to_560_px() {
-        let m = Metrics { x: 0.0, y: 40.0, vw: 1120.0, vh: 700.0, cw: 1120.0, ch: 3000.0, dpr: 2.0 };
-        let o = thumb_options(&m).unwrap();
-        assert_eq!(o.scale, 0.5);
-        assert_eq!(o.clip.unwrap().y, 40.0);
-        assert!(matches!(o.format, ImageFormat::Jpeg(72)));
-        assert!(thumb_options(&Metrics { vw: 0.0, ..m }).is_none());
     }
 }
