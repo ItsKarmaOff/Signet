@@ -134,7 +134,7 @@ Recommends: bluez
 %global debug_package %{nil}
 %global __os_install_post %{nil}
 %global _build_id_links none
-%global _binary_payload w19.xzdio
+%global _binary_payload w5.xzdio
 
 %description
 $SUMMARY
@@ -168,7 +168,7 @@ if want appimage; then
   TOOL="$ROOT/.cache/appimagetool-$APPIMAGETOOL_VERSION-$TOOL_ARCH.AppImage"
   if [ ! -x "$TOOL" ]; then
     mkdir -p "$ROOT/.cache"
-    curl -fsSL -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$TOOL_ARCH.AppImage"
+    curl -fsSL --retry 5 --retry-all-errors -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$TOOL_ARCH.AppImage"
     chmod +x "$TOOL"
   fi
   A="$WORK/Signet.AppDir"
