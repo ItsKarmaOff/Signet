@@ -28,6 +28,15 @@ pub struct WebView {
     id: ViewId,
 }
 
+/// Timestamped trace line (SIGNET_TRACE_VIEWS=1), shared with the native view tree trace.
+pub(crate) fn tlog(msg: impl FnOnce() -> String) {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    if *ON.get_or_init(|| std::env::var_os("SIGNET_TRACE_VIEWS").is_some()) {
+        let ep = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        eprintln!("[call  {}] {}", ep, msg());
+    }
+}
+
 pub(crate) fn attach_browser(id: ViewId, browser: Browser) {
     let geom = with_state(|st| {
         st.views.get_mut(&id).map(|e| {
@@ -43,9 +52,9 @@ pub(crate) fn attach_browser(id: ViewId, browser: Browser) {
         crate::platform::adopt(id.0, &host);
         crate::platform::apply(&host, parent, b, vis);
         // The view was created at (0,0) and moved just now: tell Chromium the final size and scale before the first paint.
+        tlog(|| format!("attach_browser view={} {:?} vis={}", id.0, b, vis));
         host.notify_screen_info_changed();
         host.was_resized();
-        crate::cdp::attach(id, &host);
         crate::bundle::register_browser(id, browser.identifier());
     }
 }
@@ -157,6 +166,7 @@ impl WebView {
             return;
         }
         if let (Some((parent, vis)), Some(host)) = (vis, host_of(self.id)) {
+            tlog(|| format!("set_bounds view={} {:?} vis={}", self.id.0, bounds, vis));
             crate::platform::apply(&host, parent, bounds, vis);
             host.was_resized();
         }
@@ -166,6 +176,7 @@ impl WebView {
     pub fn set_corner_radius(&self, radius: f32) {
         #[cfg(target_os = "macos")]
         if let Some(host) = host_of(self.id) {
+            tlog(|| format!("set_corner_radius view={} {}", self.id.0, radius));
             let handle = host.window_handle();
             if !handle.is_null() {
                 crate::mac::set_view_corner_radius(handle, radius);
@@ -191,6 +202,7 @@ impl WebView {
             return;
         }
         if let (Some((parent, b)), Some(host)) = (g, host_of(self.id)) {
+            tlog(|| format!("set_visible view={} {}", self.id.0, visible));
             crate::platform::apply(&host, parent, b, visible);
             host.was_hidden(!visible as i32);
         }

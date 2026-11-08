@@ -789,7 +789,9 @@ extern "C" fn trace_tick(_ctx: *mut c_void) {
     }
     let mut last = LAST.lock().unwrap();
     if *last != s {
-        eprintln!("[trace {:>6}ms] {}", t0.elapsed().as_millis(), s);
+        let _ = t0;
+        let ep = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        eprintln!("[trace {}] {}", ep, s);
         *last = s;
     }
 }

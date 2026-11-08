@@ -58,9 +58,14 @@ fn event_method(bytes: &[u8]) -> Option<String> {
     String::from_utf8(bytes[start..start + end].to_vec()).ok()
 }
 
-/// Register the observer of a view (keeps the DevTools session attached for the view's life, which
-/// keeps `Emulation.*` overrides alive).
-pub(crate) fn attach(view: ViewId, host: &BrowserHost) {
+/// Register the observer of a view on first use (and keep it for the view's life, which keeps `Emulation.*` overrides
+/// alive). Not done at creation: an attached DevTools agent makes Chromium reset the page view to its default size
+/// about 250 ms after every navigation, which blanks the page for a frame (the "flash" on each load and reload).
+pub(crate) fn ensure_attached(view: ViewId, host: &BrowserHost) {
+    let attached = with_state(|st| st.cdp.get(&view).is_some_and(|c| c.registration.is_some())).unwrap_or(true);
+    if attached {
+        return;
+    }
     let mut obs = SignetDevTools::new(view);
     let reg = host.add_dev_tools_message_observer(Some(&mut obs));
     with_state(|st| {
@@ -90,6 +95,9 @@ pub(crate) fn detach(view: ViewId) {
 }
 
 pub(crate) fn subscribe(view: ViewId, methods: &[&str], on: bool) {
+    if on && let Some(h) = crate::view::host_of(view) {
+        ensure_attached(view, &h);
+    }
     with_state(|st| {
         let c = st.cdp.entry(view).or_default();
         for m in methods {
@@ -114,6 +122,7 @@ pub(crate) fn send(host: &BrowserHost, view: ViewId, method: &str, params_json: 
         c.next_id
     });
     let Some(id) = id else { return done(Err("not initialized".into())) };
+    ensure_attached(view, host);
     let msg = serde_json::json!({"id": id, "method": method, "params": params}).to_string();
     with_state(|st| st.cdp.entry(view).or_default().pending.insert(id, done));
     if host.send_dev_tools_message(Some(msg.as_bytes())) != 1 {

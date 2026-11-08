@@ -67,12 +67,15 @@ struct SiteSample {
 #[derive(Default)]
 struct SiteColor {
     tabs: HashMap<String, SiteSample>,
-    inflight: HashSet<String>,
+    /// Tabs with a sample in flight and since when (a page that never answers must not block the next sample).
+    inflight: HashMap<String, std::time::Instant>,
     done: Arc<Mutex<Vec<(String, Option<String>)>>>,
 }
 
 /// Page script of the sampler: background colors found under 7 points of a row near the top, most frequent first.
 /// (A DevTools screenshot disturbs the view, so the pixels are inferred from the styles.)
+const SITE_CHANNEL: &str = "site:color";
+
 const SITE_JS: &str = r#"(()=>{try{const w=innerWidth,y=Math.min(6,innerHeight-1),out={};const op=b=>{const m=/^rgba?\(([^)]+)\)/.exec(b);if(!m)return false;const p=m[1].split(/[ ,\/]+/);return (p.length>3?parseFloat(p[3]):1)>=0.95};const hb=getComputedStyle(document.documentElement).backgroundColor,bb=document.body?getComputedStyle(document.body).backgroundColor:'';const canvas=op(hb)?hb:op(bb)?bb:'rgb(255, 255, 255)';
 for(let i=0;i<7;i++){const x=Math.max(0,Math.min(w-1,Math.round((i+0.5)*w/7)));let c=canvas;
 for(const e of document.elementsFromPoint(x,y)){const b=getComputedStyle(e).backgroundColor;const m=/^rgba?\(([^)]+)\)/.exec(b);
@@ -86,27 +89,24 @@ fn parse_css_rgb(c: &str) -> Option<String> {
     (v.len() == 3).then(|| format!("#{:02x}{:02x}{:02x}", v[0], v[1], v[2]))
 }
 
+/// Samples through the page's own `__signetPost` bridge, not DevTools: an attached DevTools agent makes Chromium reset
+/// the page view to its default size about 250 ms after each navigation, which blanked the page for a frame.
 fn sample_site(core: &mut Core, tab: &str) {
     let Some(view) = core.views.view_of(tab) else { return };
-    core.phase3.web_pages.site.inflight.insert(tab.to_string());
-    let done = core.phase3.web_pages.site.done.clone();
-    let id = tab.to_string();
-    let params = serde_json::json!({ "expression": SITE_JS, "returnByValue": true }).to_string();
-    view.execute_devtools_method("Runtime.evaluate", &params, move |r| {
-        let color = r.ok().and_then(|json| {
-            let v: serde_json::Value = serde_json::from_str(&json).ok()?;
-            let counts: HashMap<String, u32> = serde_json::from_str(v["result"]["value"].as_str()?).ok()?;
-            let best = counts.into_iter().max_by_key(|(_, n)| *n)?.0;
-            parse_css_rgb(&best)
-        });
-        if let Ok(mut d) = done.lock() {
-            d.push((id, color));
-        }
-    });
+    core.phase3.web_pages.site.inflight.insert(tab.to_string(), std::time::Instant::now());
+    view.execute_js(&format!("try{{__signetPost('{SITE_CHANNEL}',{SITE_JS})}}catch(e){{}}"));
+}
+
+/// Most frequent opaque color of the sampler's answer, as `#rrggbb`.
+fn site_color(payload: &str) -> Option<String> {
+    let counts: HashMap<String, u32> = serde_json::from_str(payload).ok()?;
+    let best = counts.into_iter().max_by_key(|(_, n)| *n)?.0;
+    parse_css_rgb(&best)
 }
 
 /// Applies finished samples and starts the next ones for the displayed tabs.
 fn site_tick(core: &mut Core) {
+    core.phase3.web_pages.site.inflight.retain(|_, at| at.elapsed().as_millis() < 2000);
     let finished: Vec<_> = core.phase3.web_pages.site.done.lock().map(|mut d| std::mem::take(&mut *d)).unwrap_or_default();
     for (tab, color) in finished {
         let site = &mut core.phase3.web_pages.site;
@@ -130,7 +130,7 @@ fn site_tick(core: &mut Core) {
     core.phase3.web_pages.site.tabs.retain(|id, _| alive.contains(id));
     for id in shown {
         let site = &core.phase3.web_pages.site;
-        if site.inflight.contains(&id) {
+        if site.inflight.contains_key(&id) {
             continue;
         }
         let due = match site.tabs.get(&id) {
@@ -224,6 +224,14 @@ pub(super) fn startup(core: &mut Core) {
 pub(super) fn web_event(core: &mut Core, ev: &WebEvent) {
     let view = ev.view();
     match ev {
+        WebEvent::PageMessage { channel, payload, is_main_frame: true, .. } if channel == SITE_CHANNEL => {
+            let Some(tab) = core.views.tab_of(view).map(str::to_string) else { return };
+            if core.phase3.web_pages.site.inflight.contains_key(&tab)
+                && let Ok(mut d) = core.phase3.web_pages.site.done.lock()
+            {
+                d.push((tab, site_color(payload)));
+            }
+        }
         WebEvent::FaviconUrls { urls, .. } => {
             if let Some(first) = urls.first() {
                 prefetch(&core.phase3.web_pages.icons, first);

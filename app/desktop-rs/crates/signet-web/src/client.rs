@@ -176,6 +176,7 @@ wrap_load_handler! {
             can_go_back: ::std::os::raw::c_int,
             can_go_forward: ::std::os::raw::c_int,
         ) {
+            crate::view::tlog(|| format!("loading_state view={} loading={}", self.view.0, is_loading));
             push_event(WebEvent::LoadingState {
                 view: self.view,
                 is_loading: is_loading != 0,
@@ -185,6 +186,7 @@ wrap_load_handler! {
         }
 
         fn on_load_start(&self, _browser: Option<&mut Browser>, frame: Option<&mut Frame>, _t: TransitionType) {
+            crate::view::tlog(|| format!("load_start view={}", self.view.0));
             if let Some(f) = frame {
                 if f.is_main() == 1 {
                     crate::media::reset(self.view);
@@ -537,6 +539,7 @@ wrap_request_handler! {
         // A new render view (first one, or a cross-process navigation swap) starts with a default size and scale:
         // push the real ones, or the page is laid out and painted small for a moment, then jumps to the pane size.
         fn on_render_view_ready(&self, browser: Option<&mut Browser>) {
+            crate::view::tlog(|| format!("on_render_view_ready view={}", self.view.0));
             if let Some(host) = browser.and_then(|b| b.host()) {
                 host.notify_screen_info_changed();
                 host.was_resized();
