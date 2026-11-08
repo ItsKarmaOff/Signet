@@ -9,7 +9,7 @@
 //! alt). A press of Q while the previous one is still down is a repeat, whatever flag the source reported. The
 //! release of Q or of Ctrl stops the gauge.
 
-#![cfg_attr(target_os = "macos", allow(dead_code))]
+#![allow(dead_code)]
 
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
