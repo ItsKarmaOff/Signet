@@ -198,3 +198,110 @@ pub(crate) fn native_view_handles() -> Vec<*mut std::ffi::c_void> {
     })
     .unwrap_or_default()
 }
+
+// ---------------------------------------------------------------------------------------------
+// Test helpers (self-test): what the system says about a browser's native window. Linux and Windows.
+// ---------------------------------------------------------------------------------------------
+
+/// Native window id of the browser as an integer (X11 window, HWND), 0 without one.
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn native_id(host: &cef::BrowserHost) -> usize {
+    #[cfg(target_os = "windows")]
+    {
+        host.window_handle().0 as usize
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        host.window_handle() as usize
+    }
+}
+
+/// (x, y, width, height, hidden, parent width, parent height) in window points, asked to the system.
+#[cfg(target_os = "linux")]
+pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f64, f64)> {
+    if id == 0 {
+        return None;
+    }
+    let xlib = x11_dl::xlib::Xlib::open().ok()?;
+    let scale: f64 = std::env::var("GDK_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0);
+    unsafe {
+        let dpy = (xlib.XOpenDisplay)(std::ptr::null());
+        if dpy.is_null() {
+            return None;
+        }
+        let mut a: x11_dl::xlib::XWindowAttributes = std::mem::zeroed();
+        let ok = (xlib.XGetWindowAttributes)(dpy, id as std::os::raw::c_ulong, &mut a) != 0;
+        let mut root: std::os::raw::c_ulong = 0;
+        let mut parent: std::os::raw::c_ulong = 0;
+        let mut kids: *mut std::os::raw::c_ulong = std::ptr::null_mut();
+        let mut n: std::os::raw::c_uint = 0;
+        let mut pa: x11_dl::xlib::XWindowAttributes = std::mem::zeroed();
+        if ok && (xlib.XQueryTree)(dpy, id as std::os::raw::c_ulong, &mut root, &mut parent, &mut kids, &mut n) != 0 {
+            if !kids.is_null() {
+                (xlib.XFree)(kids as *mut _);
+            }
+            if parent != 0 {
+                (xlib.XGetWindowAttributes)(dpy, parent, &mut pa);
+            }
+        }
+        (xlib.XCloseDisplay)(dpy);
+        if !ok {
+            return None;
+        }
+        let hidden = a.map_state != x11_dl::xlib::IsViewable;
+        Some((a.x as f64 / scale, a.y as f64 / scale, a.width as f64 / scale, a.height as f64 / scale, hidden, pa.width as f64 / scale, pa.height as f64 / scale))
+    }
+}
+
+#[cfg(target_os = "windows")]
+pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f64, f64)> {
+    use windows_sys::Win32::Foundation::{HWND, POINT, RECT};
+    use windows_sys::Win32::Graphics::Gdi::ScreenToClient;
+    use windows_sys::Win32::UI::HiDpi::GetDpiForWindow;
+    use windows_sys::Win32::UI::WindowsAndMessaging::*;
+    if id == 0 {
+        return None;
+    }
+    unsafe {
+        let hwnd = id as HWND;
+        if IsWindow(hwnd) == 0 {
+            return None;
+        }
+        let parent = GetParent(hwnd);
+        let dpi = GetDpiForWindow(if parent.is_null() { hwnd } else { parent });
+        let s = if dpi == 0 { 1.0 } else { dpi as f64 / 96.0 };
+        let mut r: RECT = std::mem::zeroed();
+        GetWindowRect(hwnd, &mut r);
+        let mut tl = POINT { x: r.left, y: r.top };
+        let mut pc: RECT = std::mem::zeroed();
+        if !parent.is_null() {
+            ScreenToClient(parent, &mut tl);
+            GetClientRect(parent, &mut pc);
+        }
+        Some((tl.x as f64 / s, tl.y as f64 / s, (r.right - r.left) as f64 / s, (r.bottom - r.top) as f64 / s, IsWindowVisible(hwnd) == 0, pc.right as f64 / s, pc.bottom as f64 / s))
+    }
+}
+
+/// "frame=(x,y,w,h) hidden=bool parent=WxH", the format the macOS description uses.
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn describe(id: usize) -> String {
+    match native_geometry(id) {
+        Some((x, y, w, h, hidden, pw, ph)) => format!("frame=({x:.0},{y:.0},{w:.0},{h:.0}) hidden={hidden} parent={pw:.0}x{ph:.0}"),
+        None => "null".into(),
+    }
+}
+
+/// (parent window, "Cef", native id, hidden) of every live browser window.
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn live_views() -> Vec<(usize, String, usize, bool)> {
+    use cef::ImplBrowser as _;
+    let hosts: Vec<(usize, usize)> = crate::runtime::with_state(|st| {
+        st.views.values().filter(|e| !e.closing).filter_map(|e| e.browser.as_ref().and_then(|b| b.host()).map(|h| (e.parent, native_id(&h)))).collect()
+    })
+    .unwrap_or_default();
+    hosts
+        .into_iter()
+        .filter(|(_, id)| *id != 0)
+        .map(|(parent, id)| (parent, "CefBrowserView".to_string(), id, native_geometry(id).map(|g| g.4).unwrap_or(true)))
+        .collect()
+}

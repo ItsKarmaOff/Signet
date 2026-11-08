@@ -206,7 +206,7 @@ impl WebView {
         }
         #[cfg(not(target_os = "macos"))]
         {
-            String::new()
+            host_of(self.id).map(|h| crate::platform::describe(crate::platform::native_id(&h))).unwrap_or_else(|| "no host".into())
         }
     }
 
@@ -218,7 +218,7 @@ impl WebView {
         }
         #[cfg(not(target_os = "macos"))]
         {
-            0
+            host_of(self.id).map(|h| crate::platform::native_id(&h)).unwrap_or(0)
         }
     }
 

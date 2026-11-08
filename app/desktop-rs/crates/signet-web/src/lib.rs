@@ -59,7 +59,7 @@ pub fn debug_native_cef_views() -> Vec<(usize, String, usize, bool)> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Vec::new()
+        platform::live_views()
     }
 }
 
@@ -71,6 +71,6 @@ pub fn debug_native_all_views() -> Vec<String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        Vec::new()
+        platform::live_views().into_iter().map(|(w, class, ptr, hidden)| format!("{class}@{ptr:x}/w{w:x}{}", if hidden { "(hidden)" } else { "" })).collect()
     }
 }
