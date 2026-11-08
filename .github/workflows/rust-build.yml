@@ -1,7 +1,8 @@
 # Signet (Rust) packages, the same files as the Electron release (.github/workflows/build.yml): macOS .dmg and .zip
 # (arm64 and x64), Linux AppImage, .deb and .rpm (x64 and arm64), Windows NSIS installer (x64), plus the electron-updater
 # metadata (latest*.yml) so an installed Electron app finds and installs the Rust build. Names and formats: app/desktop-rs/README.md, "Packaging".
-# Run by hand (Actions tab, Build (Rust), Run workflow): the files are in the run's artifacts.
+# Run by hand (Actions tab, Build (Rust), Run workflow): the files are in the run's artifacts. GitHub lists a manual workflow
+# only once the file is on the default branch; before that, temporarily add `push: {branches: [<branch>], paths: [this file]}` to test it.
 #
 # NOT wired to releases yet. At migration time, to publish from a `v…` tag like build.yml does:
 #   1. add `push: tags: ['v*']` under `on:`, and the same "tag matches the package versions" step as build.yml;
@@ -12,10 +13,6 @@ name: Build (Rust)
 
 on:
   workflow_dispatch:
-  # TEMPORARY (removed before the end of the port): a workflow only appears for manual runs once it is on the default branch.
-  push:
-    branches: [feat/gpui-desktop]
-    paths: ['.github/workflows/rust-build.yml']
 
 env:
   RUST_TOOLCHAIN: 1.99.1
