@@ -88,3 +88,46 @@ const assert = require('assert');
     assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     assert!(String::from_utf8_lossy(&out.stdout).contains("JS OK"));
 }
+
+/// Chromium installs its own `chrome.webstorePrivate` after the page script ran: Signet's must keep winning, and every
+/// method must work both with a callback and as a Promise (the store pages use both).
+#[test]
+fn the_store_script_wins_over_the_native_web_store_api() {
+    if !node_available() {
+        eprintln!("node not found: skipping");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("store.js"), signet_extensions::assets::webstore_script()).unwrap();
+    fs::write(
+        dir.path().join("driver.js"),
+        r#"
+const posted = [];
+globalThis.document = { addEventListener() {} };
+globalThis.addEventListener = () => {};
+globalThis.__signetCrx = {
+  call: (method) => { posted.push(method); return Promise.resolve({ ok: true, value: method.endsWith('getExtensionStatus') ? 'installable' : '' }); }
+};
+globalThis.chrome = {};
+require('./store.js');
+const assert = require('assert');
+(async () => {
+  // Chromium's bindings arrive later and assign or define the native object.
+  chrome.webstorePrivate = { beginInstallWithManifest3() { throw new Error('native'); } };
+  try { Object.defineProperty(chrome, 'webstorePrivate', { value: { native: true } }); } catch (e) {}
+  await new Promise((r) => setTimeout(r, 60));
+  assert.ok(!chrome.webstorePrivate.native, 'ours wins');
+  assert.strictEqual(await chrome.webstorePrivate.getExtensionStatus('abc'), 'installable');
+  await new Promise((r) => chrome.webstorePrivate.getExtensionStatus('abc', '{}', (s) => { assert.strictEqual(s, 'installable'); r(); }));
+  assert.strictEqual(await chrome.webstorePrivate.getBrowserLogin(), '');
+  assert.ok(posted.includes('webstorePrivate.getExtensionStatus'));
+  console.log('JS OK');
+  process.exit(0);
+})().catch((e) => { console.error(e); process.exit(1); });
+"#,
+    )
+    .unwrap();
+    let out = Command::new("node").arg("driver.js").current_dir(dir.path()).output().expect("run node");
+    assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("JS OK"));
+}
