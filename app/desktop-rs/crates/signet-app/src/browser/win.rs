@@ -132,6 +132,8 @@ impl Core {
             self.phase3_quit();
         }
         self.prepare_quit();
+        // A downloaded update is installed once the profile is released (no cost when none is waiting).
+        self.run_pending_update();
     }
 
     /// Flush the store and take the views down (call `finish_quit` instead, the module hooks come first).

@@ -15,7 +15,7 @@ use signet_core::i18n::{t, t_args};
 use signet_core::model::OpenOptions;
 use signet_core::types::BrowsingDataKind;
 use signet_features::http::UreqHttp;
-use signet_features::updates::{self, CheckResult, Outcome, Tracker};
+use signet_features::updates::{self, CheckResult, InstallKind, Outcome, Package, Tracker};
 use signet_web::{ClearData, ProfileKind};
 
 use crate::browser::Core;
@@ -261,7 +261,12 @@ pub fn is_default_browser() -> bool {
 // ------------------------------------------------------------------------------------------------ state
 
 enum Event {
-    Check(CheckResult, bool),
+    /// A finished check; for an installable update, the file to download.
+    Check(CheckResult, bool, Option<Package>),
+    /// Download finished (version, manual, file or error).
+    Downloaded(String, bool, Result<PathBuf, String>),
+    /// The user chose "Restart" once the update is downloaded.
+    Restart,
     /// The user chose to open this page (release page of an update).
     OpenPage(String),
     Folder(PathBuf),
@@ -274,6 +279,27 @@ pub struct State {
     events: Arc<Mutex<Vec<Event>>>,
     next_check: Option<Instant>,
     picking_folder: bool,
+    /// Downloaded update, installed when the app quits (restart or later).
+    pending: Option<Pending>,
+}
+
+/// A verified update waiting for the app to quit.
+struct Pending {
+    file: PathBuf,
+    kind: InstallKind,
+    /// Start the app again after the install ("Restart"); false when the user chose "Later".
+    relaunch: bool,
+}
+
+/// How this copy is installed (see `updates::install_kind`).
+fn install_kind() -> InstallKind {
+    let os = signet_features::importers::sources::Os::current();
+    let nsis = std::env::current_exe().ok().and_then(|e| e.parent().map(updates::has_nsis_uninstaller)).unwrap_or(false);
+    updates::install_kind(os, std::env::var("APPIMAGE").ok().as_deref(), nsis)
+}
+
+fn is_arm64() -> bool {
+    std::env::consts::ARCH == "aarch64"
 }
 
 impl State {
@@ -324,17 +350,114 @@ impl Core {
             }
             return;
         }
+        if let Some(version) = self.phase3.system.tracker.downloaded.clone() {
+            if manual {
+                self.offer_restart(&version);
+            }
+            return;
+        }
+        if let Some(version) = self.phase3.system.tracker.downloading.clone() {
+            if manual {
+                self.message_async(t_args("updates.downloading", &[("version", &version)]), t("updates.downloadingDetail"));
+            }
+            return;
+        }
         if !self.phase3.system.tracker.begin() {
             return;
         }
+        let kind = install_kind();
         std::thread::spawn(move || {
             let result = updates::check(&UreqHttp, VERSION);
-            State::push(&events, Event::Check(result, manual));
+            let mut package = None;
+            let mut result = result;
+            if let CheckResult::Available(rel) = &result
+                && kind != InstallKind::Manual
+            {
+                let os = signet_features::importers::sources::Os::current();
+                match updates::resolve_package(&UreqHttp, rel, os, is_arm64(), &kind) {
+                    Ok(p) => package = Some(p),
+                    Err(e) => {
+                        eprintln!("[updates] metadata failed: {e}");
+                        result = CheckResult::Failed;
+                    }
+                }
+            }
+            State::push(&events, Event::Check(result, manual, package));
         });
     }
 
+    fn message_async(&self, msg: String, detail: String) {
+        let ok = vec![t("updates.ok")];
+        std::thread::spawn(move || {
+            message_box(&msg, &detail, &ok);
+        });
+    }
+
+    /// "Restart" or "Later": the update is installed at the next quit either way.
+    fn offer_restart(&self, version: &str) {
+        let events = self.phase3.system.events.clone();
+        let msg = t_args("updates.ready", &[("version", version)]);
+        let detail = t("updates.readyDetail");
+        let buttons = vec![t("updates.restart"), t("updates.later")];
+        std::thread::spawn(move || {
+            if message_box(&msg, &detail, &buttons) == Some(0) {
+                State::push(&events, Event::Restart);
+            }
+        });
+    }
+
+    /// Downloads the update in the background, then offers to restart.
+    fn start_download(&mut self, version: &str, pkg: Package, manual: bool) {
+        let kind = install_kind();
+        let dest = match &kind {
+            InstallKind::AppImage(target) => {
+                let mut n = target.clone().into_os_string();
+                n.push(".new");
+                PathBuf::from(n)
+            }
+            _ => self.data_dir.join("updates").join(&pkg.name),
+        };
+        self.phase3.system.tracker.downloading = Some(version.to_string());
+        if manual {
+            self.message_async(t_args("updates.downloading", &[("version", version)]), t("updates.downloadingDetail"));
+        }
+        let events = self.phase3.system.events.clone();
+        let version = version.to_string();
+        std::thread::spawn(move || {
+            let r = updates::download_package(&UreqHttp, &pkg, &dest).map(|_| dest);
+            State::push(&events, Event::Downloaded(version, manual, r));
+        });
+    }
+
+    /// Runs the downloaded update, after the views are down. Windows: the NSIS setup, silent; Linux: the AppImage is
+    /// replaced. `relaunch`: start the app again. Does nothing when no update is waiting.
+    pub fn run_pending_update(&mut self) {
+        let Some(p) = self.phase3.system.pending.take() else { return };
+        let relaunch = p.relaunch;
+        match p.kind {
+            InstallKind::Nsis => {
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: the installer outlives this process.
+                    let r = Command::new(&p.file).args(updates::nsis_args(relaunch)).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).creation_flags(0x0000_0208).spawn();
+                    self.log(format!("update: installer started: {}", r.is_ok()));
+                }
+            }
+            InstallKind::AppImage(target) => {
+                let r = updates::replace_appimage(&p.file, &target);
+                self.log(format!("update: appimage replaced: {r:?}"));
+                if r.is_ok() && relaunch {
+                    // Started a moment later, once this process has released the profile.
+                    let _ = Command::new("sh").args(["-c", "sleep 1; exec \"$0\"", &target.to_string_lossy()]).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn();
+                }
+            }
+            InstallKind::Manual => {}
+        }
+    }
+
     /// Shows what a finished check found.
-    fn finish_update_check(&mut self, result: CheckResult, manual: bool) {
+    fn finish_update_check(&mut self, result: CheckResult, manual: bool, package: Option<Package>) {
         let events = self.phase3.system.events.clone();
         match self.phase3.system.tracker.finish(result, manual) {
             Outcome::Nothing => {}
@@ -352,8 +475,11 @@ impl Core {
                     message_box(&msg, &detail, &ok);
                 });
             }
+            Outcome::Offer(rel) if package.is_some() => {
+                self.start_download(&rel.version, package.unwrap(), manual);
+            }
             Outcome::Offer(rel) => {
-                // The new version is downloaded by hand from its release page (no in-app installer yet).
+                // macOS, deb/rpm, unpacked folder: the new version is downloaded by hand from its release page.
                 let msg = t_args("updates.available", &[("version", &rel.version)]);
                 let detail = t_args("updates.availableDetail", &[("current", VERSION)]);
                 let buttons = vec![t("updates.download"), t("updates.later")];
@@ -494,7 +620,31 @@ pub(super) fn tick(core: &mut Core) {
     let events: Vec<Event> = core.phase3.system.events.lock().map(|mut q| std::mem::take(&mut *q)).unwrap_or_default();
     for e in events {
         match e {
-            Event::Check(result, manual) => core.finish_update_check(result, manual),
+            Event::Check(result, manual, package) => core.finish_update_check(result, manual, package),
+            Event::Downloaded(version, manual, result) => {
+                let st = &mut core.phase3.system;
+                st.tracker.downloading = None;
+                match result {
+                    Ok(file) => {
+                        st.tracker.downloaded = Some(version.clone());
+                        st.pending = Some(Pending { file, kind: install_kind(), relaunch: false });
+                        core.offer_restart(&version);
+                    }
+                    Err(e) => {
+                        eprintln!("[updates] download failed: {e}");
+                        st.tracker.forget_offer();
+                        if manual {
+                            core.message_async(t("updates.failed"), t("updates.failedDetail"));
+                        }
+                    }
+                }
+            }
+            Event::Restart => {
+                if let Some(p) = core.phase3.system.pending.as_mut() {
+                    p.relaunch = true;
+                    core.quit_now();
+                }
+            }
             Event::OpenPage(url) => {
                 core.open_tab(&url, OpenOptions { activate: true, after_tab_id: None, opener_id: None });
                 core.send(Cmd::ShowMain);

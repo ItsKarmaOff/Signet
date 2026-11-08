@@ -23,6 +23,11 @@ pub trait Http: Send + Sync {
     /// GET with headers; HTTP error statuses are returned as responses, only transport failures are errors.
     fn get(&self, url: &str, headers: &[(&str, &str)], timeout: Duration, max_bytes: usize) -> Result<Response, String>;
 
+    /// GET streamed into a file (large downloads); returns the HTTP status. The file is only complete for 2xx.
+    fn download(&self, _url: &str, _dest: &std::path::Path) -> Result<u16, String> {
+        Err("download not supported".into())
+    }
+
     /// POST of a form-encoded body.
     fn post_form(&self, _url: &str, _body: &str, _timeout: Duration, _max_bytes: usize) -> Result<Response, String> {
         Err("POST not supported".into())
@@ -33,6 +38,20 @@ pub trait Http: Send + Sync {
 pub struct UreqHttp;
 
 impl Http for UreqHttp {
+    fn download(&self, url: &str, dest: &std::path::Path) -> Result<u16, String> {
+        // No overall timeout (the file is large): connect and each read have one.
+        let agent = ureq::AgentBuilder::new().timeout_connect(Duration::from_secs(15)).timeout_read(Duration::from_secs(60)).build();
+        let resp = match agent.get(url).set("user-agent", "Signet-update").call() {
+            Ok(r) => r,
+            Err(ureq::Error::Status(code, _)) => return Ok(code),
+            Err(e) => return Err(e.to_string()),
+        };
+        let status = resp.status();
+        let mut file = std::fs::File::create(dest).map_err(|e| e.to_string())?;
+        std::io::copy(&mut resp.into_reader(), &mut file).map_err(|e| e.to_string())?;
+        Ok(status)
+    }
+
     fn post_form(&self, url: &str, body: &str, timeout: Duration, max_bytes: usize) -> Result<Response, String> {
         let agent = ureq::AgentBuilder::new().timeout(timeout).build();
         let resp = match agent.post(url).set("content-type", "application/x-www-form-urlencoded;charset=UTF-8").send_string(body) {
