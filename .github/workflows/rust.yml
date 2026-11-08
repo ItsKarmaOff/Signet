@@ -73,8 +73,11 @@ jobs:
           rustup default "$RUST_TOOLCHAIN"
           rustc --version
 
-      - name: Cache cargo and CEF
-        uses: actions/cache@v5
+      # Restore, then save at the very end even when a step failed: a first build that stops at a failing test or
+      # self-test would otherwise throw its 40 minutes of compilation away. A run saves under its own id (caches are
+      # immutable), later runs restore the newest one through the prefix.
+      - name: Restore the cargo and CEF cache
+        uses: actions/cache/restore@v5
         with:
           path: |
             ~/.cargo/registry/index
@@ -82,8 +85,9 @@ jobs:
             ~/.cargo/git/db
             app/desktop-rs/target
             ${{ env.CEF_PATH }}
-          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-${{ github.run_id }}
           restore-keys: |
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-
             rust-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Tests
@@ -170,3 +174,15 @@ jobs:
             app/desktop-rs/dist/signet-windows
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Save the cargo and CEF cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            app/desktop-rs/target
+            ${{ env.CEF_PATH }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-${{ github.run_id }}

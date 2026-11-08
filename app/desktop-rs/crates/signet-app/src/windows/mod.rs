@@ -8,6 +8,8 @@
 //!   of the main one (`addChildWindow:`), so they move and order with it.
 //! - Secondary windows (Settings, Library, Welcome) are ordinary windows opened once and focused when asked again.
 
+// "aux" is a reserved device name on Windows: the file cannot be called aux.rs there.
+#[path = "aux_window.rs"]
 pub mod aux;
 pub mod factory;
 pub mod host;
