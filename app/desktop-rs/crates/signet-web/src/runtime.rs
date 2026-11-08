@@ -227,6 +227,14 @@ fn default_helper_path() -> PathBuf {
                 .join(helper);
         }
     }
+    // Linux and Windows: the helper sits next to the app (see the bundle scripts). Without it, the app re-runs itself.
+    #[cfg(not(target_os = "macos"))]
+    {
+        let name = if cfg!(windows) { "signet-helper.exe" } else { "signet-helper" };
+        if let Some(helper) = exe.parent().map(|d| d.join(name)).filter(|p| p.exists()) {
+            return helper;
+        }
+    }
     exe
 }
 

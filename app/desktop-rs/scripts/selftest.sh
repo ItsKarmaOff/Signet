@@ -104,5 +104,12 @@ grep -E "^\[selftest" "$WORK/run.log"
 echo "log: $WORK/run.log"
 # Exit status for CI: any FAIL line, or no result at all, fails the run.
 if ! grep -q "^\[selftest\] PASS" "$WORK/run.log"; then echo "selftest: no PASS line, the app did not run"; exit 1; fi
-if grep -q "^\[selftest\] FAIL" "$WORK/run.log"; then echo "selftest: $(grep -c '^\[selftest\] FAIL' "$WORK/run.log") failure(s)"; exit 1; fi
+# ALLOW_FAIL: extended regex of check names that may fail in this environment (listed, not hidden). CI uses it for
+# the checks that need a key window on a runner whose session never focuses the app.
+FAILS="$(grep "^\[selftest\] FAIL" "$WORK/run.log")"
+if [ -n "${ALLOW_FAIL:-}" ] && [ -n "$FAILS" ]; then
+  echo "$FAILS" | grep -E "^\[selftest\] FAIL ($ALLOW_FAIL) " | sed 's/^/known environment limit: /'
+  FAILS="$(echo "$FAILS" | grep -vE "^\[selftest\] FAIL ($ALLOW_FAIL) ")"
+fi
+if [ -n "$FAILS" ]; then echo "selftest: $(echo "$FAILS" | wc -l | tr -d ' ') failure(s)"; exit 1; fi
 exit 0

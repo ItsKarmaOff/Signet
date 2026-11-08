@@ -37,6 +37,12 @@ fn env_flag(name: &str) -> bool {
 }
 
 fn main() {
+    // A CEF subprocess started from this very executable (no helper next to it): never run the app logic (data
+    // folder, single instance forwarding) in it.
+    #[cfg(not(target_os = "macos"))]
+    if std::env::args().any(|a| a.starts_with("--type=")) {
+        std::process::exit(signet_web::run_subprocess());
+    }
     // CEF child windows are X11 windows: on a Wayland session, run through XWayland (same as the Linux launcher).
     #[cfg(target_os = "linux")]
     if std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var_os("DISPLAY").is_some() {

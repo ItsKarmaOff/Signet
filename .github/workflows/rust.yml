@@ -133,6 +133,8 @@ jobs:
         env:
           WORK: ${{ runner.temp }}/selftest
           TIMEOUT: gtimeout
+          # The runner session never gives the app a key window: these checks need one.
+          ALLOW_FAIL: spaceform\.key_window|spaceform\.typing|sidebar\.toggle|sidebar\.restore|win\.welcome
         run: |
           mkdir -p "$WORK"
           ( sleep 60; screencapture -x "$WORK/screenshot.png" ) >/dev/null 2>&1 &

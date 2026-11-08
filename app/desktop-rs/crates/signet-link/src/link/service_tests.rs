@@ -83,7 +83,9 @@ impl Phone {
 
     /// Next message; None if the connection closes before. Panics after the timeout.
     async fn next(&mut self) -> Option<LinkMessage> {
-        self.next_within(3000).await.expect("no message")
+        // Windows takes about a second per refused connection (IPv4 then IPv6), so the closed-port tests need more time.
+        let ms = if cfg!(windows) { 10_000 } else { 3000 };
+        self.next_within(ms).await.expect("no message")
     }
 
     async fn next_within(&mut self, ms: u64) -> Result<Option<LinkMessage>, ()> {
@@ -242,7 +244,7 @@ async fn pairing_opens_listening_and_cancelling_closes_it() {
     assert_eq!(h.service.port(), Some(offer.port));
     assert_eq!(*h.hooks.listening.lock(), vec![Some(offer.port)]);
     h.service.cancel_pairing();
-    wait_for(|| h.service.port().is_none()).await;
+    wait_for(|| h.service.port().is_none() && h.hooks.listening.lock().last() == Some(&None)).await;
     assert_eq!(h.hooks.listening.lock().last(), Some(&None));
 }
 
