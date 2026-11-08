@@ -1,0 +1,47 @@
+[package]
+name = "signet-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+cef = { workspace = true }
+serde_json = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+raw-window-handle = "0.6"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+block2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+x11-dl = "2"
+
+[dependencies.gpui]
+package = "gpui-pre"
+version = "=0.3.11"
+optional = true
+
+[dependencies.futures]
+version = "0.3"
+optional = true
+
+[features]
+default = []
+# Pump driven by the GPUI foreground executor (see `signet_web::gpui_pump`).
+gpui = ["dep:gpui", "dep:futures"]
+
+[dev-dependencies]
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+
+[[example]]
+name = "webcheck"
+required-features = ["gpui"]

@@ -1,0 +1,43 @@
+:host { all: initial }
+.root { position: fixed; inset: 0; overflow-y: auto; overscroll-behavior: contain; background: var(--bg); color: var(--text);
+  --bg: #fff; --text: #1d1d1f; --muted: #6e6e73; --line: rgb(0 0 0 / .1); --link: #0a66d6; --bar: rgb(255 255 255 / .82); --btn: rgb(0 0 0 / .05);
+  font-size: var(--size); -webkit-font-smoothing: antialiased; color-scheme: light; outline: none }
+.root[data-theme="sepia"] { --bg: #f6eedd; --text: #4b3b29; --muted: #8a7559; --line: rgb(75 59 41 / .16); --link: #9a5418; --bar: rgb(246 238 221 / .85); --btn: rgb(75 59 41 / .07) }
+.root[data-theme="dark"] { --bg: #1c1c1e; --text: #e8e8ed; --muted: #98989f; --line: rgb(255 255 255 / .12); --link: #6cb4ff; --bar: rgb(28 28 30 / .82); --btn: rgb(255 255 255 / .08); color-scheme: dark }
+@media (prefers-color-scheme: dark) {
+  .root[data-theme="auto"] { --bg: #1c1c1e; --text: #e8e8ed; --muted: #98989f; --line: rgb(255 255 255 / .12); --link: #6cb4ff; --bar: rgb(28 28 30 / .82); --btn: rgb(255 255 255 / .08); color-scheme: dark }
+}
+.bar { position: sticky; top: 0; z-index: 1; display: flex; gap: 6px; align-items: center; justify-content: center; padding: 8px 12px;
+  background: var(--bar); backdrop-filter: saturate(1.6) blur(18px); border-bottom: .5px solid var(--line);
+  font: 13px/1 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; opacity: .55; transition: opacity .15s }
+.bar:hover, .bar:focus-within { opacity: 1 }
+.group { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--btn) }
+button { all: unset; box-sizing: border-box; height: 26px; min-width: 30px; padding: 0 9px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center;
+  gap: 6px; color: var(--text); cursor: default; font: inherit; white-space: nowrap }
+button:hover { background: var(--btn) }
+button:active { transform: scale(.97) }
+button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px }
+button[aria-pressed="true"] { background: var(--bg); box-shadow: 0 0 0 .5px var(--line), 0 1px 2px rgb(0 0 0 / .12) }
+.small { font-size: 12px } .big { font-size: 16px }
+.dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .18) }
+.close { margin-left: 8px }
+article { box-sizing: border-box; max-width: var(--measure); margin: 0 auto; padding: 48px 24px 96px; line-height: 1.6 }
+.root[data-width="narrow"] { --measure: 34em } .root[data-width="normal"] { --measure: 40em } .root[data-width="wide"] { --measure: 50em }
+.root[data-font="serif"] article { font-family: ui-serif, "New York", "Iowan Old Style", Charter, Georgia, serif }
+.root[data-font="sans"] article { font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif }
+.site { font: 600 .72em/1.3 -apple-system, BlinkMacSystemFont, system-ui, sans-serif; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: .8em }
+h1.title { font-size: 1.9em; line-height: 1.15; letter-spacing: -.012em; margin: 0 0 .45em }
+.meta { color: var(--muted); font-size: .82em; margin-bottom: 2.2em; padding-bottom: 1.6em; border-bottom: .5px solid var(--line) }
+.content h1, .content h2, .content h3, .content h4 { line-height: 1.25; margin: 1.6em 0 .5em }
+.content h1 { font-size: 1.5em } .content h2 { font-size: 1.32em } .content h3 { font-size: 1.14em } .content h4 { font-size: 1em }
+.content p, .content ul, .content ol, .content blockquote, .content figure, .content table, .content pre { margin: 0 0 1.05em }
+.content a { color: var(--link); text-decoration: none } .content a:hover { text-decoration: underline }
+.content img, .content video, .content picture, .content svg { max-width: 100%; height: auto; border-radius: 6px; display: block; margin: 1.2em auto }
+.content figcaption { color: var(--muted); font-size: .8em; text-align: center; margin-top: .5em }
+.content blockquote { border-left: 3px solid var(--line); margin-left: 0; padding-left: 1em; color: var(--muted) }
+.content pre, .content code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .86em }
+.content pre { background: var(--btn); padding: .9em 1em; border-radius: 8px; overflow-x: auto; line-height: 1.45 }
+.content table { border-collapse: collapse; display: block; overflow-x: auto; font-size: .88em }
+.content td, .content th { border: .5px solid var(--line); padding: .35em .6em }
+.content hr { border: 0; border-top: .5px solid var(--line); margin: 2em 0 }
+@media (prefers-reduced-motion: reduce) { .bar { transition: none } button:active { transform: none } }

@@ -1,0 +1,29 @@
+[package]
+name = "signet-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpui.workspace = true
+gpui-component.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+rust-embed = "8"
+smallvec = "1"
+gpui-kit-assets = "0.9"
+signet-core.workspace = true
+signet-pages.workspace = true
+futures = "0.3"
+base64 = "0.22"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico"] }
+url = "2"
+
+[dev-dependencies]
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+
+[[example]]
+name = "gallery"
+path = "examples/gallery.rs"

@@ -1,0 +1,42 @@
+[package]
+name = "signet-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "signet"
+path = "src/main.rs"
+
+[dependencies]
+signet-core = { workspace = true }
+signet-features = { workspace = true }
+signet-pages = { workspace = true }
+signet-scripts = { workspace = true }
+signet-link = { workspace = true }
+signet-extensions = { workspace = true }
+signet-ui = { workspace = true }
+signet-web = { workspace = true, features = ["gpui"] }
+gpui = { workspace = true }
+gpui-component = { workspace = true }
+gpui_platform = { workspace = true }
+raw-window-handle = "0.6"
+futures = "0.3"
+indexmap = { version = "2", features = ["serde"] }
+serde_json = { workspace = true }
+serde = { workspace = true }
+dirs = { workspace = true }
+anyhow = { workspace = true }
+url = { workspace = true }
+chrono = { workspace = true }
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = "0.3"
+objc2-foundation = "0.3"
+
+[dev-dependencies]
+tempfile = "3"

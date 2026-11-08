@@ -21,3 +21,9 @@ coverage/
 *.p12
 *.mobileprovision
 *.signetbackup
+
+# Rust desktop app (app/desktop-rs)
+app/desktop-rs/target/
+app/desktop-rs/**/target-*/
+app/desktop-rs/**/.cache/
+app/desktop-rs/dist/

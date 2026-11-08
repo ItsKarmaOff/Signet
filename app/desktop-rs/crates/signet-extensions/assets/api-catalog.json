@@ -1,0 +1,2310 @@
+{
+ "action": {
+  "permissions": [],
+  "methods": [
+   "getBadgeBackgroundColor",
+   "getBadgeText",
+   "getPopup",
+   "getTitle",
+   "setBadgeBackgroundColor",
+   "setBadgeText",
+   "setIcon",
+   "setPopup",
+   "setTitle",
+   "disable",
+   "enable",
+   "getBadgeTextColor",
+   "getUserSettings",
+   "isEnabled",
+   "openPopup",
+   "setBadgeTextColor"
+  ],
+  "events": [
+   "onClicked",
+   "onUserSettingsChanged"
+  ],
+  "manifestKey": "action"
+ },
+ "alarms": {
+  "permissions": [
+   "alarms"
+  ],
+  "methods": [
+   "clear",
+   "clearAll",
+   "create",
+   "get",
+   "getAll"
+  ],
+  "events": [
+   "onAlarm"
+  ],
+  "soft": {
+   "getAll": []
+  }
+ },
+ "commands": {
+  "permissions": [],
+  "methods": [
+   "getAll"
+  ],
+  "events": [
+   "onCommand"
+  ],
+  "manifestKey": "commands",
+  "soft": {
+   "getAll": []
+  }
+ },
+ "contextMenus": {
+  "permissions": [
+   "contextMenus"
+  ],
+  "methods": [
+   "create",
+   "remove",
+   "removeAll",
+   "update"
+  ],
+  "events": [
+   "onClicked"
+  ],
+  "constants": {
+   "ACTION_MENU_TOP_LEVEL_LIMIT": 6
+  }
+ },
+ "cookies": {
+  "permissions": [
+   "cookies"
+  ],
+  "methods": [
+   "get",
+   "getAll",
+   "getAllCookieStores",
+   "remove",
+   "set"
+  ],
+  "events": [
+   "onChanged"
+  ]
+ },
+ "declarativeNetRequest": {
+  "permissions": [
+   "declarativeNetRequest",
+   "declarativeNetRequestWithHostAccess",
+   "declarativeNetRequestFeedback"
+  ],
+  "methods": [
+   "getAvailableStaticRuleCount",
+   "getDisabledRuleIds",
+   "getDynamicRules",
+   "getEnabledRulesets",
+   "getMatchedRules",
+   "getSessionRules",
+   "isRegexSupported",
+   "setExtensionActionOptions",
+   "testMatchOutcome",
+   "updateDynamicRules",
+   "updateEnabledRulesets",
+   "updateSessionRules",
+   "updateStaticRules"
+  ],
+  "events": [
+   "onRuleMatchedDebug"
+  ],
+  "constants": {
+   "DYNAMIC_RULESET_ID": "_dynamic",
+   "SESSION_RULESET_ID": "_session",
+   "GETMATCHEDRULES_QUOTA_INTERVAL": 10,
+   "MAX_GETMATCHEDRULES_CALLS_PER_INTERVAL": 20,
+   "GUARANTEED_MINIMUM_STATIC_RULES": 30000,
+   "MAX_NUMBER_OF_DYNAMIC_RULES": 30000,
+   "MAX_NUMBER_OF_UNSAFE_DYNAMIC_RULES": 5000,
+   "MAX_NUMBER_OF_SESSION_RULES": 5000,
+   "MAX_NUMBER_OF_UNSAFE_SESSION_RULES": 5000,
+   "MAX_NUMBER_OF_REGEX_RULES": 1000,
+   "MAX_NUMBER_OF_STATIC_RULESETS": 100,
+   "MAX_NUMBER_OF_ENABLED_STATIC_RULESETS": 50
+  }
+ },
+ "downloads": {
+  "permissions": [
+   "downloads",
+   "downloads.open",
+   "downloads.ui",
+   "downloads.shelf"
+  ],
+  "methods": [
+   "acceptDanger",
+   "cancel",
+   "download",
+   "erase",
+   "getFileIcon",
+   "open",
+   "pause",
+   "removeFile",
+   "resume",
+   "search",
+   "setShelfEnabled",
+   "setUiOptions",
+   "show",
+   "showDefaultFolder"
+  ],
+  "events": [
+   "onChanged",
+   "onCreated",
+   "onDeterminingFilename",
+   "onErased"
+  ],
+  "soft": {
+   "search": []
+  }
+ },
+ "i18n": {
+  "permissions": [],
+  "methods": [
+   "detectLanguage",
+   "getAcceptLanguages",
+   "getMessage",
+   "getUILanguage"
+  ],
+  "events": []
+ },
+ "notifications": {
+  "permissions": [
+   "notifications"
+  ],
+  "methods": [
+   "clear",
+   "create",
+   "getAll",
+   "getPermissionLevel",
+   "update"
+  ],
+  "events": [
+   "onButtonClicked",
+   "onClicked",
+   "onClosed",
+   "onPermissionLevelChanged",
+   "onShowSettings"
+  ],
+  "soft": {
+   "getAll": {}
+  }
+ },
+ "offscreen": {
+  "permissions": [
+   "offscreen"
+  ],
+  "methods": [
+   "closeDocument",
+   "createDocument",
+   "hasDocument"
+  ],
+  "events": []
+ },
+ "permissions": {
+  "permissions": [],
+  "methods": [
+   "addHostAccessRequest",
+   "contains",
+   "getAll",
+   "remove",
+   "removeHostAccessRequest",
+   "request"
+  ],
+  "events": [
+   "onAdded",
+   "onRemoved"
+  ]
+ },
+ "privacy": {
+  "permissions": [
+   "privacy"
+  ],
+  "methods": [],
+  "events": [],
+  "children": {
+   "network": {
+    "permissions": [
+     "privacy"
+    ],
+    "methods": [],
+    "events": [],
+    "children": {
+     "networkPredictionEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "webRTCIPHandlingPolicy": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "webRTCMultipleRoutesEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "webRTCNonProxiedUdpEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     }
+    }
+   },
+   "services": {
+    "permissions": [
+     "privacy"
+    ],
+    "methods": [],
+    "events": [],
+    "children": {
+     "alternateErrorPagesEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "autofillAddressEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "autofillCreditCardEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "autofillEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "hotwordSearchEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "passwordSavingEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "safeBrowsingEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "safeBrowsingExtendedReportingEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "searchSuggestEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "spellingServiceEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "translationServiceEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     }
+    }
+   },
+   "websites": {
+    "permissions": [
+     "privacy"
+    ],
+    "methods": [],
+    "events": [],
+    "children": {
+     "adMeasurementEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "doNotTrackEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "fledgeEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "hyperlinkAuditingEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "protectedContentEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "referrersEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "relatedWebsiteSetsEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "thirdPartyCookiesAllowed": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     },
+     "topicsEnabled": {
+      "permissions": [
+       "privacy"
+      ],
+      "methods": [
+       "get",
+       "set",
+       "clear"
+      ],
+      "events": [
+       "onChange"
+      ]
+     }
+    }
+   }
+  }
+ },
+ "proxy": {
+  "permissions": [
+   "proxy"
+  ],
+  "methods": [],
+  "events": [
+   "onProxyError"
+  ],
+  "children": {
+   "settings": {
+    "permissions": [
+     "proxy"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   }
+  }
+ },
+ "runtime": {
+  "permissions": [],
+  "methods": [
+   "connect",
+   "connectNative",
+   "getBackgroundPage",
+   "getContexts",
+   "getManifest",
+   "getPackageDirectoryEntry",
+   "getPlatformInfo",
+   "getURL",
+   "openOptionsPage",
+   "reload",
+   "requestUpdateCheck",
+   "restart",
+   "restartAfterDelay",
+   "sendMessage",
+   "sendNativeMessage",
+   "setUninstallURL"
+  ],
+  "events": [
+   "onBrowserUpdateAvailable",
+   "onConnect",
+   "onConnectExternal",
+   "onConnectNative",
+   "onInstalled",
+   "onMessage",
+   "onMessageExternal",
+   "onRestartRequired",
+   "onStartup",
+   "onSuspend",
+   "onSuspendCanceled",
+   "onUpdateAvailable",
+   "onUserScriptConnect",
+   "onUserScriptMessage"
+  ],
+  "constants": {
+   "id": "",
+   "ContextType": {},
+   "OnInstalledReason": {},
+   "OnRestartRequiredReason": {},
+   "PlatformArch": {},
+   "PlatformNaclArch": {},
+   "PlatformOs": {},
+   "RequestUpdateCheckStatus": {}
+  }
+ },
+ "scripting": {
+  "permissions": [
+   "scripting"
+  ],
+  "methods": [
+   "executeScript",
+   "getRegisteredContentScripts",
+   "insertCSS",
+   "registerContentScripts",
+   "removeCSS",
+   "unregisterContentScripts",
+   "updateContentScripts"
+  ],
+  "events": [],
+  "constants": {
+   "ExecutionWorld": {},
+   "StyleOrigin": {}
+  }
+ },
+ "storage": {
+  "permissions": [
+   "storage"
+  ],
+  "methods": [],
+  "events": [
+   "onChanged"
+  ],
+  "children": {
+   "local": {
+    "permissions": [
+     "storage"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getBytesInUse",
+     "getKeys",
+     "remove",
+     "set",
+     "setAccessLevel"
+    ],
+    "events": [
+     "onChanged"
+    ],
+    "constants": {
+     "QUOTA_BYTES": 10485760
+    }
+   },
+   "sync": {
+    "permissions": [
+     "storage"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getBytesInUse",
+     "getKeys",
+     "remove",
+     "set"
+    ],
+    "events": [
+     "onChanged"
+    ],
+    "constants": {
+     "QUOTA_BYTES": 102400,
+     "QUOTA_BYTES_PER_ITEM": 8192,
+     "MAX_ITEMS": 512,
+     "MAX_WRITE_OPERATIONS_PER_HOUR": 1800,
+     "MAX_WRITE_OPERATIONS_PER_MINUTE": 120
+    }
+   },
+   "session": {
+    "permissions": [
+     "storage"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getBytesInUse",
+     "getKeys",
+     "remove",
+     "set",
+     "setAccessLevel"
+    ],
+    "events": [
+     "onChanged"
+    ],
+    "constants": {
+     "QUOTA_BYTES": 10485760
+    }
+   },
+   "managed": {
+    "permissions": [
+     "storage"
+    ],
+    "methods": [
+     "get",
+     "getBytesInUse",
+     "getKeys"
+    ],
+    "events": [
+     "onChanged"
+    ]
+   }
+  }
+ },
+ "tabs": {
+  "permissions": [],
+  "methods": [
+   "captureVisibleTab",
+   "connect",
+   "create",
+   "detectLanguage",
+   "discard",
+   "duplicate",
+   "get",
+   "getCurrent",
+   "getZoom",
+   "getZoomSettings",
+   "goBack",
+   "goForward",
+   "group",
+   "highlight",
+   "insertCSS",
+   "move",
+   "query",
+   "reload",
+   "remove",
+   "removeCSS",
+   "sendMessage",
+   "setZoom",
+   "setZoomSettings",
+   "toggleReaderMode",
+   "ungroup",
+   "update"
+  ],
+  "events": [
+   "onActivated",
+   "onAttached",
+   "onCreated",
+   "onDetached",
+   "onHighlighted",
+   "onMoved",
+   "onRemoved",
+   "onReplaced",
+   "onUpdated",
+   "onZoomChange"
+  ],
+  "constants": {
+   "TAB_ID_NONE": -1,
+   "TAB_INDEX_NONE": -1,
+   "MAX_CAPTURE_VISIBLE_TAB_CALLS_PER_SECOND": 2,
+   "TabStatus": {},
+   "WindowType": {},
+   "ZoomSettingsMode": {},
+   "ZoomSettingsScope": {}
+  }
+ },
+ "webNavigation": {
+  "permissions": [
+   "webNavigation"
+  ],
+  "methods": [
+   "getAllFrames",
+   "getFrame"
+  ],
+  "events": [
+   "onBeforeNavigate",
+   "onCommitted",
+   "onCompleted",
+   "onCreatedNavigationTarget",
+   "onDOMContentLoaded",
+   "onErrorOccurred",
+   "onHistoryStateUpdated",
+   "onReferenceFragmentUpdated",
+   "onTabReplaced"
+  ]
+ },
+ "webRequest": {
+  "permissions": [
+   "webRequest",
+   "webRequestBlocking",
+   "webRequestAuthProvider"
+  ],
+  "methods": [
+   "handlerBehaviorChanged"
+  ],
+  "events": [
+   "onActionIgnored",
+   "onAuthRequired",
+   "onBeforeRedirect",
+   "onBeforeRequest",
+   "onBeforeSendHeaders",
+   "onCompleted",
+   "onErrorOccurred",
+   "onHeadersReceived",
+   "onResponseStarted",
+   "onSendHeaders"
+  ],
+  "constants": {
+   "MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES": 20
+  }
+ },
+ "windows": {
+  "permissions": [],
+  "methods": [
+   "create",
+   "get",
+   "getAll",
+   "getCurrent",
+   "getLastFocused",
+   "remove",
+   "update"
+  ],
+  "events": [
+   "onBoundsChanged",
+   "onCreated",
+   "onFocusChanged",
+   "onRemoved"
+  ],
+  "constants": {
+   "WINDOW_ID_NONE": -1,
+   "WINDOW_ID_CURRENT": -2,
+   "CreateType": {},
+   "WindowState": {},
+   "WindowType": {}
+  }
+ },
+ "bookmarks": {
+  "permissions": [
+   "bookmarks"
+  ],
+  "methods": [
+   "create",
+   "get",
+   "getChildren",
+   "getRecent",
+   "getSubTree",
+   "getTree",
+   "move",
+   "remove",
+   "removeTree",
+   "search",
+   "update"
+  ],
+  "events": [
+   "onChanged",
+   "onChildrenReordered",
+   "onCreated",
+   "onImportBegan",
+   "onImportEnded",
+   "onMoved",
+   "onRemoved"
+  ],
+  "constants": {
+   "MAX_WRITE_OPERATIONS_PER_HOUR": 1000000,
+   "MAX_SUSTAINED_WRITE_OPERATIONS_PER_MINUTE": 1000000
+  }
+ },
+ "browsingData": {
+  "permissions": [
+   "browsingData"
+  ],
+  "methods": [
+   "remove",
+   "removeAppcache",
+   "removeCache",
+   "removeCacheStorage",
+   "removeCookies",
+   "removeDownloads",
+   "removeFileSystems",
+   "removeFormData",
+   "removeHistory",
+   "removeIndexedDB",
+   "removeLocalStorage",
+   "removePasswords",
+   "removePluginData",
+   "removeServiceWorkers",
+   "removeWebSQL",
+   "settings"
+  ],
+  "events": []
+ },
+ "contentSettings": {
+  "permissions": [
+   "contentSettings"
+  ],
+  "methods": [],
+  "events": [],
+  "children": {
+   "automaticDownloads": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "autoVerify": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "camera": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "clipboard": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "cookies": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "fullscreen": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "images": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "javascript": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "location": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "microphone": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "mouselock": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "notifications": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "plugins": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "popups": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   },
+   "unsandboxedPlugins": {
+    "permissions": [
+     "contentSettings"
+    ],
+    "methods": [
+     "clear",
+     "get",
+     "getResourceIdentifiers",
+     "set"
+    ],
+    "events": []
+   }
+  }
+ },
+ "declarativeContent": {
+  "permissions": [
+   "declarativeContent"
+  ],
+  "methods": [],
+  "events": [
+   "onPageChanged"
+  ],
+  "declarativeEvents": [
+   "onPageChanged"
+  ],
+  "classes": [
+   "PageStateMatcher",
+   "RequestContentScript",
+   "SetIcon",
+   "ShowAction",
+   "ShowPageAction"
+  ]
+ },
+ "desktopCapture": {
+  "permissions": [
+   "desktopCapture"
+  ],
+  "methods": [
+   "cancelChooseDesktopMedia",
+   "chooseDesktopMedia"
+  ],
+  "events": []
+ },
+ "devtools": {
+  "permissions": [],
+  "methods": [],
+  "events": [],
+  "manifestKey": "devtools_page",
+  "children": {
+   "inspectedWindow": {
+    "permissions": [],
+    "methods": [
+     "eval",
+     "getResources",
+     "reload"
+    ],
+    "events": [
+     "onResourceAdded",
+     "onResourceContentCommitted"
+    ],
+    "manifestKey": "devtools_page",
+    "constants": {
+     "tabId": 0
+    }
+   },
+   "network": {
+    "permissions": [],
+    "methods": [
+     "getHAR"
+    ],
+    "events": [
+     "onNavigated",
+     "onRequestFinished"
+    ],
+    "manifestKey": "devtools_page"
+   },
+   "panels": {
+    "permissions": [],
+    "methods": [
+     "create",
+     "openResource",
+     "setOpenResourceHandler"
+    ],
+    "events": [],
+    "manifestKey": "devtools_page",
+    "constants": {
+     "themeName": "",
+     "elements": {},
+     "sources": {}
+    }
+   },
+   "performance": {
+    "permissions": [],
+    "methods": [],
+    "events": [
+     "onProfilingStarted",
+     "onProfilingStopped"
+    ],
+    "manifestKey": "devtools_page"
+   },
+   "recorder": {
+    "permissions": [],
+    "methods": [
+     "registerRecorderExtensionPlugin"
+    ],
+    "events": [],
+    "manifestKey": "devtools_page"
+   }
+  }
+ },
+ "dns": {
+  "permissions": [
+   "dns"
+  ],
+  "methods": [
+   "resolve"
+  ],
+  "events": []
+ },
+ "dom": {
+  "permissions": [],
+  "methods": [
+   "openOrClosedShadowRoot"
+  ],
+  "events": [],
+  "contentScriptOnly": true
+ },
+ "extension": {
+  "permissions": [],
+  "methods": [
+   "getBackgroundPage",
+   "getURL",
+   "getViews",
+   "isAllowedFileSchemeAccess",
+   "isAllowedIncognitoAccess"
+  ],
+  "events": [],
+  "soft": {
+   "getViews": []
+  },
+  "constants": {
+   "inIncognitoContext": false,
+   "ViewType": {}
+  }
+ },
+ "fontSettings": {
+  "permissions": [
+   "fontSettings"
+  ],
+  "methods": [
+   "clearDefaultFixedFontSize",
+   "clearDefaultFontSize",
+   "clearFont",
+   "clearMinimumFontSize",
+   "getDefaultFixedFontSize",
+   "getDefaultFontSize",
+   "getFont",
+   "getFontList",
+   "getMinimumFontSize",
+   "setDefaultFixedFontSize",
+   "setDefaultFontSize",
+   "setFont",
+   "setMinimumFontSize"
+  ],
+  "events": [
+   "onDefaultFixedFontSizeChanged",
+   "onDefaultFontSizeChanged",
+   "onFontChanged",
+   "onMinimumFontSizeChanged"
+  ],
+  "soft": {
+   "getFontList": []
+  }
+ },
+ "history": {
+  "permissions": [
+   "history"
+  ],
+  "methods": [
+   "addUrl",
+   "deleteAll",
+   "deleteRange",
+   "deleteUrl",
+   "getVisits",
+   "search"
+  ],
+  "events": [
+   "onVisitRemoved",
+   "onVisited"
+  ],
+  "soft": {
+   "search": [],
+   "getVisits": []
+  }
+ },
+ "identity": {
+  "permissions": [
+   "identity"
+  ],
+  "methods": [
+   "clearAllCachedAuthTokens",
+   "getAccounts",
+   "getAuthToken",
+   "getProfileUserInfo",
+   "getRedirectURL",
+   "launchWebAuthFlow",
+   "removeCachedAuthToken"
+  ],
+  "events": [
+   "onSignInChanged"
+  ]
+ },
+ "idle": {
+  "permissions": [
+   "idle"
+  ],
+  "methods": [
+   "queryState",
+   "setDetectionInterval"
+  ],
+  "events": [
+   "onStateChanged"
+  ]
+ },
+ "management": {
+  "permissions": [
+   "management"
+  ],
+  "methods": [
+   "createAppShortcut",
+   "generateAppForLink",
+   "get",
+   "getAll",
+   "getPermissionWarningsById",
+   "getPermissionWarningsByManifest",
+   "getSelf",
+   "installReplacementWebApp",
+   "launchApp",
+   "setEnabled",
+   "setLaunchType",
+   "uninstall",
+   "uninstallSelf"
+  ],
+  "events": [
+   "onDisabled",
+   "onEnabled",
+   "onInstalled",
+   "onUninstalled"
+  ]
+ },
+ "omnibox": {
+  "permissions": [],
+  "methods": [
+   "setDefaultSuggestion"
+  ],
+  "events": [
+   "onDeleteSuggestion",
+   "onInputCancelled",
+   "onInputChanged",
+   "onInputEntered",
+   "onInputStarted"
+  ],
+  "manifestKey": "omnibox"
+ },
+ "pageCapture": {
+  "permissions": [
+   "pageCapture"
+  ],
+  "methods": [
+   "saveAsMHTML"
+  ],
+  "events": []
+ },
+ "power": {
+  "permissions": [
+   "power"
+  ],
+  "methods": [
+   "releaseKeepAwake",
+   "requestKeepAwake",
+   "reportActivity"
+  ],
+  "events": []
+ },
+ "printerProvider": {
+  "permissions": [
+   "printerProvider"
+  ],
+  "methods": [],
+  "events": [
+   "onGetCapabilityRequested",
+   "onGetPrintersRequested",
+   "onGetUsbPrinterInfoRequested",
+   "onPrintRequested"
+  ],
+  "crashes": [
+   "onGetCapabilityRequested",
+   "onGetPrintersRequested",
+   "onGetUsbPrinterInfoRequested",
+   "onPrintRequested"
+  ]
+ },
+ "publicSuffix": {
+  "permissions": [
+   "publicSuffix"
+  ],
+  "methods": [],
+  "events": []
+ },
+ "search": {
+  "permissions": [
+   "search"
+  ],
+  "methods": [
+   "query"
+  ],
+  "events": []
+ },
+ "sessions": {
+  "permissions": [
+   "sessions"
+  ],
+  "methods": [
+   "getDevices",
+   "getRecentlyClosed",
+   "restore"
+  ],
+  "events": [
+   "onChanged"
+  ],
+  "soft": {
+   "getDevices": [],
+   "getRecentlyClosed": []
+  },
+  "constants": {
+   "MAX_SESSION_RESULTS": 25
+  }
+ },
+ "sidePanel": {
+  "permissions": [
+   "sidePanel"
+  ],
+  "methods": [
+   "close",
+   "getOptions",
+   "getPanelBehavior",
+   "open",
+   "setOptions",
+   "setPanelBehavior"
+  ],
+  "events": [
+   "onClosed",
+   "onOpened"
+  ],
+  "manifestKey": "side_panel"
+ },
+ "system": {
+  "permissions": [],
+  "methods": [],
+  "events": [],
+  "children": {
+   "cpu": {
+    "permissions": [
+     "system.cpu"
+    ],
+    "methods": [
+     "getInfo"
+    ],
+    "events": []
+   },
+   "display": {
+    "permissions": [
+     "system.display"
+    ],
+    "methods": [
+     "clearTouchCalibration",
+     "completeCustomTouchCalibration",
+     "getDisplayLayout",
+     "getInfo",
+     "overscanCalibrationAdjust",
+     "overscanCalibrationComplete",
+     "overscanCalibrationReset",
+     "overscanCalibrationStart",
+     "setDisplayProperties",
+     "setMirrorMode",
+     "showNativeTouchCalibration",
+     "startCustomTouchCalibration"
+    ],
+    "events": [
+     "onDisplayChanged"
+    ]
+   },
+   "memory": {
+    "permissions": [
+     "system.memory"
+    ],
+    "methods": [
+     "getInfo"
+    ],
+    "events": []
+   },
+   "storage": {
+    "permissions": [
+     "system.storage"
+    ],
+    "methods": [
+     "ejectDevice",
+     "getAvailableCapacity",
+     "getInfo"
+    ],
+    "events": [
+     "onAttached",
+     "onDetached"
+    ],
+    "soft": {
+     "getInfo": []
+    },
+    "crashes": [
+     "ejectDevice",
+     "getAvailableCapacity",
+     "getInfo",
+     "onAttached",
+     "onDetached"
+    ]
+   }
+  }
+ },
+ "tabGroups": {
+  "permissions": [
+   "tabGroups"
+  ],
+  "methods": [
+   "get",
+   "move",
+   "query",
+   "update"
+  ],
+  "events": [
+   "onCreated",
+   "onMoved",
+   "onRemoved",
+   "onUpdated"
+  ],
+  "constants": {
+   "TAB_GROUP_ID_NONE": -1,
+   "Color": {}
+  }
+ },
+ "topSites": {
+  "permissions": [
+   "topSites"
+  ],
+  "methods": [
+   "get"
+  ],
+  "events": [],
+  "soft": {
+   "get": []
+  }
+ },
+ "tts": {
+  "permissions": [
+   "tts"
+  ],
+  "methods": [
+   "getVoices",
+   "isSpeaking",
+   "pause",
+   "resume",
+   "speak",
+   "stop"
+  ],
+  "events": [
+   "onEvent"
+  ],
+  "soft": {
+   "getVoices": [],
+   "isSpeaking": false
+  }
+ },
+ "userScripts": {
+  "permissions": [
+   "userScripts"
+  ],
+  "methods": [
+   "configureWorld",
+   "execute",
+   "getScripts",
+   "getWorldConfigurations",
+   "register",
+   "resetWorldConfiguration",
+   "unregister",
+   "update"
+  ],
+  "events": [],
+  "constants": {
+   "ExecutionWorld": {}
+  }
+ },
+ "accessibilityFeatures": {
+  "permissions": [
+   "accessibilityFeatures.read",
+   "accessibilityFeatures.modify"
+  ],
+  "methods": [],
+  "events": [],
+  "children": {
+   "animationPolicy": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "autoclick": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "caretHighlight": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "cursorColor": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "cursorHighlight": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "dictation": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "dockedMagnifier": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "focusHighlight": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "highContrast": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "largeCursor": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "screenMagnifier": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "selectToSpeak": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "spokenFeedback": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "stickyKeys": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "switchAccess": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   },
+   "virtualKeyboard": {
+    "permissions": [
+     "accessibilityFeatures.read"
+    ],
+    "methods": [
+     "get",
+     "set",
+     "clear"
+    ],
+    "events": [
+     "onChange"
+    ]
+   }
+  },
+  "unsupported": true
+ },
+ "audio": {
+  "permissions": [
+   "audio"
+  ],
+  "methods": [
+   "getDevices",
+   "getMute",
+   "setActiveDevices",
+   "setMute",
+   "setProperties"
+  ],
+  "events": [
+   "onDeviceListChanged",
+   "onLevelChanged",
+   "onMuteChanged"
+  ],
+  "unsupported": true
+ },
+ "browserAction": {
+  "permissions": [],
+  "methods": [
+   "getBadgeBackgroundColor",
+   "getBadgeText",
+   "getPopup",
+   "getTitle",
+   "setBadgeBackgroundColor",
+   "setBadgeText",
+   "setIcon",
+   "setPopup",
+   "setTitle",
+   "disable",
+   "enable",
+   "getBadgeTextColor",
+   "openPopup",
+   "setBadgeTextColor"
+  ],
+  "events": [
+   "onClicked"
+  ],
+  "manifestKey": "browser_action",
+  "unsupported": true
+ },
+ "certificateProvider": {
+  "permissions": [
+   "certificateProvider"
+  ],
+  "methods": [
+   "reportSignature",
+   "requestPin",
+   "setCertificates",
+   "stopPinRequest"
+  ],
+  "events": [
+   "onCertificatesUpdateRequested",
+   "onSignatureRequested"
+  ],
+  "unsupported": true
+ },
+ "clipboard": {
+  "permissions": [
+   "clipboard"
+  ],
+  "methods": [
+   "setImageData"
+  ],
+  "events": [
+   "onClipboardDataChanged"
+  ],
+  "unsupported": true
+ },
+ "debugger": {
+  "permissions": [
+   "debugger"
+  ],
+  "methods": [
+   "attach",
+   "detach",
+   "getTargets",
+   "sendCommand"
+  ],
+  "events": [
+   "onDetach",
+   "onEvent"
+  ],
+  "unsupported": true
+ },
+ "documentScan": {
+  "permissions": [
+   "documentScan"
+  ],
+  "methods": [
+   "cancelScan",
+   "closeScanner",
+   "getOptionGroups",
+   "getScannerList",
+   "openScanner",
+   "readScanData",
+   "scan",
+   "setOptions",
+   "startScan"
+  ],
+  "events": [],
+  "unsupported": true
+ },
+ "enterprise": {
+  "permissions": [],
+  "methods": [],
+  "events": [],
+  "children": {
+   "deviceAttributes": {
+    "permissions": [
+     "enterprise.deviceAttributes"
+    ],
+    "methods": [
+     "getDeviceAnnotatedLocation",
+     "getDeviceAssetId",
+     "getDeviceHostname",
+     "getDeviceSerialNumber",
+     "getDirectoryDeviceId"
+    ],
+    "events": [],
+    "unsupported": true
+   },
+   "hardwarePlatform": {
+    "permissions": [
+     "enterprise.hardwarePlatform"
+    ],
+    "methods": [
+     "getHardwarePlatformInfo"
+    ],
+    "events": [],
+    "unsupported": true
+   },
+   "login": {
+    "permissions": [
+     "enterprise.login"
+    ],
+    "methods": [
+     "exitCurrentManagedGuestSession"
+    ],
+    "events": [],
+    "unsupported": true
+   },
+   "networkingAttributes": {
+    "permissions": [
+     "enterprise.networkingAttributes"
+    ],
+    "methods": [
+     "getNetworkDetails"
+    ],
+    "events": [],
+    "unsupported": true
+   },
+   "platformKeys": {
+    "permissions": [
+     "enterprise.platformKeys"
+    ],
+    "methods": [
+     "challengeKey",
+     "challengeMachineKey",
+     "challengeUserKey",
+     "getCertificates",
+     "getToken",
+     "importCertificate",
+     "removeCertificate"
+    ],
+    "events": [],
+    "unsupported": true
+   }
+  },
+  "unsupported": true
+ },
+ "fileBrowserHandler": {
+  "permissions": [
+   "fileBrowserHandler"
+  ],
+  "methods": [
+   "selectFile"
+  ],
+  "events": [
+   "onExecute"
+  ],
+  "unsupported": true
+ },
+ "fileSystemProvider": {
+  "permissions": [
+   "fileSystemProvider"
+  ],
+  "methods": [
+   "get",
+   "getAll",
+   "mount",
+   "notify",
+   "unmount"
+  ],
+  "events": [
+   "onAbortRequested",
+   "onGetMetadataRequested",
+   "onMountRequested",
+   "onOpenFileRequested",
+   "onReadDirectoryRequested",
+   "onReadFileRequested",
+   "onUnmountRequested"
+  ],
+  "unsupported": true
+ },
+ "gcm": {
+  "permissions": [
+   "gcm"
+  ],
+  "methods": [
+   "register",
+   "send",
+   "unregister"
+  ],
+  "events": [
+   "onMessage",
+   "onMessagesDeleted",
+   "onSendError"
+  ],
+  "constants": {
+   "MAX_MESSAGE_SIZE": 4096
+  },
+  "unsupported": true
+ },
+ "input": {
+  "permissions": [],
+  "methods": [],
+  "events": [],
+  "children": {
+   "ime": {
+    "permissions": [
+     "input"
+    ],
+    "methods": [
+     "clearComposition",
+     "commitText",
+     "deleteSurroundingText",
+     "hideInputView",
+     "sendKeyEvents",
+     "setCandidateWindowProperties",
+     "setCandidates",
+     "setComposition",
+     "setCursorPosition",
+     "setMenuItems",
+     "updateMenuItems"
+    ],
+    "events": [
+     "onActivate",
+     "onBlur",
+     "onCandidateClicked",
+     "onDeactivated",
+     "onFocus",
+     "onInputContextUpdate",
+     "onKeyEvent",
+     "onMenuItemActivated",
+     "onReset",
+     "onSurroundingTextChanged"
+    ],
+    "unsupported": true
+   }
+  },
+  "unsupported": true
+ },
+ "instanceID": {
+  "permissions": [
+   "gcm"
+  ],
+  "methods": [
+   "deleteID",
+   "deleteToken",
+   "getCreationTime",
+   "getID",
+   "getToken"
+  ],
+  "events": [
+   "onTokenRefresh"
+  ],
+  "unsupported": true
+ },
+ "loginState": {
+  "permissions": [
+   "loginState"
+  ],
+  "methods": [
+   "getProfileType",
+   "getSessionState"
+  ],
+  "events": [
+   "onSessionStateChanged"
+  ],
+  "unsupported": true
+ },
+ "mimeHandler": {
+  "permissions": [],
+  "methods": [],
+  "events": [],
+  "manifestKey": "mime_types_handler",
+  "unsupported": true
+ },
+ "pageAction": {
+  "permissions": [],
+  "methods": [
+   "getPopup",
+   "getTitle",
+   "hide",
+   "setIcon",
+   "setPopup",
+   "setTitle",
+   "show"
+  ],
+  "events": [
+   "onClicked"
+  ],
+  "manifestKey": "page_action",
+  "unsupported": true
+ },
+ "platformKeys": {
+  "permissions": [
+   "platformKeys"
+  ],
+  "methods": [
+   "getKeyPair",
+   "getKeyPairBySpki",
+   "selectClientCertificates",
+   "subtleCrypto",
+   "verifyTLSServerCertificate"
+  ],
+  "events": [],
+  "unsupported": true
+ },
+ "printing": {
+  "permissions": [
+   "printing"
+  ],
+  "methods": [
+   "cancelJob",
+   "getPrinterInfo",
+   "getPrinters",
+   "submitJob"
+  ],
+  "events": [
+   "onJobStatusChanged"
+  ],
+  "constants": {
+   "MAX_GET_PRINTER_INFO_CALLS_PER_MINUTE": 20,
+   "MAX_SUBMIT_JOB_CALLS_PER_MINUTE": 40
+  },
+  "unsupported": true
+ },
+ "printingMetrics": {
+  "permissions": [
+   "printingMetrics"
+  ],
+  "methods": [
+   "getPrintJobs"
+  ],
+  "events": [
+   "onPrintJobFinished"
+  ],
+  "unsupported": true
+ },
+ "processes": {
+  "permissions": [
+   "processes"
+  ],
+  "methods": [
+   "getProcessIdForTab",
+   "getProcessInfo",
+   "terminate"
+  ],
+  "events": [
+   "onCreated",
+   "onExited",
+   "onUnresponsive",
+   "onUpdated",
+   "onUpdatedWithMemory"
+  ],
+  "unsupported": true
+ },
+ "readingList": {
+  "permissions": [
+   "readingList"
+  ],
+  "methods": [
+   "addEntry",
+   "query",
+   "removeEntry",
+   "updateEntry"
+  ],
+  "events": [
+   "onEntryAdded",
+   "onEntryRemoved",
+   "onEntryUpdated"
+  ],
+  "unsupported": true
+ },
+ "systemLog": {
+  "permissions": [
+   "systemLog"
+  ],
+  "methods": [
+   "add"
+  ],
+  "events": [],
+  "unsupported": true
+ },
+ "tabCapture": {
+  "permissions": [
+   "tabCapture"
+  ],
+  "methods": [
+   "capture",
+   "getCapturedTabs",
+   "getMediaStreamId"
+  ],
+  "events": [
+   "onStatusChanged"
+  ],
+  "unsupported": true
+ },
+ "ttsEngine": {
+  "permissions": [
+   "ttsEngine"
+  ],
+  "methods": [
+   "sendTtsAudio",
+   "sendTtsEvent",
+   "updateLanguage",
+   "updateVoices"
+  ],
+  "events": [
+   "onInstallLanguageRequest",
+   "onLanguageStatusRequest",
+   "onPause",
+   "onResume",
+   "onSpeak",
+   "onSpeakWithAudioStream",
+   "onStop",
+   "onUninstallLanguageRequest"
+  ],
+  "manifestKey": "tts_engine",
+  "unsupported": true
+ },
+ "vpnProvider": {
+  "permissions": [
+   "vpnProvider"
+  ],
+  "methods": [
+   "createConfig",
+   "destroyConfig",
+   "notifyConnectionStateChanged",
+   "sendPacket",
+   "setParameters"
+  ],
+  "events": [
+   "onConfigCreated",
+   "onConfigRemoved",
+   "onPacketReceived",
+   "onPlatformMessage",
+   "onUIEvent"
+  ],
+  "unsupported": true
+ },
+ "wallpaper": {
+  "permissions": [
+   "wallpaper"
+  ],
+  "methods": [
+   "setWallpaper"
+  ],
+  "events": [],
+  "unsupported": true
+ },
+ "webAuthenticationProxy": {
+  "permissions": [
+   "webAuthenticationProxy"
+  ],
+  "methods": [
+   "attach",
+   "completeCreateRequest",
+   "completeGetRequest",
+   "completeIsUvpaaRequest",
+   "detach"
+  ],
+  "events": [
+   "onCreateRequest",
+   "onGetRequest",
+   "onIsUvpaaRequest",
+   "onRemoteSessionStateChange",
+   "onRequestCanceled"
+  ],
+  "unsupported": true
+ }
+}

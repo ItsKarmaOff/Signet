@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="{{LANG}}" class="{{THEME_CLASS}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src {{ASSETS}}; style-src {{ASSETS}} 'unsafe-inline'; img-src data: http: https:; font-src data:">
+<title>Note</title>
+<link rel="stylesheet" href="{{ASSETS}}/shared/tokens.css">
+<link rel="stylesheet" href="{{ASSETS}}/shared/notes.css">
+</head>
+<body>
+<div id="app"></div>
+<script type="application/json" id="signet-config">{{CONFIG}}</script>
+<script src="{{ASSETS}}/shared/notes-html.js"></script>
+<script src="{{ASSETS}}/shared/common.js"></script>
+<script src="{{ASSETS}}/note/note.js"></script>
+</body>
+</html>

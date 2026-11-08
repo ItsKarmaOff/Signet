@@ -1,0 +1,103 @@
+/* Design tokens for the document pages (Note, Easel). Subset of the app's tokens.css.
+   Light and dark come from `light-dark()`: the page follows prefers-color-scheme unless the app
+   sets `theme-light` or `theme-dark` on <html> (done server side by `serve`, or at runtime). */
+
+:root {
+  --h: 250;
+  color-scheme: light dark;
+
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fs-sub: 12px;
+  --fs: 13px;
+  --fs-lg: 16px;
+  --s-half: 2px;
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --r-pop: 14px;
+  --r-row: 8px;
+  --r-control: 7px;
+  --t: 200ms;
+  --t-press: 80ms;
+  --spring: linear(0, 0.17 4%, 0.48 10%, 0.72 17%, 0.87 25%, 0.95 34%, 0.985 45%, 1);
+  --fw-strong: 600;
+  --fw-title: 650;
+  --fw-hero: 700;
+  --press-sm: scale(0.92);
+  --z-panel: 5;
+
+  --tint-color: light-dark(oklch(from hsl(var(--h) 70% 55%) 0.62 0.13 h), oklch(from hsl(var(--h) 70% 55%) 0.7 0.12 h));
+  --text: light-dark(rgb(29 29 31), rgb(236 236 240));
+  --text-2: light-dark(rgb(92 92 98), rgb(165 164 173));
+  --text-3: light-dark(rgb(108 108 115), rgb(144 143 152));
+  --accent: light-dark(oklch(from hsl(var(--h) 70% 55%) 0.55 0.16 h), oklch(from hsl(var(--h) 75% 68%) 0.72 0.14 h));
+  --danger: light-dark(hsl(2 70% 46%), hsl(2 80% 68%));
+  --win-bg: light-dark(rgb(255 255 255), rgb(35 35 39));
+  --surface-base: light-dark(rgb(255 255 255), rgb(31 31 35));
+  --surface: color-mix(in oklch, var(--surface-base), var(--tint-color) 2%);
+  --surface-2: color-mix(in oklch, light-dark(rgb(0 0 0 / 0.05), rgb(255 255 255 / 0.06)) 70%, oklch(from var(--tint-color) calc(l - 0.08) c h / 0.05));
+  --border: color-mix(in oklch, light-dark(rgb(0 0 0 / 0.09), rgb(255 255 255 / 0.09)) 80%, oklch(from var(--tint-color) calc(l - 0.08) c h / 0.1));
+  --glass-view: color-mix(in oklch, var(--surface) 94%, transparent);
+  --shadow-pop: 0 12px 32px light-dark(rgb(0 0 0 / 0.28), rgb(0 0 0 / 0.5)), 0 2px 6px rgb(0 0 0 / 0.16);
+}
+
+:root.theme-light {
+  color-scheme: light;
+}
+:root.theme-dark {
+  color-scheme: dark;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --text-2: light-dark(rgb(70 70 76), rgb(200 199 207));
+    --text-3: light-dark(rgb(96 96 103), rgb(165 164 173));
+    --glass-view: var(--surface);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--win-bg);
+  color: var(--text);
+  font: 450 var(--fs) / 1.4 var(--font);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+}
+[hidden] {
+  display: none !important;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

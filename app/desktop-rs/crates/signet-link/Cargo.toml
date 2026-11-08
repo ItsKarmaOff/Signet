@@ -1,0 +1,43 @@
+[package]
+name = "signet-link"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+url = { workspace = true }
+thiserror = { workspace = true }
+
+tokio = { version = "1", features = ["rt-multi-thread", "net", "io-util", "time", "sync", "macros", "process", "fs"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pki-types = "1"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "ring", "pem"] }
+tokio-tungstenite = { version = "0.26", default-features = false, features = ["handshake"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+webpki-roots = "0.26"
+mdns-sd = "0.13"
+qrcode = { version = "0.14", default-features = false }
+btleplug = "0.11"
+if-addrs = "0.13"
+
+sha2 = "0.10"
+hmac = "0.12"
+hkdf = "0.12"
+aes = "0.8"
+aes-gcm = "0.10"
+p256 = { version = "0.13", features = ["ecdh", "arithmetic"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+base64 = "0.22"
+hex = "0.4"
+uuid = "1"
+psl = "2"
+
+[dev-dependencies]
+tempfile = { workspace = true }
+tokio = { version = "1", features = ["test-util"] }

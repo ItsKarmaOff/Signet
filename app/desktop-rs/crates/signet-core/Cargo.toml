@@ -1,0 +1,22 @@
+[package]
+name = "signet-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+url = "2"
+regex = "1"
+dirs = "6"
+psl = "2"
+unicode-normalization = "0.1"
+percent-encoding = "2"
+indexmap = { version = "2", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = "3"

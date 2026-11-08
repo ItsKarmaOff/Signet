@@ -1,0 +1,13 @@
+[package]
+name = "signet-helper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "signet-helper"
+path = "src/main.rs"
+
+[dependencies]
+signet-web = { workspace = true }
