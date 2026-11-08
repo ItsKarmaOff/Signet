@@ -280,7 +280,9 @@ mod tests {
     fn accelerators_become_keystrokes() {
         let main = if IS_MAC { "cmd" } else { "ctrl" };
         assert_eq!(keystrokes("CmdOrCtrl+T"), vec![format!("{main}-t")]);
-        assert_eq!(keystrokes("Shift+CmdOrCtrl+T"), vec![format!("shift-{main}-t")]);
+        // Modifier order is ctrl, alt, shift, then cmd (macOS), so ctrl comes before shift elsewhere.
+        let shifted = if IS_MAC { "shift-cmd-t" } else { "ctrl-shift-t" };
+        assert_eq!(keystrokes("Shift+CmdOrCtrl+T"), vec![shifted.to_string()]);
         assert_eq!(keystrokes("Ctrl+Tab"), vec!["ctrl-tab".to_string()]);
         assert!(keystrokes("nonsense+").is_empty());
     }

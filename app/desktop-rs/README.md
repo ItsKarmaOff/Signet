@@ -103,6 +103,23 @@ because the sandbox is off.
 `signet.exe.manifest`. Embedding the icon in the exe itself is not done by the script (no `.rc` step in the crates yet).
 The first launch of the phone link triggers the Windows Firewall prompt: allow private networks.
 
+## CI
+
+`.github/workflows/rust.yml` ("Desktop (Rust)") runs on pushes to `main`, `dev` and `feat/gpui-desktop`, on pull requests to `main`/`dev` and by hand
+(Actions tab, Run workflow), only when `app/desktop-rs/**` or the workflow changes. The Electron workflows are separate.
+
+| Step (each of ubuntu, macos and windows runners) | What it proves |
+| ------------------------------------------------ | -------------- |
+| `cargo test --workspace` | the whole workspace compiles, links and its unit tests pass |
+| `scripts/bundle-{macos.sh,linux.sh,windows.ps1}` (release) | the bundle layout (CEF runtime, helper, manifest, icons) is complete |
+| `scripts/selftest.sh --release` | the bundle starts and every `[selftest] PASS|FAIL` line passes; Linux runs under `xvfb-run` with `openbox`, macOS and Windows use the runner desktop |
+
+`cargo fmt --check` is not run: the tree is not rustfmt-clean yet. CEF (`CEF_PATH`), `target/` and the cargo registry are cached per system
+(saved even when a step fails, so a first long build is not lost).
+
+Artifacts of a run (Actions tab, open the run, "Artifacts"; kept 14 days): `signet-<OS>` (the bundle), `selftest-<OS>` (`run.log`, the
+self-test log, and `screenshot*.png` taken while the app runs). With the CLI: `gh run download <run id> -n selftest-Linux`.
+
 ## Where data lives
 
 - Data folder: `<config dir>/Signet GPUI/`
