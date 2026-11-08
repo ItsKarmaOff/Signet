@@ -343,6 +343,11 @@ impl T {
             self.rec("startup.import", imported, format!("electron state present={electron}"));
         }
 
+        // The context menu needs no page: it runs before the site checks.
+        if self.on("menu") {
+            self.context_menu().await;
+        }
+
         if !have_site {
             self.rec("site", false, "SIGNET_TEST_BASE is not set: page checks skipped");
             return self.finish().await;
@@ -1280,6 +1285,29 @@ impl T {
         self.b.core.borrow_mut().selftest_click_extension(&id);
         self.sleep(800).await;
         self.rec("ext.popup_close", self.core().selftest_popup().is_none(), "closed by a second click");
+    }
+
+    /// Context menu: opens one at a fixed point, lets the menu dismiss itself (nothing is chosen) and checks the
+    /// callback did not run. macOS runs it only with `SIGNET_GPUI_MENU=1` (its native menu cannot be closed from here).
+    async fn context_menu(&mut self) {
+        use crate::windows::{Entry, popup_menu};
+        if cfg!(target_os = "macos") && !popup_menu::wanted() {
+            return;
+        }
+        popup_menu::set_autoclose(1200);
+        let m = self.mark();
+        let entries = vec![
+            Entry::Item { label: "First & one".into(), id: "first".into(), enabled: true, checked: true },
+            Entry::Sep,
+            Entry::Item { label: "Off".into(), id: "off".into(), enabled: false, checked: false },
+            Entry::Sub { label: "More".into(), items: vec![Entry::Item { label: "Deep".into(), id: "deep".into(), enabled: true, checked: false }] },
+        ];
+        self.b.core.borrow_mut().popup(entries, (60.0, 60.0), |c, id| c.note(format!("menu-callback {id}")));
+        let shown = self.wait_trace(6000, m, &["popup-shown"]).await;
+        let closed = self.wait_trace(8000, m, &["popup-closed"]).await;
+        popup_menu::set_autoclose(0);
+        let ran = !self.seen(m, &["menu-callback"]).is_empty();
+        self.rec("menu.popup", shown.is_some() && closed.as_deref().is_some_and(|l| l.contains("picked=none")) && !ran, format!("shown={shown:?} closed={closed:?} callback ran={ran}"));
     }
 
     async fn finish(&mut self) {

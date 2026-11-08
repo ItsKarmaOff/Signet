@@ -31,6 +31,8 @@ pub struct Manager {
     desired: Desired,
     aux: super::aux::AuxWindows,
     pip: super::pip::PipWindows,
+    /// The GPUI-drawn context menu while it is open (Linux, or `SIGNET_GPUI_MENU=1`).
+    menu: Option<AnyWindowHandle>,
 }
 
 pub(super) fn raw_ptr(h: &RawWindowHandle) -> *mut std::ffi::c_void {
@@ -88,9 +90,26 @@ impl Manager {
                 cx.update(|app| crate::app::menu::install(&b, app));
             }
             Cmd::Popup { entries, at, cb } => {
-                let picked = self.popup(&b, &entries, at);
-                if let Some(id) = picked {
-                    cb(&mut b.core.borrow_mut(), &id);
+                // A new menu replaces the open one (which is dismissed: its callback never runs).
+                if let Some(old) = self.menu.take() {
+                    cx.update(|app| {
+                        let _ = old.update(app, |_, w, _| w.remove_window());
+                    });
+                }
+                if super::popup_menu::wanted() {
+                    // Asynchronous: the callback runs from the menu window when an item is chosen.
+                    self.menu = cx.update(|app| {
+                        let g = self.menu_position(&b, at, app);
+                        super::popup_menu::open(&b, entries, g, cb, app)
+                    });
+                } else {
+                    // Native menus block until a choice is made.
+                    b.core.borrow().note("popup-shown native");
+                    let picked = self.popup(&b, &entries, at);
+                    b.core.borrow().note(format!("popup-closed picked={}", picked.as_deref().unwrap_or("none")));
+                    if let Some(id) = picked {
+                        cb(&mut b.core.borrow_mut(), &id);
+                    }
                 }
             }
             Cmd::ShowMain => {
@@ -216,11 +235,41 @@ impl Manager {
             let tag = crate::mac::popup(view, at.0, at.1, &items)?;
             ids.get(tag).cloned()
         }
-        #[cfg(not(target_os = "macos"))]
+        #[cfg(target_os = "windows")]
         {
-            // PHASE3 (Linux, Windows): a GPUI popup menu window; the entries are ready in `entries`.
+            let parent = browser.core.borrow().views.parent;
+            match parent {
+                Some(RawWindowHandle::Win32(h)) => crate::win::popup(h.hwnd.get(), at.0, at.1, entries),
+                _ => None,
+            }
+        }
+        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        {
+            // Linux always takes the GPUI-drawn menu (`popup_menu`).
             let _ = (browser, entries, at);
             None
+        }
+    }
+
+    /// Global screen position of a menu wanted at `at` (window coordinates); NaN = at the pointer.
+    fn menu_position(&self, browser: &Rc<Browser>, at: (f64, f64), cx: &mut App) -> (f64, f64) {
+        let origin = browser.core.borrow().win.as_ref().map(|w| w.origin).unwrap_or((0.0, 0.0));
+        if at.0.is_finite() && at.1.is_finite() {
+            return (origin.0 + at.0, origin.1 + at.1);
+        }
+        #[cfg(target_os = "macos")]
+        {
+            let _ = cx;
+            return crate::mac::mouse_location();
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            // GPUI sees the pointer only over its own views: the last position it saw in the main window.
+            let seen = self.main.and_then(|h| h.update(cx, |_, w, _| w.mouse_position()).ok());
+            match seen {
+                Some(p) => (origin.0 + f64::from(f32::from(p.x)), origin.1 + f64::from(f32::from(p.y))),
+                None => origin,
+            }
         }
     }
 

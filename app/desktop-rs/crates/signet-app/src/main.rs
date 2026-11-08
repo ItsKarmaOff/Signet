@@ -7,6 +7,8 @@ mod focus;
 mod syslang;
 #[cfg(target_os = "macos")]
 mod mac;
+#[cfg(target_os = "windows")]
+mod win;
 mod phase3;
 mod quitkeys;
 mod scheme;

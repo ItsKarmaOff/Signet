@@ -15,6 +15,7 @@ pub mod factory;
 pub mod host;
 pub mod manager;
 pub mod pip;
+pub mod popup_menu;
 
 use std::rc::Rc;
 
