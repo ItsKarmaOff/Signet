@@ -50,8 +50,9 @@ has_start() { [ "$(starts "$1")" -ge "${2:-1}" ]; }
 # Serve the new version.
 python3 "$(wp "$(dirname "${BASH_SOURCE[0]}")/update-e2e-server.py")" "$(wp "$NEW_DIR")" "$PORT" "v$NEW_VERSION" >"$WORK/server.log" 2>&1 &
 SERVER_PID=$!
-sleep 2
-curl -fsS "http://127.0.0.1:$PORT/releases" | head -c 400; echo
+wait_server() { curl -fsS "http://127.0.0.1:$PORT/releases" >"$WORK/releases.json" 2>/dev/null; }
+wait_for 30 "feed server up" wait_server
+head -c 400 "$WORK/releases.json"; echo
 
 export SIGNET_NO_KEYCHAIN=1 SIGNET_LINK_OFF=1 SIGNET_DEBUG=1 SIGNET_DATA_DIR="$(wp "$WORK/data")"
 export SIGNET_UPDATE_TEST=1 SIGNET_UPDATE_FEED="http://127.0.0.1:$PORT" SIGNET_UPDATE_MARKER="$(wp "$MARKER")"
@@ -62,7 +63,8 @@ if [ "$OS" = windows ]; then
   INSTDIR="$(cygpath -u "$LOCALAPPDATA")/Programs/Signet"
   installed_version() { reg query "$KEY" //v DisplayVersion 2>/dev/null | tr -d '\r' | awk '/DisplayVersion/{print $NF}'; }
   SETUP="$(ls "$OLD_DIR"/Signet-"$OLD_VERSION"-x64-setup.exe)"
-  "$SETUP" /S || fail "silent install of the old version"
+  timeout 240 "$SETUP" /S || fail "silent install of the old version"
+  echo "old version installed by the setup (exit ok)"
   wait_for 120 "old version registered" test "$(installed_version)" = "$OLD_VERSION"
   [ -f "$INSTDIR/signet.exe" ] && [ -f "$INSTDIR/Uninstall Signet.exe" ] || fail "installed files missing in $INSTDIR"
   EXE="$INSTDIR/signet.exe"

@@ -98,6 +98,7 @@ jobs:
           cat "$RUNNER_TEMP"/new/latest*.yml
 
       - name: Update e2e, restart (Linux, virtual display)
+        timeout-minutes: 25
         if: runner.os == 'Linux'
         env:
           WORK: ${{ runner.temp }}/e2e-restart
@@ -113,6 +114,7 @@ jobs:
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" "$RUNNER_TEMP/session.sh" restart
 
       - name: Update e2e, later (Linux, virtual display)
+        timeout-minutes: 25
         if: runner.os == 'Linux'
         env:
           WORK: ${{ runner.temp }}/e2e-later
@@ -121,6 +123,7 @@ jobs:
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" "$RUNNER_TEMP/session.sh" later
 
       - name: Update e2e, restart (Windows)
+        timeout-minutes: 25
         if: runner.os == 'Windows'
         env:
           WORK: ${{ runner.temp }}/e2e-restart
@@ -129,6 +132,7 @@ jobs:
           scripts/update-e2e.sh restart
 
       - name: Update e2e, later (Windows)
+        timeout-minutes: 25
         if: runner.os == 'Windows'
         env:
           WORK: ${{ runner.temp }}/e2e-later
