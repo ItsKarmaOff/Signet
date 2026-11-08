@@ -735,3 +735,166 @@ mod non_latin_tests {
         assert!(!is_non_latin_letter("1"));
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Debug trace (SIGNET_TRACE_VIEWS=1): one line per change of the geometry of every browser view tree.
+// ---------------------------------------------------------------------------------------------
+
+unsafe extern "C" {
+    static _dispatch_main_q: c_void;
+    fn dispatch_async_f(queue: *const c_void, context: *mut c_void, work: extern "C" fn(*mut c_void));
+}
+
+fn tree_of(view: *mut c_void, depth: usize, out: &mut String) {
+    use objc2_foundation::NSRect;
+    unsafe {
+        let v = &*(view as *mut objc2::runtime::AnyObject);
+        let f: NSRect = objc2::msg_send![v, frame];
+        let hidden: bool = objc2::msg_send![v, isHidden];
+        let layer: *mut objc2::runtime::AnyObject = objc2::msg_send![v, layer];
+        let (scale, lw, lh, cw) = if layer.is_null() {
+            (0.0f64, 0.0, 0.0, 0.0)
+        } else {
+            let s: f64 = objc2::msg_send![&*layer, contentsScale];
+            let b: NSRect = objc2::msg_send![&*layer, bounds];
+            (s, b.size.width, b.size.height, 0.0)
+        };
+        let _ = cw;
+        let win: *mut objc2::runtime::AnyObject = objc2::msg_send![v, window];
+        let bs: f64 = if win.is_null() { -1.0 } else { objc2::msg_send![&*win, backingScaleFactor] };
+        let cls: *const objc2::runtime::AnyClass = objc2::msg_send![v, class];
+        out.push_str(&format!(
+            "{}{} ({:.0},{:.0},{:.0}x{:.0}) h={} layer={:.0}x{:.0}@{} win@{}; ",
+            " ".repeat(depth),
+            (*cls).name().to_str().unwrap_or("?"),
+            f.origin.x, f.origin.y, f.size.width, f.size.height, hidden as u8, lw, lh, scale, bs
+        ));
+        let subs: *mut objc2::runtime::AnyObject = objc2::msg_send![v, subviews];
+        let n: usize = objc2::msg_send![&*subs, count];
+        for i in 0..n {
+            let s: *mut c_void = objc2::msg_send![&*subs, objectAtIndex: i];
+            tree_of(s, depth + 1, out);
+        }
+    }
+}
+
+extern "C" fn trace_tick(_ctx: *mut c_void) {
+    use std::sync::Mutex;
+    static LAST: Mutex<String> = Mutex::new(String::new());
+    static T0: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    let t0 = *T0.get_or_init(std::time::Instant::now);
+    let mut s = String::new();
+    for h in crate::platform::native_view_handles() {
+        tree_of(h, 0, &mut s);
+    }
+    let mut last = LAST.lock().unwrap();
+    if *last != s {
+        eprintln!("[trace {:>6}ms] {}", t0.elapsed().as_millis(), s);
+        *last = s;
+    }
+}
+
+/// Starts the trace thread when `SIGNET_TRACE_VIEWS` is set (polls the main thread every 8 ms).
+pub fn trace_views_start() {
+    if std::env::var_os("SIGNET_TRACE_VIEWS").is_none() {
+        return;
+    }
+    std::thread::spawn(|| loop {
+        std::thread::sleep(std::time::Duration::from_millis(8));
+        unsafe { dispatch_async_f(&raw const _dispatch_main_q, std::ptr::null_mut(), trace_tick) };
+    });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Page view that always fills its host
+// ---------------------------------------------------------------------------------------------
+//
+// Chromium creates a new `RenderWidgetHostViewCocoa` for every renderer swap (first navigation, cross-site
+// navigation, reload after a crash) with a small default frame and only sizes it a few frames later: the page shows
+// at that size, then jumps to the pane size. Inside a `WebContentsViewCocoa` the page view always fills it, so the
+// frame is forced to the superview bounds when the view is attached and on every `setFrame:` (the right value is
+// what Chromium sets a moment later anyway).
+
+static ORIGINAL_SET_FRAME: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+static ORIGINAL_DID_MOVE: AtomicPtr<c_void> = AtomicPtr::new(std::ptr::null_mut());
+
+fn superview_bounds_if_hosted(view: Id) -> Option<objc2_foundation::NSRect> {
+    unsafe {
+        let v = &*(view as *mut objc2::runtime::AnyObject);
+        let sup: *mut objc2::runtime::AnyObject = objc2::msg_send![v, superview];
+        if sup.is_null() {
+            return None;
+        }
+        let cls = objc_getClass(c"WebContentsViewCocoa".as_ptr());
+        if cls.is_null() {
+            return None;
+        }
+        let ok: bool = objc2::msg_send![&*sup, isKindOfClass: &*(cls as *mut objc2::runtime::AnyObject)];
+        if !ok {
+            return None;
+        }
+        let b: objc2_foundation::NSRect = objc2::msg_send![&*sup, bounds];
+        (b.size.width >= 1.0 && b.size.height >= 1.0).then_some(b)
+    }
+}
+
+extern "C" fn rwhv_set_frame(this: Id, sel: Sel, frame: objc2_foundation::NSRect) {
+    let orig = ORIGINAL_SET_FRAME.load(Ordering::Relaxed);
+    if orig.is_null() {
+        return;
+    }
+    let f: extern "C" fn(Id, Sel, objc2_foundation::NSRect) = unsafe { std::mem::transmute(orig) };
+    f(this, sel, superview_bounds_if_hosted(this).unwrap_or(frame));
+}
+
+extern "C" fn rwhv_did_move_to_superview(this: Id, sel: Sel) {
+    let orig = ORIGINAL_DID_MOVE.load(Ordering::Relaxed);
+    if !orig.is_null() {
+        let f: extern "C" fn(Id, Sel) = unsafe { std::mem::transmute(orig) };
+        f(this, sel);
+    }
+    if let Some(b) = superview_bounds_if_hosted(this) {
+        unsafe {
+            let v = &*(this as *mut objc2::runtime::AnyObject);
+            let _: () = objc2::msg_send![v, setFrame: b];
+        }
+    }
+}
+
+/// Installs the hooks above. Call once CEF is loaded (the Chromium classes exist from then on). Idempotent.
+pub fn install_page_view_fill() {
+    static DONE: AtomicBool = AtomicBool::new(false);
+    if DONE.swap(true, Ordering::SeqCst) || std::env::var_os("SIGNET_NO_PAGE_FILL").is_some() {
+        return;
+    }
+    unsafe {
+        let cls = objc_getClass(c"RenderWidgetHostViewCocoa".as_ptr());
+        if cls.is_null() {
+            return;
+        }
+        let set_sel = sel_registerName(c"setFrame:".as_ptr());
+        let m = class_getInstanceMethod(cls, set_sel);
+        if !m.is_null() {
+            ORIGINAL_SET_FRAME.store(method_getImplementation(m) as *mut c_void, Ordering::Relaxed);
+            // The method may be inherited from NSView: add an override on the class, else replace its own.
+            if !class_addMethod(cls, set_sel, rwhv_set_frame as Imp, method_get_types(m)) {
+                method_setImplementation(m, rwhv_set_frame as Imp);
+            }
+        }
+        let move_sel = sel_registerName(c"viewDidMoveToSuperview".as_ptr());
+        let m = class_getInstanceMethod(cls, move_sel);
+        if !m.is_null() {
+            ORIGINAL_DID_MOVE.store(method_getImplementation(m) as *mut c_void, Ordering::Relaxed);
+            if !class_addMethod(cls, move_sel, rwhv_did_move_to_superview as Imp, method_get_types(m)) {
+                method_setImplementation(m, rwhv_did_move_to_superview as Imp);
+            }
+        }
+    }
+}
+
+unsafe fn method_get_types(m: *mut c_void) -> *const c_char {
+    unsafe extern "C" {
+        fn method_getTypeEncoding(m: *mut c_void) -> *const c_char;
+    }
+    unsafe { method_getTypeEncoding(m) }
+}

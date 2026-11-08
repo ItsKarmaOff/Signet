@@ -110,7 +110,8 @@ impl WebView {
         let mut extra = dictionary_value_create().ok_or_else(|| Error::Create("dictionary".into()))?;
         extra.set_string(Some(&cs(crate::app::EXTRA_KEY)), Some(&cs(&extra_json.to_string())));
 
-        let rect = Rect { x: 0, y: 0, width: opts.bounds.width.max(1.0) as i32, height: opts.bounds.height.max(1.0) as i32 };
+        let (iw, ih) = crate::platform::initial_size(parent, opts.bounds);
+        let rect = Rect { x: 0, y: 0, width: iw, height: ih };
         let mut wi = WindowInfo { runtime_style: RuntimeStyle::from(sys::cef_runtime_style_t::CEF_RUNTIME_STYLE_ALLOY), ..Default::default() }
             .set_as_child(crate::platform::native_parent(crate::platform::host_parent(id.0, parent, opts.bounds)), &rect);
         wi.size = std::mem::size_of::<WindowInfo>();

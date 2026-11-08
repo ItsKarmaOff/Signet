@@ -139,6 +139,28 @@ pub(crate) fn host_parent(view: u64, parent: usize, b: Bounds) -> usize {
     }
 }
 
+/// Size the browser is created with. macOS takes points; X11 and Win32 windows are in pixels, so the page is created
+/// at its final pixel size instead of a point-sized (too small on HiDPI) one that only `apply` corrects afterwards.
+pub(crate) fn initial_size(parent: usize, b: Bounds) -> (i32, i32) {
+    #[allow(unused_mut)]
+    let mut scale = 1.0f32;
+    #[cfg(target_os = "linux")]
+    {
+        let _ = parent;
+        scale = x11host::scale();
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let dpi = unsafe { windows_sys::Win32::UI::HiDpi::GetDpiForWindow(parent as windows_sys::Win32::Foundation::HWND) };
+        if dpi != 0 {
+            scale = dpi as f32 / 96.0;
+        }
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    let _ = parent;
+    ((b.width * scale).round().max(1.0) as i32, (b.height * scale).round().max(1.0) as i32)
+}
+
 /// Called once the browser exists: remembers which wrapper belongs to its native window.
 pub(crate) fn adopt(view: u64, host: &cef::BrowserHost) {
     #[cfg(target_os = "linux")]

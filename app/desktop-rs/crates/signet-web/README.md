@@ -317,3 +317,12 @@ restricted to the exact `127.0.0.1:<port>/devtools/` prefix (the tools view navi
 else), `remote-allow-origins` limited to that origin. Not possible with CEF: opening or closing the port at runtime
 (it is a startup setting), so the server runs for the whole session unless the app starts with `SIGNET_NO_DEVTOOLS=1`
 (the app then leaves `remote_debugging_port` at 0 and the tools stay closed).
+
+## Page view size on macOS
+
+Chromium creates a new `RenderWidgetHostViewCocoa` on the first navigation (and on every renderer swap) with a small
+default frame (560x342) and sizes it a few frames later: the page showed small for a frame, then jumped to the pane
+size (the "blink"). `mac::install_page_view_fill` forces that view to the bounds of its `WebContentsViewCocoa` when it
+is attached and on every `setFrame:`. `SIGNET_TRACE_VIEWS=1` logs every change of the native view tree (frames, layer
+scales) to stderr; `SIGNET_NO_PAGE_FILL=1` turns the fix off to compare. On X11 and Win32 the browser is created at
+its pixel size (`platform::initial_size`).

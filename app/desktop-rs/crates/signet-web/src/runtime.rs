@@ -265,6 +265,7 @@ pub fn init(config: Config) -> Result<(), Error> {
     #[cfg(target_os = "macos")]
     {
         crate::mac::install_cef_app_protocols();
+        crate::mac::trace_views_start();
         let loader = cef::library_loader::LibraryLoader::new(&exe_path(), false);
         if !loader.load() {
             return Err(Error::LibraryLoad("Contents/Frameworks/Chromium Embedded Framework.framework".into()));
@@ -341,6 +342,8 @@ pub fn init(config: Config) -> Result<(), Error> {
     }
     // Keep the App alive: CEF holds its own reference, but dropping ours is fine; leak nothing.
     crate::scheme::register_factories_global();
+    #[cfg(target_os = "macos")]
+    crate::mac::install_page_view_fill();
     // Browsers can only be created once the browser context is initialized (OnContextInitialized).
     let deadline = Instant::now() + Duration::from_secs(15);
     while !CONTEXT_READY.load(std::sync::atomic::Ordering::SeqCst) && Instant::now() < deadline {
