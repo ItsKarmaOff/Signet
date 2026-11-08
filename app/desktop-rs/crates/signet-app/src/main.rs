@@ -8,6 +8,7 @@ mod syslang;
 #[cfg(target_os = "macos")]
 mod mac;
 mod phase3;
+mod quitkeys;
 mod scheme;
 mod selftest;
 mod theme;
@@ -168,6 +169,31 @@ fn main() {
                     _ => false,
                 }
             });
+        }
+
+        // Ctrl+Q on Windows and Linux: hold-to-quit gauge fed by the keyboard hook (Windows), the page key observer and
+        // the GPUI window roots (see `quitkeys.rs`); the main loop drains what they decoded.
+        #[cfg(not(target_os = "macos"))]
+        {
+            browser.core.borrow_mut().quit_read_system_timings();
+            #[cfg(target_os = "windows")]
+            signet_web::keys_win::install_key_hook(quitkeys::on_win_key);
+            signet_web::set_key_observer(quitkeys::on_cef_key);
+            let b = browser.clone();
+            cx.spawn(async move |cx| {
+                loop {
+                    cx.background_executor().timer(Duration::from_millis(10)).await;
+                    let Ok(mut c) = b.core.try_borrow_mut() else { continue };
+                    quitkeys::set_paused(c.recording_shortcuts);
+                    for k in quitkeys::take() {
+                        match k {
+                            quitkeys::QuitKey::Down { repeat } => c.quit_key_down(repeat),
+                            quitkeys::QuitKey::Up => c.quit_key_up(),
+                        }
+                    }
+                }
+            })
+            .detach();
         }
 
         // Keyboard hand-off between GPUI inputs and the native page views.

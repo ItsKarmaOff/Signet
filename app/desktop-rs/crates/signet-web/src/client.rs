@@ -262,13 +262,17 @@ wrap_keyboard_handler! {
             let code = ev.windows_key_code;
             let handled = with_state(|st| {
                 if is_up {
+                    if let Some(f) = st.key_observer.as_ref() {
+                        f(&ev, true);
+                    }
                     if let Some(i) = st.swallowed_keys.iter().position(|k| *k == code) {
                         st.swallowed_keys.remove(i);
                         return true;
                     }
                     return false;
                 }
-                let h = st.key_filter.as_ref().map(|f| f(&ev)).unwrap_or(false);
+                let observed = st.key_observer.as_ref().map(|f| f(&ev, false)).unwrap_or(false);
+                let h = observed || st.key_filter.as_ref().map(|f| f(&ev)).unwrap_or(false);
                 if h && pressed && !st.swallowed_keys.contains(&code) {
                     st.swallowed_keys.push(code);
                 }

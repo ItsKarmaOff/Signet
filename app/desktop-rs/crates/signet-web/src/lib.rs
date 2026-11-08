@@ -20,6 +20,11 @@ mod view;
 mod view_ext;
 pub mod overlay;
 
+#[cfg(target_os = "windows")]
+pub mod keys_win;
+#[cfg(target_os = "linux")]
+pub mod keys_linux;
+
 #[cfg(feature = "gpui")]
 pub mod gpui_pump;
 
@@ -28,7 +33,7 @@ pub use profile::{
     clear_profile_cache, clear_profile_data, delete_cookies, drop_profile, set_spellcheck,
 };
 pub use runtime::{
-    default_user_agent, drain_events, init, is_initialized, pump, set_certificate_handler, set_key_filter, set_page_scripts,
+    default_user_agent, drain_events, init, is_initialized, pump, set_certificate_handler, set_key_filter, set_key_observer, set_page_scripts,
     set_scheme_handler, set_wake_handler, shutdown, Config,
 };
 pub use extension::{set_extension_handler, set_preference_json, ExtensionRequest, ExtensionResponse, EXTENSION_SCHEME};

@@ -305,8 +305,14 @@ impl Core {
         self.quit_apply(outs);
     }
 
-    /// Reads the system key repeat settings (macOS) in the background.
+    /// Reads the system key repeat settings (`defaults` on macOS, the system settings on Windows and Linux).
     pub fn quit_read_system_timings(&mut self) {
+        #[cfg(not(target_os = "macos"))]
+        {
+            let (tx, rx) = std::sync::mpsc::channel::<(Option<i64>, Option<i64>)>();
+            let _ = tx.send(crate::quitkeys::system_timings());
+            self.quit_timings = Some(rx);
+        }
         #[cfg(target_os = "macos")]
         {
             let (tx, rx) = std::sync::mpsc::channel::<(Option<i64>, Option<i64>)>();

@@ -84,6 +84,7 @@ pub(crate) struct State {
     pub scripts: HashMap<String, Vec<PageScript>>,
     pub events: VecDeque<WebEvent>,
     pub key_filter: Option<Box<dyn Fn(&KeyEvent) -> bool>>,
+    pub key_observer: Option<Box<dyn Fn(&KeyEvent, bool) -> bool>>,
     pub swallowed_keys: Vec<i32>,
     pub shutting_down: bool,
     pub scheme_handler: Option<Arc<SchemeHandlerFn>>,
@@ -181,6 +182,13 @@ pub fn set_certificate_handler(f: impl Fn(&CertificateErrorInfo) -> CertificateD
 /// back into signet-web from it. The event is also queued as [`WebEvent::PreKey`].
 pub fn set_key_filter(f: impl Fn(&KeyEvent) -> bool + 'static) {
     with_state(|s| s.key_filter = Some(Box::new(f)));
+}
+
+/// Install an observer run before the key filter for every key down (repeats included) and key up (`true` as second
+/// argument) the page receives. Returning `true` for a key down swallows it (and its release). Same rules as the key
+/// filter: it runs inside CEF callbacks, keep it fast and never call back into signet-web.
+pub fn set_key_observer(f: impl Fn(&KeyEvent, bool) -> bool + 'static) {
+    with_state(|s| s.key_observer = Some(Box::new(f)));
 }
 
 /// Set the handler of the `signet` / `signetui` custom schemes. May be called before or after [`init`].
@@ -306,6 +314,7 @@ pub fn init(config: Config) -> Result<(), Error> {
             scripts: HashMap::new(),
             events: VecDeque::new(),
             key_filter: None,
+            key_observer: None,
             swallowed_keys: Vec::new(),
             shutting_down: false,
             scheme_handler: crate::scheme::global_handler(),

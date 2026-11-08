@@ -12,7 +12,7 @@ pub struct LineHeight(pub AnyView);
 
 impl Render for LineHeight {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        div().size_full().line_height(gpui::relative(signet_ui::theme::LINE_HEIGHT)).child(self.0.clone())
+        crate::quitkeys::gpui_handlers(div()).size_full().line_height(gpui::relative(signet_ui::theme::LINE_HEIGHT)).child(self.0.clone())
     }
 }
 
@@ -37,7 +37,7 @@ impl Render for MainHost {
             self.last = Some(cur);
             self.browser.core.borrow_mut().on_main_resized((cur.0, cur.1), (cur.2, cur.3));
         }
-        div().size_full().child(self.child.clone())
+        crate::quitkeys::gpui_handlers(div()).size_full().child(self.child.clone())
     }
 }
 

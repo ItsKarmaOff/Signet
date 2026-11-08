@@ -130,7 +130,10 @@ pub fn install(browser: &Rc<Browser>, cx: &mut App) {
             wanted.insert(format!("{}-{n}", if IS_MAC { "cmd" } else { "ctrl" }), format!("goToTab:{n}"));
             wanted.insert(format!("{}-{n}", if IS_MAC { "ctrl" } else { "alt" }), format!("goToSpace:{n}"));
         }
-        wanted.insert((if IS_MAC { "cmd-q" } else { "ctrl-q" }).into(), "quit".into());
+        // Ctrl+Q (Windows, Linux) goes through the hold-to-quit gauge first (`quitkeys.rs`): no binding that would quit at once.
+        if IS_MAC {
+            wanted.insert("cmd-q".into(), "quit".into());
+        }
         wanted.insert((if IS_MAC { "ctrl-cmd-f" } else { "f11" }).into(), "fullScreen".into());
         // Extension shortcuts never take a keystroke the app already uses.
         for (accel, id) in ext_accels {

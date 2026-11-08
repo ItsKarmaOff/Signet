@@ -59,7 +59,10 @@ pub fn build_key_table(overrides: Option<&ShortcutOverrides>) -> HashMap<String,
         table.insert(key_string(IS_MAC, !IS_MAC, false, false, &n.to_string()), format!("goToTab:{n}"));
         table.insert(key_string(false, IS_MAC, !IS_MAC, false, &n.to_string()), format!("goToSpace:{n}"));
     }
-    table.insert(key_string(IS_MAC, false, false, false, "q"), "quit".into());
+    // Ctrl+Q elsewhere is the hold-to-quit gauge, fed by the key observer (`quitkeys.rs`).
+    if IS_MAC {
+        table.insert(key_string(true, false, false, false, "q"), "quit".into());
+    }
     table
 }
 

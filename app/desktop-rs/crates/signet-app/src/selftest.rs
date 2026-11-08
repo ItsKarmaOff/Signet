@@ -768,8 +768,55 @@ impl T {
         let _ = signet_web::mac::post_key_event_ex(parent, 12, "q", 1 << 20, down, repeat);
     }
 
+    /// Ctrl+Q as the key sources of Windows and Linux feed it (`quitkeys::feed`, drained by the main loop): a tap or an
+    /// early release must not quit, a full hold must.
     #[cfg(not(target_os = "macos"))]
-    async fn quit_hold(&mut self) {}
+    async fn quit_hold(&mut self) {
+        use crate::quitkeys::{Key, RawKey, feed};
+        let ctrl_q = |down: bool, repeat: bool| {
+            feed(RawKey { key: Key::Q, up: !down, repeat, ctrl: true, shift: false, alt: false, meta: false });
+        };
+        if self.core().win.is_none() {
+            self.rec("quit.tap", false, "no main window");
+            return;
+        }
+        self.sleep(500).await;
+        // Tap: down then up after 120 ms.
+        ctrl_q(true, false);
+        self.sleep(120).await;
+        ctrl_q(false, false);
+        self.sleep(700).await;
+        let shown = self.core().quit.shown;
+        let quit = self.core().quit.confirmed;
+        self.rec("quit.tap", shown && !quit, format!("bubble shown={shown} quit={quit}"));
+        // Held 600 ms with repeats, then released before the end of the gauge.
+        self.sleep(2500).await;
+        ctrl_q(true, false);
+        for _ in 0..4 {
+            self.sleep(130).await;
+            ctrl_q(true, true);
+        }
+        ctrl_q(false, false);
+        self.sleep(1500).await;
+        let quit = self.core().quit.confirmed;
+        self.rec("quit.early_release", !quit, format!("quit={quit} after an early release"));
+        // Held to the end: the key repeats keep coming, with no repeat flag (the tracker detects them).
+        self.sleep(2500).await;
+        ctrl_q(true, false);
+        let t0 = std::time::Instant::now();
+        let mut quit = false;
+        while t0.elapsed().as_millis() < 3500 && !quit {
+            self.sleep(30).await;
+            quit = self.core().quit.confirmed;
+            if !quit && t0.elapsed().as_millis() > 380 {
+                ctrl_q(true, false);
+            }
+        }
+        // `quit.hold` is printed by the app when the hold is confirmed (the process exits right after).
+        if !quit {
+            self.rec("quit.hold", false, "no quit after 3.5 s of hold");
+        }
+    }
 
     /// Docked tools: frontend address, load, connection (the frontend shows the Elements panel of the page).
     async fn devtools_connected(&self, dtab: &str) -> String {
