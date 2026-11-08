@@ -302,6 +302,12 @@ mod tests {
         let (_, l) = u.add(&[], f.path());
         let l = l.unwrap();
         u.loaded(f.path(), &l.id, "Dev ext", false, 0);
+        // Only the events fed by hand count: the real watcher delivers its own, late and system-dependent ones
+        // (Windows), which would move the fake clock's debounce.
+        if let Some(e) = u.entries.get_mut(f.path()) {
+            e.watcher = None;
+            e.events = None;
+        }
         // Replayed event, nothing changed.
         u.file_event(f.path(), 0);
         assert!(u.poll(100).is_empty(), "debounced");
