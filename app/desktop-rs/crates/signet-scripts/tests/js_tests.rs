@@ -63,7 +63,7 @@ fn node_tests_pass() {
     let out = Command::new("node")
         .current_dir(&root)
         .env("SIGNET_BUNDLE_DIR", &dir)
-        .args(["--test", "tests/js"])
+        .args(["--test", "tests/js/*.test.js"]) // a glob: newer Node versions no longer take a folder
         .output()
         .expect("run node");
     let _ = fs::remove_dir_all(dir);
