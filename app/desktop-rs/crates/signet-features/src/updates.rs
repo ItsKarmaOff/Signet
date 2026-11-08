@@ -20,6 +20,29 @@ pub const RELEASES_API: &str = "https://api.github.com/repos/ItsKarmaOff/Signet/
 pub const FIRST_CHECK: Duration = Duration::from_secs(30);
 pub const CHECK_EVERY: Duration = Duration::from_secs(6 * 60 * 60);
 
+/// TEST ONLY (end-to-end update test in CI): with `SIGNET_UPDATE_TEST=1` set, `SIGNET_UPDATE_FEED=<base url>` replaces the
+/// GitHub releases API with `<base url>/releases`, and the first check runs 2 s after launch. Without
+/// `SIGNET_UPDATE_TEST=1` the variables are ignored.
+pub fn test_mode() -> bool {
+    std::env::var("SIGNET_UPDATE_TEST").is_ok_and(|v| v == "1")
+}
+
+/// URL of the releases list: GitHub's, or the test override (see `test_mode`).
+pub fn releases_api() -> String {
+    if test_mode()
+        && let Ok(base) = std::env::var("SIGNET_UPDATE_FEED")
+        && !base.is_empty()
+    {
+        return format!("{}/releases", base.trim_end_matches('/'));
+    }
+    RELEASES_API.to_string()
+}
+
+/// Delay of the first automatic check after launch.
+pub fn first_check() -> Duration {
+    if test_mode() { Duration::from_secs(2) } else { FIRST_CHECK }
+}
+
 /// Whether this copy can download and install an update by itself: Windows (installer) and Linux AppImage.
 pub fn can_install(os: crate::importers::sources::Os, appimage_env: Option<&str>) -> bool {
     use crate::importers::sources::Os;
@@ -356,7 +379,7 @@ pub fn newest_release(data: &Value, prerelease_ok: bool) -> Option<Release> {
 
 /// Looks for a newer release than `current`.
 pub fn check(http: &dyn Http, current: &str) -> CheckResult {
-    let Ok(r) = http.get(&format!("{RELEASES_API}?per_page=20"), &[("accept", "application/vnd.github+json"), ("user-agent", "Signet-update-check")], Duration::from_secs(15), 4 * 1024 * 1024) else { return CheckResult::Failed };
+    let Ok(r) = http.get(&format!("{}?per_page=20", releases_api()), &[("accept", "application/vnd.github+json"), ("user-agent", "Signet-update-check")], Duration::from_secs(15), 4 * 1024 * 1024) else { return CheckResult::Failed };
     if !r.ok() {
         return CheckResult::Failed;
     }

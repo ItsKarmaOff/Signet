@@ -593,18 +593,45 @@ impl Core {
 
 /// Called once after the browser core exists and the web layer is initialized.
 pub(super) fn startup(core: &mut Core) {
+    test_marker(core);
     schedule_checks(core);
 }
 
 /// Called for every CEF event, before the core handles it.
 pub(super) fn web_event(_core: &mut Core, _ev: &signet_web::WebEvent) {}
 
+/// TEST ONLY (update end-to-end test, needs `SIGNET_UPDATE_TEST=1`): appends `version=<v> pid=<pid>` to the file named by
+/// `SIGNET_UPDATE_MARKER`, so the test sees which version runs and how often it started.
+fn test_marker(core: &mut Core) {
+    if !updates::test_mode() {
+        return;
+    }
+    if let Ok(path) = std::env::var("SIGNET_UPDATE_MARKER") {
+        use std::io::Write;
+        let line = format!("version={VERSION} pid={}\n", std::process::id());
+        let r = std::fs::OpenOptions::new().create(true).append(true).open(&path).and_then(|mut f| f.write_all(line.as_bytes()));
+        core.log(format!("update test marker: {r:?}"));
+    }
+}
+
+/// TEST ONLY: `SIGNET_UPDATE_ACTION=restart|later` answers the "update ready" prompt (needs `SIGNET_UPDATE_TEST=1`).
+fn test_action() -> Option<bool> {
+    if !updates::test_mode() {
+        return None;
+    }
+    match std::env::var("SIGNET_UPDATE_ACTION").as_deref() {
+        Ok("restart") => Some(true),
+        Ok("later") => Some(false),
+        _ => None,
+    }
+}
+
 /// Automatic checks: a little after launch, then every 6 hours, following the setting. Packaged app only.
 fn schedule_checks(core: &mut Core) {
     let on = core.state().settings.check_updates != Some(false) && is_packaged();
     let st = &mut core.phase3.system;
     match (on, st.next_check) {
-        (true, None) => st.next_check = Some(Instant::now() + updates::FIRST_CHECK),
+        (true, None) => st.next_check = Some(Instant::now() + updates::first_check()),
         (false, Some(_)) => st.next_check = None,
         _ => {}
     }
@@ -628,7 +655,16 @@ pub(super) fn tick(core: &mut Core) {
                     Ok(file) => {
                         st.tracker.downloaded = Some(version.clone());
                         st.pending = Some(Pending { file, kind: install_kind(), relaunch: false });
-                        core.offer_restart(&version);
+                        match test_action() {
+                            Some(relaunch) => {
+                                core.log(format!("update test: {version} downloaded, quitting (relaunch: {relaunch})"));
+                                if let Some(p) = core.phase3.system.pending.as_mut() {
+                                    p.relaunch = relaunch;
+                                }
+                                core.quit_now();
+                            }
+                            None => core.offer_restart(&version),
+                        }
                     }
                     Err(e) => {
                         eprintln!("[updates] download failed: {e}");

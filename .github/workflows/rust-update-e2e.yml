@@ -1,0 +1,151 @@
+# Desktop (Rust) update end-to-end: proves that a PACKAGED Rust app updates itself like the Electron one. Builds the app twice
+# (version 1.0.0 and 99.0.0, the version is patched in the job only), packages both (Windows: NSIS installer, Linux: AppImage),
+# installs the old one, serves the new one and a latest*.yml from a local server shaped like the GitHub releases API, launches
+# the installed old app with the test-only SIGNET_UPDATE_* variables and checks that it finds, downloads, verifies and installs
+# the new version, then relaunches as it ("restart") or installs it at quit without relaunch ("later").
+# See scripts/update-e2e.sh. macOS only opens the release page (like Electron), so it has nothing to test here.
+name: Desktop (Rust) update e2e
+
+on:
+  workflow_dispatch:
+  # TEMPORARY: removed once the test is proven.
+  push:
+    branches: [feat/gpui-desktop]
+    paths: ['.github/workflows/rust-update-e2e.yml', 'app/desktop-rs/scripts/update-e2e*']
+
+concurrency:
+  group: rust-update-e2e-${{ github.ref }}-${{ github.sha }}
+
+env:
+  RUST_TOOLCHAIN: 1.99.1
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 4
+  CEF_PATH: ${{ github.workspace }}/.cef
+  OLD_VERSION: 1.0.0
+  NEW_VERSION: 99.0.0
+
+jobs:
+  update:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+        working-directory: app/desktop-rs
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: System packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config patchelf \
+            libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libx11-dev libwayland-dev libvulkan-dev \
+            libdbus-1-dev libgtk-3-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 \
+            libasound2t64 libfontconfig1-dev libfreetype-dev libssl-dev \
+            xvfb openbox x11-utils imagemagick mesa-vulkan-drivers libgl1-mesa-dri
+
+      - name: Build tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja -y --no-progress
+          cmake --version
+
+      - name: Rust ${{ env.RUST_TOOLCHAIN }}
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+          rustc --version
+
+      # The cache of "Desktop (Rust)" (same release build, only the version string differs between the two builds here).
+      - name: Restore the cargo and CEF cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            app/desktop-rs/target
+            ${{ env.CEF_PATH }}
+          key: rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-e2e-${{ github.run_id }}
+          restore-keys: |
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-
+            rust-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Package the old and the new version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set_version() { sed -i '/^\[workspace.package\]/,/^\[/ s/^version = ".*"/version = "'"$1"'"/' Cargo.toml; grep -m1 '^version' Cargo.toml; }
+          package() {
+            if [ "$RUNNER_OS" = Windows ]; then pwsh -NoProfile -File scripts/package-windows.ps1; else scripts/package-linux.sh --only appimage; fi
+          }
+          mkdir -p "$RUNNER_TEMP/old" "$RUNNER_TEMP/new"
+          set_version "$OLD_VERSION"
+          package
+          mv dist/Signet-"$OLD_VERSION"-* "$RUNNER_TEMP/old/"
+          set_version "$NEW_VERSION"
+          package
+          mv dist/Signet-"$NEW_VERSION"-* "$RUNNER_TEMP/new/"
+          scripts/update-metadata.sh "$RUNNER_TEMP/new" "$NEW_VERSION"
+          ls -la "$RUNNER_TEMP/old" "$RUNNER_TEMP/new"
+          cat "$RUNNER_TEMP"/new/latest*.yml
+
+      - name: Update e2e, restart (Linux, virtual display)
+        if: runner.os == 'Linux'
+        env:
+          WORK: ${{ runner.temp }}/e2e-restart
+        run: |
+          export OLD_DIR="$RUNNER_TEMP/old" NEW_DIR="$RUNNER_TEMP/new"
+          cat > "$RUNNER_TEMP/session.sh" <<'SESSION'
+          #!/usr/bin/env bash
+          openbox >/dev/null 2>&1 &
+          sleep 2
+          exec scripts/update-e2e.sh "$1"
+          SESSION
+          chmod +x "$RUNNER_TEMP/session.sh"
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" "$RUNNER_TEMP/session.sh" restart
+
+      - name: Update e2e, later (Linux, virtual display)
+        if: runner.os == 'Linux'
+        env:
+          WORK: ${{ runner.temp }}/e2e-later
+        run: |
+          export OLD_DIR="$RUNNER_TEMP/old" NEW_DIR="$RUNNER_TEMP/new"
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" "$RUNNER_TEMP/session.sh" later
+
+      - name: Update e2e, restart (Windows)
+        if: runner.os == 'Windows'
+        env:
+          WORK: ${{ runner.temp }}/e2e-restart
+        run: |
+          export OLD_DIR="$RUNNER_TEMP/old" NEW_DIR="$RUNNER_TEMP/new"
+          scripts/update-e2e.sh restart
+
+      - name: Update e2e, later (Windows)
+        if: runner.os == 'Windows'
+        env:
+          WORK: ${{ runner.temp }}/e2e-later
+        run: |
+          export OLD_DIR="$RUNNER_TEMP/old" NEW_DIR="$RUNNER_TEMP/new"
+          scripts/update-e2e.sh later
+
+      - name: Upload the logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: update-e2e-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/e2e-restart/*.txt
+            ${{ runner.temp }}/e2e-restart/*.log
+            ${{ runner.temp }}/e2e-later/*.txt
+            ${{ runner.temp }}/e2e-later/*.log
+            ${{ runner.temp }}/new/latest*.yml
+          if-no-files-found: ignore
+          retention-days: 14
