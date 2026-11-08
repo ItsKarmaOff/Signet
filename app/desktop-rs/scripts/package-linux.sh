@@ -171,6 +171,12 @@ if want appimage; then
     curl -fsSL --retry 10 --retry-delay 15 --retry-all-errors -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$TOOL_ARCH.AppImage"
     chmod +x "$TOOL"
   fi
+  # The AppImage runtime (appimagetool would download it itself, once, without retry): fetched here with retries.
+  RUNTIME="$ROOT/.cache/appimage-runtime-$TOOL_ARCH"
+  if [ ! -s "$RUNTIME" ]; then
+    curl -fsSL --retry 10 --retry-delay 15 --retry-all-errors -o "$RUNTIME" \
+      "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-$TOOL_ARCH"
+  fi
   A="$WORK/Signet.AppDir"
   mkdir -p "$A/usr/lib/signet"
   cp -a "$BUNDLE/." "$A/usr/lib/signet/"
@@ -192,7 +198,7 @@ APPRUN
   OUT="$DIST/Signet-$VERSION-$APPIMAGE_ARCH.AppImage"
   rm -f "$OUT"
   # --appimage-extract-and-run: the runner has no FUSE. --no-appstream: no appstream metadata shipped.
-  ARCH="$TOOL_ARCH" "$TOOL" --appimage-extract-and-run --no-appstream "$A" "$OUT" >"$WORK/appimagetool.log" 2>&1 \
+  ARCH="$TOOL_ARCH" "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" "$A" "$OUT" >"$WORK/appimagetool.log" 2>&1 \
     || { cat "$WORK/appimagetool.log" >&2; exit 1; }
   chmod 755 "$OUT"
   echo "Package: $OUT"
