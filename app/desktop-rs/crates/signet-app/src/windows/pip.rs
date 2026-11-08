@@ -169,8 +169,8 @@ impl PipWindows {
         let (all, home) = work_areas(browser, cx);
         let bounds = initial_bounds(ratio, saved.as_ref(), &all, &home);
         let _ = home_video;
-        let Some((panel, panel_raw)) = open_window(cx, bounds, false, |_, cx| cx.new(|_| Blank).into()) else { return };
-        let Some((controls, controls_raw)) = open_window(cx, bounds, true, |window, cx| signet_ui::screens::windows::pip::Pip::new(window, cx).into()) else {
+        let Some((panel, panel_raw)) = open_window(cx, bounds, false, |_, cx| cx.new(|cx| super::host::QuitKeys(cx.new(|_| Blank).into())).into()) else { return };
+        let Some((controls, controls_raw)) = open_window(cx, bounds, true, |window, cx| { let v: gpui::AnyView = signet_ui::screens::windows::pip::Pip::new(window, cx).into(); cx.new(|_| super::host::QuitKeys(v)).into() }) else {
             let _ = panel.update(cx, |_, w, _| w.remove_window());
             return;
         };

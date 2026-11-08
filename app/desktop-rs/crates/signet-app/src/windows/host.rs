@@ -64,6 +64,16 @@ impl Render for ToolsHost {
                 c.devtools_window_resized(cur);
             }
         }
-        div().size_full().child(self.child.clone())
+        crate::quitkeys::gpui_handlers(div()).size_full().child(self.child.clone())
+    }
+}
+
+/// Root wrapper that only feeds Ctrl+Q to the hold-to-quit gauge (`quitkeys.rs`). Every window root of the app must
+/// carry the handlers: `LineHeight`, `MainHost`, `AuxHost` and `ToolsHost` do; wrap any other root with this.
+pub struct QuitKeys(pub AnyView);
+
+impl Render for QuitKeys {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        crate::quitkeys::gpui_handlers(div()).size_full().child(self.0.clone())
     }
 }

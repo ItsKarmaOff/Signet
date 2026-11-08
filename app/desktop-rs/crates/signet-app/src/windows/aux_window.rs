@@ -81,7 +81,7 @@ impl Render for AuxHost {
                 }
             }
         }
-        div().size_full().line_height(gpui::relative(signet_ui::theme::LINE_HEIGHT)).child(self.child.clone())
+        crate::quitkeys::gpui_handlers(div()).size_full().line_height(gpui::relative(signet_ui::theme::LINE_HEIGHT)).child(self.child.clone())
     }
 }
 
