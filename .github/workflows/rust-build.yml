@@ -37,7 +37,10 @@ jobs:
           - { name: Linux-arm64, os: ubuntu-24.04-arm }
           - { name: Windows-x64, os: windows-latest }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 190
+    timeout-minutes: 180
+    env:
+      # For the gh CLI used by package-linux.sh to download appimagetool when github.com downloads fail.
+      GH_TOKEN: ${{ github.token }}
     defaults:
       run:
         shell: bash

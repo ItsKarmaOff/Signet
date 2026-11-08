@@ -22,6 +22,7 @@ while [ $# -gt 0 ]; do
 done
 
 APPIMAGETOOL_VERSION=1.9.0
+RUNTIME_VERSION=20251108
 VERSION="$(workspace_version)"
 MACHINE="$(uname -m)"
 case "$MACHINE" in
@@ -39,6 +40,14 @@ SUMMARY="A sidebar-first web browser: spaces, command bar, split view, Little Si
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/signet-pkg.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
+
+# fetch <repo> <tag> <asset> <output>: github.com download URLs of some repositories answer 504 for long stretches, the
+# API download of the gh CLI (when installed and logged in, as on the runners with GH_TOKEN) does not.
+fetch() {
+  curl -fsSL --retry 3 --retry-delay 5 --retry-all-errors -o "$4" "https://github.com/$1/releases/download/$2/$3" && return 0
+  command -v gh >/dev/null 2>&1 || return 1
+  gh release download "$2" -R "$1" -p "$3" -O "$4" --clobber
+}
 
 want() { case " $ONLY " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
 
@@ -168,14 +177,13 @@ if want appimage; then
   TOOL="$ROOT/.cache/appimagetool-$APPIMAGETOOL_VERSION-$TOOL_ARCH.AppImage"
   if [ ! -x "$TOOL" ]; then
     mkdir -p "$ROOT/.cache"
-    curl -fsSL --retry 10 --retry-delay 15 --retry-all-errors -o "$TOOL" "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_VERSION/appimagetool-$TOOL_ARCH.AppImage"
+    fetch AppImage/appimagetool "$APPIMAGETOOL_VERSION" "appimagetool-$TOOL_ARCH.AppImage" "$TOOL"
     chmod +x "$TOOL"
   fi
   # The AppImage runtime (appimagetool would download it itself, once, without retry): fetched here with retries.
   RUNTIME="$ROOT/.cache/appimage-runtime-$TOOL_ARCH"
   if [ ! -s "$RUNTIME" ]; then
-    curl -fsSL --retry 10 --retry-delay 15 --retry-all-errors -o "$RUNTIME" \
-      "https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-$TOOL_ARCH"
+    fetch AppImage/type2-runtime "$RUNTIME_VERSION" "runtime-$TOOL_ARCH" "$RUNTIME"
   fi
   A="$WORK/Signet.AppDir"
   mkdir -p "$A/usr/lib/signet"
