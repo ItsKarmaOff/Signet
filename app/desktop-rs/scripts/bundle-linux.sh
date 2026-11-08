@@ -78,6 +78,17 @@ for f in "$CEF_DIR"/*; do
   esac
   cp -R "$f" "$OUT/"
 done
+# Size: the CEF libraries ship with their symbol tables (libcef.so is about 1.4 GB unstripped, a few hundred MB stripped).
+# --strip-unneeded keeps the dynamic symbols the loader needs. Locales: the app only sets en-US and fr-FR (main.rs), the
+# other .pak files are optional (CEF falls back to en-US), so only those two are kept.
+if [ "$PROFILE" = release ]; then
+  for lib in "$OUT"/*.so "$OUT"/*.so.*; do
+    [ -f "$lib" ] && { strip --strip-unneeded "$lib" || echo "warning: could not strip $lib" >&2; }
+  done
+  if [ -d "$OUT/locales" ]; then
+    find "$OUT/locales" -type f ! -name 'en-US.pak' ! -name 'fr.pak' -delete
+  fi
+fi
 # The sandbox helper stays non-SUID (see header); make sure no stray SUID bit survives.
 [ -f "$OUT/chrome-sandbox" ] && chmod 755 "$OUT/chrome-sandbox"
 

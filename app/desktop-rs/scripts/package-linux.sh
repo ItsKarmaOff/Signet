@@ -115,7 +115,7 @@ CONTROL
   chmod 755 "$R/DEBIAN/postinst" "$R/DEBIAN/postrm"
   OUT="$DIST/Signet-$VERSION-$DEB_ARCH.deb"
   rm -f "$OUT"
-  dpkg-deb --root-owner-group -Zxz --build "$R" "$OUT" >/dev/null
+  dpkg-deb --root-owner-group -Zxz -z9 -Sextreme --build "$R" "$OUT" >/dev/null
   echo "Package: $OUT"
 fi
 
@@ -143,7 +143,7 @@ Recommends: bluez
 %global debug_package %{nil}
 %global __os_install_post %{nil}
 %global _build_id_links none
-%global _binary_payload w3.xzdio
+%global _binary_payload w9.xzdio
 
 %description
 $SUMMARY
@@ -206,7 +206,7 @@ APPRUN
   OUT="$DIST/Signet-$VERSION-$APPIMAGE_ARCH.AppImage"
   rm -f "$OUT"
   # --appimage-extract-and-run: the runner has no FUSE. --no-appstream: no appstream metadata shipped.
-  ARCH="$TOOL_ARCH" "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" "$A" "$OUT" >"$WORK/appimagetool.log" 2>&1 \
+  ARCH="$TOOL_ARCH" "$TOOL" --appimage-extract-and-run --no-appstream --comp zstd --mksquashfs-opt -Xcompression-level --mksquashfs-opt 22 --runtime-file "$RUNTIME" "$A" "$OUT" >"$WORK/appimagetool.log" 2>&1 \
     || { cat "$WORK/appimagetool.log" >&2; exit 1; }
   chmod 755 "$OUT"
   echo "Package: $OUT"

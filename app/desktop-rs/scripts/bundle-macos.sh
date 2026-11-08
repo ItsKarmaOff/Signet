@@ -148,6 +148,10 @@ done
 if [ "$PROFILE" = release ]; then
   strip -x "$APP/Contents/MacOS/signet"
   for h in "$APP"/Contents/Frameworks/*Helper*.app; do strip -x "$h/Contents/MacOS/"*; done
+  # The app only sets en-US and fr-FR (main.rs); the other locale folders of the framework are optional (CEF falls back to en).
+  for d in "$APP/Contents/Frameworks/Chromium Embedded Framework.framework/Resources/"*.lproj; do
+    case "$(basename "$d")" in en*|fr*) ;; *) rm -rf "$d" ;; esac
+  done
 fi
 
 # Signing goes inside out (framework, helpers, app), never with --deep.

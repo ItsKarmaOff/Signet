@@ -38,7 +38,7 @@ STAGE="$(mktemp -d "${TMPDIR:-/tmp}/signet-dmg.XXXXXX")"
 trap 'rm -rf "$STAGE"' EXIT
 ditto "$APP" "$STAGE/Signet.app"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "Signet $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$DMG" >/dev/null
+hdiutil create -volname "Signet $VERSION" -srcfolder "$STAGE" -fs HFS+ -format ULMO -ov "$DMG" >/dev/null
 
 echo "Packages: $ZIP $DMG"
 echo "Then: scripts/update-metadata.sh <folder with the packages of every arch> writes latest-mac.yml"

@@ -75,6 +75,11 @@ try {
     Copy-Item $item.FullName -Destination $Out -Recurse -Force
   }
 
+  # Release: the app only sets en-US and fr-FR (main.rs); the other locale files are optional (CEF falls back to en-US).
+  if ($Release -and (Test-Path (Join-Path $Out 'locales'))) {
+    Get-ChildItem (Join-Path $Out 'locales') -File | Where-Object { $_.Name -notin 'en-US.pak', 'fr.pak' } | Remove-Item -Force
+  }
+
   # Application manifest: per-monitor v2 DPI, Windows 7 to 11, long paths, UTF-8. Embedded when mt.exe exists
   # (the Windows SDK), else shipped as signet.exe.manifest, which Windows reads when the exe has no manifest of its own.
   $manifest = Join-Path $PSScriptRoot 'windows\signet.manifest'
