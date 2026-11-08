@@ -13,10 +13,6 @@ name: Build (Rust)
 
 on:
   workflow_dispatch:
-  # TEMPORARY (removed in the next commit): one packaging run for the size check.
-  push:
-    branches: [feat/gpui-desktop]
-    paths: ['.github/workflows/rust-build.yml']
 
 env:
   RUST_TOOLCHAIN: 1.99.1
