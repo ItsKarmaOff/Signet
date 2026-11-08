@@ -74,7 +74,7 @@ jobs:
       - name: Build tools (Windows)
         if: runner.os == 'Windows'
         run: |
-          choco install ninja -y --no-progress
+          choco install ninja nsis -y --no-progress
           cmake --version
 
       - name: Rust ${{ env.RUST_TOOLCHAIN }}
