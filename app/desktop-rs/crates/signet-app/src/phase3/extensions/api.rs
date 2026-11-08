@@ -75,7 +75,7 @@ impl Core {
         let (ok, cancel) = (tr("dialog.removeExtension.confirm"), tr("dialog.cancel"));
         let id = id.to_string();
         std::thread::spawn(move || {
-            if super::dialogs::confirm(&title, &format!("{title}\n\n{detail}"), &ok, &cancel) {
+            if super::dialogs::confirm("Signet", &format!("{title}\n\n{detail}"), &ok, &cancel) {
                 shared.push(Inbox::RemoveConfirmed(id));
             }
         });

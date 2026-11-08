@@ -130,7 +130,7 @@ impl Core {
                 let (ok, cancel) = (tr("dialog.extension.request.allow"), tr("dialog.extension.request.deny"));
                 let s = shared.clone();
                 std::thread::spawn(move || {
-                    let allowed = dialogs::confirm(&title, &detail, &ok, &cancel);
+                    let allowed = dialogs::confirm("Signet", &format!("{title}\n\n{detail}"), &ok, &cancel);
                     s.push(Inbox::Permission { ticket, allowed });
                 });
             }
@@ -140,7 +140,7 @@ impl Core {
                 let (ok, cancel) = (tr("dialog.extension.add"), tr("dialog.cancel"));
                 let s = shared.clone();
                 std::thread::spawn(move || {
-                    let allowed = dialogs::confirm(&title, &format!("{title}\n\n{detail}"), &ok, &cancel);
+                    let allowed = dialogs::confirm("Signet", &format!("{title}\n\n{detail}"), &ok, &cancel);
                     s.push(Inbox::Install { ticket, allowed });
                 });
             }
