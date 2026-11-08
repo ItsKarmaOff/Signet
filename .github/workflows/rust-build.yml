@@ -12,6 +12,10 @@ name: Build (Rust)
 
 on:
   workflow_dispatch:
+  # TEMPORARY (removed before the end of the port): a workflow only appears for manual runs once it is on the default branch.
+  push:
+    branches: [feat/gpui-desktop]
+    paths: ['.github/workflows/rust-build.yml']
 
 env:
   RUST_TOOLCHAIN: 1.99.1
