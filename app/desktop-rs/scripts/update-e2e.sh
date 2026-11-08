@@ -26,7 +26,7 @@ pass() { echo "PASS: $*"; }
 
 kill_all() {
   if [ "$OS" = windows ]; then
-    taskkill //F //IM signet.exe //T >/dev/null 2>&1; taskkill //F //IM signet-helper.exe //T >/dev/null 2>&1
+    taskkill /F /IM signet.exe /T >/dev/null 2>&1; taskkill /F /IM signet-helper.exe /T >/dev/null 2>&1
   else
     pkill -f "$WORK/" 2>/dev/null; pkill -f "signet-helper" 2>/dev/null; pkill -f "/tmp/.mount_" 2>/dev/null
   fi
@@ -61,10 +61,11 @@ mkdir -p "$WORK/data"
 if [ "$OS" = windows ]; then
   KEY='HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\{ea93c96e-a71c-5caa-a6d0-f986425b44b7}'
   INSTDIR="$(cygpath -u "$LOCALAPPDATA")/Programs/Signet"
-  installed_version() { reg query "$KEY" //v DisplayVersion 2>/dev/null | tr -d '\r' | awk '/DisplayVersion/{print $NF}'; }
+  installed_version() { reg query "$KEY" /v DisplayVersion 2>/dev/null | tr -d '\r' | awk '/DisplayVersion/{print $NF}'; }
   SETUP="$(ls "$OLD_DIR"/Signet-"$OLD_VERSION"-x64-setup.exe)"
   timeout 240 "$SETUP" /S || fail "silent install of the old version"
   echo "old version installed by the setup (exit ok)"
+  reg query "$KEY" 2>&1 | head -20
   wait_for 120 "old version registered" test "$(installed_version)" = "$OLD_VERSION"
   [ -f "$INSTDIR/signet.exe" ] && [ -f "$INSTDIR/Uninstall Signet.exe" ] || fail "installed files missing in $INSTDIR"
   EXE="$INSTDIR/signet.exe"
