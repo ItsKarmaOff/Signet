@@ -1,0 +1,249 @@
+# Signet (Rust) packages, the same files as the Electron release (.github/workflows/build.yml): macOS .dmg and .zip
+# (arm64 and x64), Linux AppImage, .deb and .rpm (x64 and arm64), Windows NSIS installer (x64), plus the electron-updater
+# metadata (latest*.yml) so an installed Electron app finds and installs the Rust build. Names and formats: app/desktop-rs/README.md, "Packaging".
+# Run by hand (Actions tab, Build (Rust), Run workflow): the files are in the run's artifacts.
+#
+# NOT wired to releases yet. At migration time, to publish from a `v…` tag like build.yml does:
+#   1. add `push: tags: ['v*']` under `on:`, and the same "tag matches the package versions" step as build.yml;
+#   2. copy the `release` job of build.yml (needs: [package, metadata]); the Android job stays in build.yml or moves here;
+#   3. upload packages/* (the Signet-Rust-* artifacts merged) and latest*.yml to the release;
+#   4. switch build.yml off (remove its desktop matrix) so the same file names are not produced twice.
+name: Build (Rust)
+
+on:
+  workflow_dispatch:
+
+env:
+  RUST_TOOLCHAIN: 1.99.1
+  CARGO_TERM_COLOR: never
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_JOBS: 4
+  # cef-dll-sys downloads and extracts CEF here (reused through the cache).
+  CEF_PATH: ${{ github.workspace }}/.cef
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: macOS-arm64, os: macos-latest }
+          - { name: macOS-x64, os: macos-15-intel }
+          - { name: Linux-x64, os: ubuntu-latest }
+          - { name: Linux-arm64, os: ubuntu-24.04-arm }
+          - { name: Windows-x64, os: windows-latest }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash
+        working-directory: app/desktop-rs
+    steps:
+      - uses: actions/checkout@v7
+
+      # The Rust app must carry the version of the other packages (the update metadata and the file names use it).
+      - name: Check the version
+        working-directory: .
+        run: |
+          rust="$(awk '/^\[/{s=($0=="[workspace.package]")} s && /^version *=/{gsub(/[" ]/,"",$0); sub(/^version=/,"",$0); print; exit}' app/desktop-rs/Cargo.toml)"
+          root="$(grep -m1 '"version"' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')"
+          echo "Rust $rust, root package.json $root"
+          if [[ $rust != "$root" ]]; then echo "::error::app/desktop-rs/Cargo.toml version $rust differs from package.json $root"; exit 1; fi
+
+      - name: System packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config patchelf rpm desktop-file-utils \
+            libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev libx11-dev libwayland-dev libvulkan-dev \
+            libdbus-1-dev libgtk-3-dev libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libgbm1 \
+            libasound2t64 libfontconfig1-dev libfreetype-dev libssl-dev imagemagick
+
+      - name: Build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake ninja
+          # GPUI compiles its Metal shaders with this component; it is missing on some runner images.
+          xcrun -find metal >/dev/null 2>&1 || xcodebuild -downloadComponent MetalToolchain
+
+      - name: Build tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install ninja -y --no-progress
+          cmake --version
+
+      - name: Rust ${{ env.RUST_TOOLCHAIN }}
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup default "$RUST_TOOLCHAIN"
+          rustc --version
+
+      # Same idea as rust.yml: restore, save at the very end even after a failure. Starts from the cache of rust.yml
+      # (same key prefix) when this workflow has none yet, and saves under its own prefix.
+      - name: Restore the cargo and CEF cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            app/desktop-rs/target
+            ${{ env.CEF_PATH }}
+          key: rustpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-${{ github.run_id }}
+          restore-keys: |
+            rustpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-
+            rustpkg-${{ runner.os }}-${{ runner.arch }}-
+            rust-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-
+            rust-${{ runner.os }}-${{ runner.arch }}-
+
+      # ------------------------------------------------------------------ macOS
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: scripts/package-macos.sh
+
+      - name: Check the packages (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd dist
+          ls -l Signet-*
+          mnt="$RUNNER_TEMP/dmg"; mkdir -p "$mnt"
+          hdiutil attach Signet-*.dmg -mountpoint "$mnt" -nobrowse -readonly
+          ls "$mnt"
+          test -d "$mnt/Signet.app/Contents/Frameworks/Chromium Embedded Framework.framework"
+          test -L "$mnt/Applications"
+          codesign --verify --strict "$mnt/Signet.app"
+          codesign -dv "$mnt/Signet.app" 2>&1 | grep -E 'Identifier|Signature|Format'
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$mnt/Signet.app/Contents/Info.plist"
+          hdiutil detach "$mnt"
+          zdir="$RUNNER_TEMP/zip"; mkdir -p "$zdir"
+          ditto -x -k Signet-*.zip "$zdir"
+          test -x "$zdir/Signet.app/Contents/MacOS/signet"
+          codesign --verify --strict "$zdir/Signet.app"
+          file "$zdir/Signet.app/Contents/MacOS/signet"
+
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'macOS'
+        with:
+          name: Signet-Rust-${{ matrix.name }}
+          path: |
+            app/desktop-rs/dist/Signet-*.dmg
+            app/desktop-rs/dist/Signet-*.zip
+          if-no-files-found: error
+
+      # ------------------------------------------------------------------ Linux
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: scripts/package-linux.sh
+
+      - name: Check the packages (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd dist
+          ls -l Signet-*
+          echo "--- deb"
+          dpkg-deb -I Signet-*.deb
+          dpkg-deb -c Signet-*.deb | grep -E 'opt/Signet/(signet|signet-bin|libcef.so)$|usr/bin/signet|signet.desktop|signet.png' | head -20
+          echo "--- rpm"
+          rpm -qip Signet-*.rpm
+          rpm -qlp Signet-*.rpm | grep -E 'opt/Signet/(signet|signet-bin|libcef.so)$|usr/bin/signet|signet.desktop' | head -20
+          rpm -qp --requires Signet-*.rpm | head -20
+          echo "--- AppImage"
+          chmod +x Signet-*.AppImage
+          file Signet-*.AppImage
+          APPIMAGE_EXTRACT_AND_RUN=1 ./Signet-*.AppImage --appimage-extract >/dev/null
+          test -x squashfs-root/AppRun
+          test -x squashfs-root/usr/lib/signet/signet-bin
+          test -f squashfs-root/usr/lib/signet/libcef.so
+          desktop-file-validate squashfs-root/signet.desktop
+          cat squashfs-root/signet.desktop
+          rm -rf squashfs-root
+          echo "--- install the deb, check, remove"
+          sudo apt-get install -y ./Signet-*.deb
+          test -L /usr/bin/signet
+          test -x /opt/Signet/signet-bin
+          desktop-file-validate /usr/share/applications/signet.desktop
+          ldd /opt/Signet/signet-bin | grep 'not found' || echo "no missing libraries"
+          sudo apt-get remove -y signet
+          test ! -e /opt/Signet/signet-bin
+
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Linux'
+        with:
+          name: Signet-Rust-${{ matrix.name }}
+          path: |
+            app/desktop-rs/dist/Signet-*.AppImage
+            app/desktop-rs/dist/Signet-*.deb
+            app/desktop-rs/dist/Signet-*.rpm
+          if-no-files-found: error
+
+      # ------------------------------------------------------------------ Windows
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: scripts/package-windows.ps1
+
+      - name: Check the installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = (Get-ChildItem dist/Signet-*-setup.exe).FullName
+          Get-Item $setup | Format-List Name, Length
+          $dir = Join-Path $env:RUNNER_TEMP 'signet-install'
+          # Silent install into a temp directory (/D must be last).
+          $p = Start-Process -FilePath $setup -ArgumentList '/S', "/D=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          foreach ($f in 'signet.exe', 'signet-helper.exe', 'libcef.dll', 'Uninstall Signet.exe') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing after install: $f" }
+          }
+          $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{ea93c96e-a71c-5caa-a6d0-f986425b44b7}'
+          Get-ItemProperty $key | Format-List DisplayName, DisplayVersion, InstallLocation, UninstallString
+          reg query 'HKCU\Software\Clients\StartMenuInternet\Signet\Capabilities\URLAssociations'
+          reg query 'HKCU\Software\RegisteredApplications' /v Signet
+          if (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Programs')) 'Signet.lnk'))) { throw 'no Start Menu shortcut' }
+          # Silent uninstall (_?= keeps it in place so the call waits for the end).
+          $p = Start-Process -FilePath (Join-Path $dir 'Uninstall Signet.exe') -ArgumentList '/S', "_?=$dir" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "uninstaller exit code $($p.ExitCode)" }
+          if (Test-Path (Join-Path $dir 'signet.exe')) { throw 'signet.exe still there after uninstall' }
+          if (Test-Path $key) { throw 'uninstall key still there' }
+          Write-Host 'Install and uninstall OK'
+
+      - uses: actions/upload-artifact@v7
+        if: runner.os == 'Windows'
+        with:
+          name: Signet-Rust-${{ matrix.name }}
+          path: app/desktop-rs/dist/Signet-*-setup.exe
+          if-no-files-found: error
+
+      - name: Save the cargo and CEF cache
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            app/desktop-rs/target
+            ${{ env.CEF_PATH }}
+          key: rustpkg-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/desktop-rs/Cargo.lock') }}-${{ github.run_id }}
+
+  # electron-updater metadata for all the packages together (latest-mac.yml lists both Mac architectures).
+  metadata:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: packages
+          pattern: Signet-Rust-*
+          merge-multiple: true
+      - run: |
+          app/desktop-rs/scripts/update-metadata.sh packages
+          ls -l packages
+          for f in packages/latest*.yml; do echo "=== $f"; cat "$f"; done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Signet-Rust-metadata
+          path: packages/latest*.yml
+          if-no-files-found: error
