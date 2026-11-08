@@ -16,9 +16,11 @@ on:
     paths: ['app/desktop-rs/**', '.github/workflows/rust.yml']
   workflow_dispatch:
 
+# Pushes of a branch each get their own run (the first builds are long, a cancelled one reports nothing);
+# only a new push to a pull request cancels the older run of that pull request.
 concurrency:
-  group: rust-${{ github.ref }}
-  cancel-in-progress: true
+  group: rust-${{ github.ref }}-${{ github.event_name == 'pull_request' && 'pr' || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   RUST_TOOLCHAIN: 1.99.1
