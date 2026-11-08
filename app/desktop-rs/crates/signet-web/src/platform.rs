@@ -225,6 +225,29 @@ unsafe extern "C" fn record_x_error(_: *mut x11_dl::xlib::Display, e: *mut x11_d
     0
 }
 
+/// Logs the window tree below `w` (id, geometry, map state), three levels deep. Diagnostic for the self-test.
+#[cfg(target_os = "linux")]
+unsafe fn dump_x_tree(xlib: &x11_dl::xlib::Xlib, dpy: *mut x11_dl::xlib::Display, w: std::os::raw::c_ulong, depth: usize) {
+    unsafe {
+        let mut a: x11_dl::xlib::XWindowAttributes = std::mem::zeroed();
+        if (xlib.XGetWindowAttributes)(dpy, w, &mut a) != 0 {
+            crate::app::rlog(&format!("x tree {}{:#x} {}x{}+{}+{} map_state={}", "  ".repeat(depth), w, a.width, a.height, a.x, a.y, a.map_state));
+        }
+        if depth >= 3 {
+            return;
+        }
+        let (mut root, mut parent) = (0, 0);
+        let mut kids: *mut std::os::raw::c_ulong = std::ptr::null_mut();
+        let mut n: std::os::raw::c_uint = 0;
+        if (xlib.XQueryTree)(dpy, w, &mut root, &mut parent, &mut kids, &mut n) != 0 && !kids.is_null() {
+            for i in 0..n as usize {
+                dump_x_tree(xlib, dpy, *kids.add(i), depth + 1);
+            }
+            (xlib.XFree)(kids as *mut _);
+        }
+    }
+}
+
 /// (x, y, width, height, hidden, parent width, parent height) in window points, asked to the system.
 #[cfg(target_os = "linux")]
 pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f64, f64)> {
@@ -258,18 +281,11 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
             }
         }
         if !ok {
-            let mut root2: std::os::raw::c_ulong = 0;
-            let mut parent2: std::os::raw::c_ulong = 0;
-            let mut kids2: *mut std::os::raw::c_ulong = std::ptr::null_mut();
-            let mut n2: std::os::raw::c_uint = 0;
-            let mut listing = String::new();
-            if (xlib.XQueryTree)(dpy, (xlib.XDefaultRootWindow)(dpy), &mut root2, &mut parent2, &mut kids2, &mut n2) != 0 && !kids2.is_null() {
-                for i in 0..n2 as usize {
-                    listing.push_str(&format!(" {:#x}", *kids2.add(i)));
-                }
-                (xlib.XFree)(kids2 as *mut _);
+            static DUMPED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+            if !DUMPED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                dump_x_tree(&xlib, dpy, (xlib.XDefaultRootWindow)(dpy), 0);
             }
-            crate::app::rlog(&format!("native_geometry: XGetWindowAttributes failed for {id:#x}, x error {code}, root children:{listing}"));
+            crate::app::rlog(&format!("native_geometry: XGetWindowAttributes failed for {id:#x}, x error {code}"));
         }
         (xlib.XSetErrorHandler)(previous);
         (xlib.XCloseDisplay)(dpy);
