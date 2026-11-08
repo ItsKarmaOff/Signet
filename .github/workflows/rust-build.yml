@@ -13,6 +13,10 @@ name: Build (Rust)
 
 on:
   workflow_dispatch:
+  # TEMPORARY (removed in the next commit): one packaging run for the size check.
+  push:
+    branches: [feat/gpui-desktop]
+    paths: ['.github/workflows/rust-build.yml']
 
 env:
   RUST_TOOLCHAIN: 1.99.1
@@ -218,6 +222,17 @@ jobs:
           name: Signet-Rust-${{ matrix.name }}
           path: app/desktop-rs/dist/Signet-*-setup.exe
           if-no-files-found: error
+
+      # Sizes in the log: the packages, then the 15 biggest files of the bundle they were made from.
+      - name: Sizes
+        if: always()
+        run: |
+          ls -l dist/Signet-* || true
+          for d in dist/signet-linux dist/signet-windows dist/Signet.app; do
+            [ -d "$d" ] || continue
+            du -sh "$d"
+            find "$d" -type f -exec ls -l {} + | awk '{ print $5, $NF }' | sort -rn | head -15
+          done
 
       - name: Save the cargo and CEF cache
         if: always()
