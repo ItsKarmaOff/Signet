@@ -8,13 +8,9 @@ name: Desktop (Rust) update e2e
 
 on:
   workflow_dispatch:
-  # TEMPORARY: removed once the test is proven.
-  push:
-    branches: [feat/gpui-desktop]
-    paths: ['.github/workflows/rust-update-e2e.yml', 'app/desktop-rs/scripts/update-e2e*']
 
 concurrency:
-  group: rust-update-e2e-${{ github.ref }}-${{ github.sha }}
+  group: rust-update-e2e-${{ github.ref }}
 
 env:
   RUST_TOOLCHAIN: 1.99.1
