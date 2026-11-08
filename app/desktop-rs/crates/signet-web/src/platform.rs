@@ -216,6 +216,15 @@ pub(crate) fn native_id(host: &cef::BrowserHost) -> usize {
     }
 }
 
+#[cfg(target_os = "linux")]
+static LAST_X_ERROR: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
+#[cfg(target_os = "linux")]
+unsafe extern "C" fn record_x_error(_: *mut x11_dl::xlib::Display, e: *mut x11_dl::xlib::XErrorEvent) -> std::os::raw::c_int {
+    LAST_X_ERROR.store(unsafe { (*e).error_code } as i32, std::sync::atomic::Ordering::Relaxed);
+    0
+}
+
 /// (x, y, width, height, hidden, parent width, parent height) in window points, asked to the system.
 #[cfg(target_os = "linux")]
 pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f64, f64)> {
@@ -230,7 +239,11 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
             return None;
         }
         let mut a: x11_dl::xlib::XWindowAttributes = std::mem::zeroed();
+        LAST_X_ERROR.store(0, std::sync::atomic::Ordering::Relaxed);
+        let previous = (xlib.XSetErrorHandler)(Some(record_x_error));
         let ok = (xlib.XGetWindowAttributes)(dpy, id as std::os::raw::c_ulong, &mut a) != 0;
+        (xlib.XSync)(dpy, 0);
+        let code = LAST_X_ERROR.load(std::sync::atomic::Ordering::Relaxed);
         let mut root: std::os::raw::c_ulong = 0;
         let mut parent: std::os::raw::c_ulong = 0;
         let mut kids: *mut std::os::raw::c_ulong = std::ptr::null_mut();
@@ -244,9 +257,23 @@ pub(crate) fn native_geometry(id: usize) -> Option<(f64, f64, f64, f64, bool, f6
                 (xlib.XGetWindowAttributes)(dpy, parent, &mut pa);
             }
         }
+        if !ok {
+            let mut root2: std::os::raw::c_ulong = 0;
+            let mut parent2: std::os::raw::c_ulong = 0;
+            let mut kids2: *mut std::os::raw::c_ulong = std::ptr::null_mut();
+            let mut n2: std::os::raw::c_uint = 0;
+            let mut listing = String::new();
+            if (xlib.XQueryTree)(dpy, (xlib.XDefaultRootWindow)(dpy), &mut root2, &mut parent2, &mut kids2, &mut n2) != 0 && !kids2.is_null() {
+                for i in 0..n2 as usize {
+                    listing.push_str(&format!(" {:#x}", *kids2.add(i)));
+                }
+                (xlib.XFree)(kids2 as *mut _);
+            }
+            crate::app::rlog(&format!("native_geometry: XGetWindowAttributes failed for {id:#x}, x error {code}, root children:{listing}"));
+        }
+        (xlib.XSetErrorHandler)(previous);
         (xlib.XCloseDisplay)(dpy);
         if !ok {
-            crate::app::rlog(&format!("native_geometry: XGetWindowAttributes failed for {id:#x}"));
             return None;
         }
         let hidden = a.map_state != x11_dl::xlib::IsViewable;
