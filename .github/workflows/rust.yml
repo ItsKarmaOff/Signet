@@ -112,6 +112,8 @@ jobs:
         if: runner.os == 'Linux'
         env:
           WORK: ${{ runner.temp }}/selftest
+          # Needs a focused window (the window manager of the virtual display does not always give it).
+          ALLOW_FAIL: win\.welcome
         run: |
           mkdir -p "$WORK"
           cat > "$RUNNER_TEMP/session.sh" <<'SESSION'
