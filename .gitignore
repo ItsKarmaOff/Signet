@@ -27,3 +27,4 @@ app/desktop-rs/target/
 app/desktop-rs/**/target-*/
 app/desktop-rs/**/.cache/
 app/desktop-rs/dist/
+app/desktop-rs/dist-*/
