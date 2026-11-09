@@ -160,6 +160,13 @@ fn main() {
             browser.core.borrow_mut().quit_read_system_timings();
             let b = browser.clone();
             signet_web::mac::install_key_monitor(move |k| {
+                // Cmd+V on a page: the menu has no key equivalent for Paste, so send `paste:` to the page view
+                // ourselves; Chromium reads the pasteboard (concealed one-time codes included).
+                if let Some(action) = signet_web::mac::paste_action(&k) {
+                    if signet_web::mac::send_action_to_page(action) {
+                        return true;
+                    }
+                }
                 let Ok(mut c) = b.core.try_borrow_mut() else { return false };
                 match k.kind {
                     0 if k.chars == "q" && k.cmd && !k.ctrl && !k.alt && !k.shift && !c.recording_shortcuts => {

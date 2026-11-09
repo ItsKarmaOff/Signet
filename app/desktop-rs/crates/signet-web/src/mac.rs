@@ -177,6 +177,46 @@ pub struct NativeKey {
     pub ctrl: bool,
     pub alt: bool,
     pub shift: bool,
+    /// Virtual key code (kVK_*), 0 for flags changes.
+    pub key_code: u16,
+}
+
+/// kVK_ANSI_V.
+const KEY_CODE_V: u16 = 9;
+
+/// Responder-chain action a paste chord stands for: Cmd+V is `paste:`, Alt+Shift+Cmd+V is `pasteAsPlainText:`
+/// (Chromium's paste and match style). Key down only; layouts whose letters are not Latin go by the V key.
+pub fn paste_action(k: &NativeKey) -> Option<&'static str> {
+    if k.kind != 0 || !k.cmd || k.ctrl {
+        return None;
+    }
+    let is_v = k.chars == "v" || (k.key_code == KEY_CODE_V && is_non_latin_letter(&k.chars));
+    match (is_v, k.alt, k.shift) {
+        (true, false, false) => Some("paste:"),
+        (true, true, true) => Some("pasteAsPlainText:"),
+        _ => None,
+    }
+}
+
+/// Sends `action` (a selector such as `paste:`) to the first responder of the key window when that is a page view, so
+/// that Chromium itself reads the pasteboard (every type, `org.nspasteboard.ConcealedType` items such as one-time codes
+/// included). Returns false when the focus is not on a page (GPUI inputs handle their own paste).
+pub fn send_action_to_page(action: &str) -> bool {
+    let Ok(name) = std::ffi::CString::new(action) else { return false };
+    unsafe {
+        let app: ObjPtr = objc2::msg_send![objc_getClass(c"NSApplication".as_ptr()) as ObjPtr, sharedApplication];
+        let key: ObjPtr = objc2::msg_send![obj(app), keyWindow];
+        if key.is_null() {
+            return false;
+        }
+        let responder: ObjPtr = objc2::msg_send![obj(key), firstResponder];
+        if responder.is_null() || !crate::platform::native_view_handles().iter().any(|v| is_descendant(responder, *v)) {
+            return false;
+        }
+        let sel = objc2::runtime::Sel::register(&name);
+        let handled: bool = objc2::msg_send![obj(app), sendAction: sel, to: obj(responder), from: std::ptr::null_mut::<objc2::runtime::AnyObject>()];
+        handled
+    }
 }
 
 /// Installs a monitor on the key events of the whole application, called on the main thread before the menu and the
@@ -195,6 +235,7 @@ pub fn install_key_monitor(handler: impl Fn(NativeKey) -> bool + 'static) {
                 11 => 1,
                 _ => 2,
             };
+            let key_code: u16 = if kind == 2 { 0 } else { objc2::msg_send![&*ev, keyCode] };
             let (repeat, chars) = if kind == 2 {
                 (false, String::new())
             } else {
@@ -208,11 +249,10 @@ pub fn install_key_monitor(handler: impl Fn(NativeKey) -> bool + 'static) {
                 };
                 // Non-Latin layouts (Cyrillic, Arabic, Hebrew...): Cmd+Q still means the Q key (kVK_ANSI_Q = 12). Latin
                 // layouts (AZERTY, Dvorak) keep going by character.
-                let key_code: u16 = objc2::msg_send![&*ev, keyCode];
                 let chars = if key_code == 12 && flags & (1 << 20) != 0 && is_non_latin_letter(&chars) { "q".to_string() } else { chars };
                 (repeat, chars)
             };
-            NativeKey { kind, repeat, chars, cmd: flags & (1 << 20) != 0, ctrl: flags & (1 << 18) != 0, alt: flags & (1 << 19) != 0, shift: flags & (1 << 17) != 0 }
+            NativeKey { kind, repeat, chars, key_code, cmd: flags & (1 << 20) != 0, ctrl: flags & (1 << 18) != 0, alt: flags & (1 << 19) != 0, shift: flags & (1 << 17) != 0 }
         };
         if handler(key) { std::ptr::null_mut() } else { ev }
     });
@@ -722,7 +762,28 @@ pub fn debug_subviews() -> Vec<DebugSubview> {
 
 #[cfg(test)]
 mod non_latin_tests {
-    use super::is_non_latin_letter;
+    use super::{is_non_latin_letter, paste_action, NativeKey};
+
+    fn key(chars: &str, key_code: u16, cmd: bool, alt: bool, shift: bool) -> NativeKey {
+        NativeKey { kind: 0, repeat: false, chars: chars.into(), cmd, ctrl: false, alt, shift, key_code }
+    }
+
+    #[test]
+    fn paste_chords() {
+        assert_eq!(paste_action(&key("v", 9, true, false, false)), Some("paste:"));
+        assert_eq!(paste_action(&key("v", 9, true, true, true)), Some("pasteAsPlainText:"));
+        // Cyrillic layout: the V key types a non-Latin letter.
+        assert_eq!(paste_action(&key("м", 9, true, false, false)), Some("paste:"));
+        // Dvorak: the V key types another letter, Cmd+V is on the character.
+        assert_eq!(paste_action(&key(".", 9, true, false, false)), None);
+        assert_eq!(paste_action(&key("v", 47, true, false, false)), Some("paste:"));
+        assert_eq!(paste_action(&key("v", 9, false, false, false)), None);
+        assert_eq!(paste_action(&key("v", 9, true, false, true)), None);
+        assert_eq!(paste_action(&key("c", 8, true, false, false)), None);
+        let mut up = key("v", 9, true, false, false);
+        up.kind = 1;
+        assert_eq!(paste_action(&up), None);
+    }
 
     #[test]
     fn detects_non_latin_letters_only() {
