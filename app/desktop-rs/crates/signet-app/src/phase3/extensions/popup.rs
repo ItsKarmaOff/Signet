@@ -133,6 +133,15 @@ impl Core {
         }
     }
 
+    /// The main window resized: places the open popup again, or the native view (width and height sizable on macOS)
+    /// would stretch with the window.
+    pub(crate) fn ext_replace_popup(&mut self) {
+        let win = self.ext_window_size();
+        if let Some(p) = self.phase3.extensions.rt.as_ref().and_then(|r| r.popup.as_ref()) {
+            p.view.set_bounds(place(p.anchor, p.size, win));
+        }
+    }
+
     /// Closes the popup when its tab went away or its view died.
     pub(super) fn ext_popup_tick(&mut self) {
         let alive = self.phase3.extensions.rt.as_ref().and_then(|r| r.popup.as_ref().map(|p| p.view.is_alive()));

@@ -78,6 +78,7 @@ impl Core {
             self.dirty.needs_full = true;
             self.log(format!("window resized {}x{}", size.0, size.1));
             self.apply();
+            self.ext_replace_popup();
         } else {
             // Moved only: floating surfaces follow (non-macOS reopen them).
             self.desired_dirty();
