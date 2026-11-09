@@ -243,6 +243,27 @@ pub fn prefers_reduced_motion() -> bool {
     }
 }
 
+/// Work area (menu bar and Dock excluded) of every screen as `(x, y, width, height)` in the GPUI global coordinates:
+/// top-left origin of the primary screen. GPUI's own display bounds are local to each display.
+pub fn work_areas() -> Vec<(f64, f64, f64, f64)> {
+    unsafe {
+        let screens: *mut AnyObject = msg_send![objc2::class!(NSScreen), screens];
+        let count: usize = msg_send![screens, count];
+        let mut out = Vec::with_capacity(count);
+        let mut primary_h = 0.0;
+        for i in 0..count {
+            let sc: *mut AnyObject = msg_send![screens, objectAtIndex: i];
+            if i == 0 {
+                let f: NSRect = msg_send![sc, frame];
+                primary_h = f.size.height;
+            }
+            let vf: NSRect = msg_send![sc, visibleFrame];
+            out.push((vf.origin.x, primary_h - vf.origin.y - vf.size.height, vf.size.width, vf.size.height));
+        }
+        out
+    }
+}
+
 /// Whether the left mouse button is down right now (any app).
 pub fn left_button_down() -> bool {
     let mask: usize = unsafe { msg_send![objc2::class!(NSEvent), pressedMouseButtons] };

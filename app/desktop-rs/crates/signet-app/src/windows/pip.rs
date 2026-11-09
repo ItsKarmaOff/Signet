@@ -89,6 +89,10 @@ fn to_rect(b: Bounds<gpui::Pixels>) -> Rect {
 
 /// Work areas of every screen, and the one of the main window.
 fn work_areas(browser: &Rc<Browser>, cx: &App) -> (Vec<Rect>, Rect) {
+    // GPUI's macOS display bounds are local to each display: use the global work areas of AppKit.
+    #[cfg(target_os = "macos")]
+    let all: Vec<Rect> = crate::mac::work_areas().into_iter().map(|(x, y, w, h)| Rect::new(x, y, w, h)).collect();
+    #[cfg(not(target_os = "macos"))]
     let all: Vec<Rect> = cx.displays().iter().map(|d| to_rect(d.visible_bounds())).collect();
     let origin = browser.core.borrow().win.as_ref().map(|w| w.origin).unwrap_or((0.0, 0.0));
     let home = all.iter().find(|r| origin.0 >= r.x && origin.0 < r.x + r.width && origin.1 >= r.y && origin.1 < r.y + r.height).or(all.first()).copied().unwrap_or(Rect::new(0.0, 0.0, 1440.0, 900.0));
@@ -434,7 +438,9 @@ fn release(browser: &Rc<Browser>, sess: &Rc<RefCell<Session>>, cx: &mut App) {
     };
     let (all, home) = work_areas(browser, cx);
     let area_at = move |x: f64, y: f64| all.iter().find(|r| x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height).copied().unwrap_or(home);
-    let target = release_target(&from, v, &home, &area_at);
+    // Like Electron's `getDisplayMatching`: the screen under the card, not the one of the main window.
+    let here = area_at(from.x + from.width / 2.0, from.y + from.height / 2.0);
+    let target = release_target(&from, v, &here, &area_at);
     glide(browser, sess.clone(), from, target, gen_, false, cx);
 }
 
