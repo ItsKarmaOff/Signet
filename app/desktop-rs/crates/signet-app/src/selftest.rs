@@ -713,7 +713,7 @@ impl T {
             let host = crate::phase3::pip_host(&self.core());
             {
                 use signet_ui::screens::windows::pip::{PipHandle, PipResizePhase};
-                host.resize(PipResizePhase::Start);
+                host.resize(PipResizePhase::Start { handle: PipHandle::NW });
                 host.resize(PipResizePhase::Move { handle: PipHandle::NW, dx: -200.0, dy: -150.0 });
                 host.resize(PipResizePhase::End);
             }

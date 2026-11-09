@@ -60,10 +60,11 @@ impl PipHandle {
     }
 }
 
-/// Phases of a resize gesture: `Move` carries the total movement since `Start`, in screen pixels.
+/// Phases of a resize gesture. The app polls the pointer from `Start` to the button release, so `Move` (the total
+/// movement since `Start`, in screen pixels) is only for scripted gestures.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum PipResizePhase {
-    Start,
+    Start { handle: PipHandle },
     Move { handle: PipHandle, dx: f32, dy: f32 },
     End,
 }
@@ -96,11 +97,6 @@ pub fn fraction_at(x: f32, left: f32, width: f32) -> f32 {
     if width <= 0.0 { 0.0 } else { ((x - left) / width).clamp(0.0, 1.0) }
 }
 
-struct Grip {
-    handle: PipHandle,
-    start: (f32, f32),
-}
-
 pub struct Pip {
     st: Option<PipState>,
     hover: bool,
@@ -110,7 +106,8 @@ pub struct Pip {
     sent_at: Option<Instant>,
     scrub_gen: u64,
     bar_bounds: Rc<Cell<Bounds<Pixels>>>,
-    grip: Option<Grip>,
+    /// A resize gesture is running (the app polls the pointer until the release).
+    grip: bool,
     dragging: bool,
     focus: FocusHandle,
 }
@@ -133,7 +130,7 @@ impl Pip {
                 sent_at: None,
                 scrub_gen: 0,
                 bar_bounds: Rc::new(Cell::new(Bounds::default())),
-                grip: None,
+                grip: false,
                 dragging: false,
                 focus: cx.focus_handle(),
             }
@@ -185,17 +182,10 @@ impl Pip {
         .detach();
     }
 
-    fn screen_pos(window: &Window, p: gpui::Point<Pixels>) -> (f32, f32) {
-        let o = window.bounds().origin;
-        (f32::from(o.x) + f32::from(p.x), f32::from(o.y) + f32::from(p.y))
-    }
-
-    fn finish_gestures(&mut self, window: &Window, pos: gpui::Point<Pixels>, cx: &mut Context<Self>) {
+    fn finish_gestures(&mut self, pos: gpui::Point<Pixels>, cx: &mut Context<Self>) {
         self.end_scrub(f32::from(pos.x), cx);
-        if let Some(g) = self.grip.take() {
-            let (x, y) = Self::screen_pos(window, pos);
+        if std::mem::take(&mut self.grip) {
             if let Some(h) = host(cx) {
-                h.resize(PipResizePhase::Move { handle: g.handle, dx: x - g.start.0, dy: y - g.start.1 });
                 h.resize(PipResizePhase::End);
             }
         }
@@ -404,12 +394,11 @@ impl Render for Pip {
         // Invisible resize handles, above everything: 14 px corners, 8 px edges.
         let grips = PipHandle::ALL.into_iter().map(|h| {
             let me = me.clone();
-            let base = div().id(("grip", h as usize)).absolute().cursor(h.cursor()).on_mouse_down(MouseButton::Left, move |ev, window, cx| {
+            let base = div().id(("grip", h as usize)).absolute().cursor(h.cursor()).on_mouse_down(MouseButton::Left, move |_, _, cx| {
                 cx.stop_propagation();
-                let start = Self::screen_pos(window, ev.position);
-                me.update(cx, |this, _| this.grip = Some(Grip { handle: h, start }));
+                me.update(cx, |this, _| this.grip = true);
                 if let Some(host) = host(cx) {
-                    host.resize(PipResizePhase::Start);
+                    host.resize(PipResizePhase::Start { handle: h });
                 }
             });
             match h {
@@ -471,27 +460,21 @@ impl Render for Pip {
             })
             .on_mouse_move({
                 let me = me.clone();
-                move |ev, window, cx| {
+                move |ev, _, cx| {
                     me.update(cx, |this, cx| {
                         if this.scrubbing {
                             this.seek_to(f32::from(ev.position.x), false, cx);
-                        }
-                        if let Some(g) = &this.grip {
-                            let (x, y) = Self::screen_pos(window, ev.position);
-                            if let Some(h) = host(cx) {
-                                h.resize(PipResizePhase::Move { handle: g.handle, dx: x - g.start.0, dy: y - g.start.1 });
-                            }
                         }
                     });
                 }
             })
             .on_mouse_up(MouseButton::Left, {
                 let me = me.clone();
-                move |ev, window, cx| me.update(cx, |this, cx| this.finish_gestures(window, ev.position, cx))
+                move |ev, _, cx| me.update(cx, |this, cx| this.finish_gestures(ev.position, cx))
             })
             .on_mouse_up_out(MouseButton::Left, {
                 let me = me.clone();
-                move |ev, window, cx| me.update(cx, |this, cx| this.finish_gestures(window, ev.position, cx))
+                move |ev, _, cx| me.update(cx, |this, cx| this.finish_gestures(ev.position, cx))
             })
             .child(fade(div().absolute().inset_0().bg(hsla(0.0, 0.0, 0.0, scrim_alpha)), "pip-scrim", hover, reduced))
             .children(grips)

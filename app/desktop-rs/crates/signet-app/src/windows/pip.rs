@@ -322,38 +322,83 @@ impl PipWindows {
     fn resize(&mut self, browser: &Rc<Browser>, phase: PipResizePhase, cx: &mut App) {
         let Some(sess) = self.cur.clone() else { return };
         let (all, home) = work_areas(browser, cx);
-        let mut s = sess.borrow_mut();
-        let wa = all.iter().find(|r| s.bounds.x + 1.0 >= r.x && s.bounds.x < r.x + r.width).copied().unwrap_or(home);
+        let wa_of = |b: &Rect| all.iter().find(|r| b.x + 1.0 >= r.x && b.x < r.x + r.width).copied().unwrap_or(home);
         match phase {
-            PipResizePhase::Start => {
+            PipResizePhase::Start { handle } => {
+                let scale = scale_of(sess.borrow().controls, cx);
+                let mut s = sess.borrow_mut();
                 s.epoch += 1;
                 s.resize_start = Some(s.bounds);
                 s.resize_last = None;
+                // The pointer is polled like in a drag: moves outside the small controls window never reach it.
+                let (gen_, start, wa) = (s.epoch, s.bounds, wa_of(&s.bounds));
+                let Some((mouse, true)) = pointer(scale) else { return };
+                drop(s);
+                let b = browser.clone();
+                cx.spawn(async move |cx| {
+                    loop {
+                        cx.background_executor().timer(Duration::from_millis(8)).await;
+                        let alive = cx.update(|cx| {
+                            let mut s = sess.borrow_mut();
+                            if s.epoch != gen_ || s.resize_start.is_none() {
+                                return false;
+                            }
+                            let scale = scale_of(s.controls, cx);
+                            match pointer(scale) {
+                                Some((_, false)) => {
+                                    drop(s);
+                                    end_resize(&b, &sess, cx);
+                                    false
+                                }
+                                Some((m, true)) => {
+                                    let (dx, dy) = (m.0 - mouse.0, m.1 - mouse.1);
+                                    s.resize_last = Some((handle, dx, dy));
+                                    let r = resized_bounds(&start, handle_name(handle), dx, dy, s.ratio, &wa, true);
+                                    s.bounds = r;
+                                    apply(&s, r, cx);
+                                    true
+                                }
+                                None => true,
+                            }
+                        });
+                        if !alive {
+                            break;
+                        }
+                    }
+                })
+                .detach();
             }
             PipResizePhase::Move { handle, dx, dy } => {
+                let mut s = sess.borrow_mut();
                 let Some(start) = s.resize_start else { return };
                 s.resize_last = Some((handle, f64::from(dx), f64::from(dy)));
+                let wa = wa_of(&s.bounds);
                 let r = resized_bounds(&start, handle_name(handle), f64::from(dx), f64::from(dy), s.ratio, &wa, true);
                 s.bounds = r;
                 apply(&s, r, cx);
             }
-            PipResizePhase::End => {
-                let Some(start) = s.resize_start.take() else { return };
-                // The rubber band springs back to the hard limits.
-                let to = match s.resize_last.take() {
-                    Some((h, dx, dy)) => resized_bounds(&start, handle_name(h), dx, dy, s.ratio, &wa, false),
-                    None => s.bounds,
-                };
-                s.epoch += 1;
-                let (gen_, from) = (s.epoch, s.bounds);
-                drop(s);
-                if to == from {
-                    browser.core.borrow_mut().pip_moved(from);
-                } else {
-                    glide(browser, sess, from, to, gen_, false, cx);
-                }
-            }
+            PipResizePhase::End => end_resize(browser, &sess, cx),
         }
+    }
+}
+
+/// Ends a resize (idempotent): the rubber band springs back to the hard limits.
+fn end_resize(browser: &Rc<Browser>, sess: &Rc<RefCell<Session>>, cx: &mut App) {
+    let (all, home) = work_areas(browser, cx);
+    let mut s = sess.borrow_mut();
+    let Some(start) = s.resize_start.take() else { return };
+    let wa = all.iter().find(|r| start.x + 1.0 >= r.x && start.x < r.x + r.width).copied().unwrap_or(home);
+    let to = match s.resize_last.take() {
+        Some((h, dx, dy)) => resized_bounds(&start, handle_name(h), dx, dy, s.ratio, &wa, false),
+        None => s.bounds,
+    };
+    s.epoch += 1;
+    let (gen_, from) = (s.epoch, s.bounds);
+    drop(s);
+    if to == from {
+        browser.core.borrow_mut().pip_moved(from);
+    } else {
+        glide(browser, sess.clone(), from, to, gen_, false, cx);
     }
 }
 
