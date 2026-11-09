@@ -100,7 +100,7 @@ pub fn media_view(s: &Snapshot) -> Option<(MediaView, String)> {
             title: m.title.clone().into(),
             artist: m.artist.clone().filter(|a| !a.is_empty()).map(Into::into),
             site: m.site.clone().into(),
-            artwork: m.artwork.clone().filter(|a| !a.is_empty()).map(|a| gpui::ImageSource::from(gpui::SharedString::from(a))),
+            artwork: custom::favicon_source(m.artwork.as_deref()),
             favicon: custom::favicon_source(tab.and_then(|t| t.favicon.as_deref())),
             playing: m.playing,
             muted: m.muted,

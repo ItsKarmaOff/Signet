@@ -83,7 +83,7 @@ thread_local! {
 
 /// GPUI has no HTTP client here: a web URL is resolved through the app (`fallback_favicon`, downloaded in the
 /// background). On a miss the widget redraws a few times until the download lands.
-fn resolve_url(url: &SharedString, w: &mut Window, cx: &mut App) -> Option<Arc<gpui::Image>> {
+pub(crate) fn resolve_url(url: &SharedString, w: &mut Window, cx: &mut App) -> Option<Arc<gpui::Image>> {
     if !(url.starts_with("http://") || url.starts_with("https://")) {
         return None;
     }

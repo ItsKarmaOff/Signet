@@ -88,7 +88,7 @@ impl Entry {
 
 /// Last artwork of the session (the largest, by convention), if any.
 pub(super) fn artwork_of(info: &MediaSessionInfo) -> Option<String> {
-    info.artwork.iter().rev().map(|a| a.src.clone()).find(|s| !s.is_empty())
+    info.artwork.iter().rev().find(|a| !a.src.is_empty()).and_then(|a| signet_core::urls::artwork_url(&a.src))
 }
 
 /// Whether the page declared previous / next track handlers.
@@ -325,7 +325,7 @@ mod tests {
         MediaSessionInfo {
             title: "Song".into(),
             artist: "Band".into(),
-            artwork: vec![MediaArtwork { src: "a.png".into(), sizes: "96x96".into(), mime: String::new() }, MediaArtwork { src: "b.png".into(), sizes: "512x512".into(), mime: String::new() }],
+            artwork: vec![MediaArtwork { src: "https://example.com/a.png".into(), sizes: "96x96".into(), mime: String::new() }, MediaArtwork { src: "https://example.com/b.png".into(), sizes: "512x512".into(), mime: String::new() }],
             playback_state: state.into(),
             playing,
             actions: actions.iter().map(|s| s.to_string()).collect(),
@@ -366,7 +366,7 @@ mod tests {
         let c = s.current(&[], 2000).unwrap();
         assert_eq!(c.title, "Song");
         assert_eq!(c.artist.as_deref(), Some("Band"));
-        assert_eq!(c.artwork.as_deref(), Some("b.png"));
+        assert_eq!(c.artwork.as_deref(), Some("https://example.com/b.png"));
         assert!(c.playing && c.can_skip);
         assert_eq!(c.site, "example.co.uk");
         // Paused: stays 10 minutes.

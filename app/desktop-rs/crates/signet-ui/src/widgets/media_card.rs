@@ -1,8 +1,8 @@
-use super::favicon::{Favicon, FaviconSource};
+use super::favicon::{Favicon, FaviconSource, resolve_url};
 use crate::icon::IconName;
 use crate::motion::{reduced_motion, surface_enter};
 use crate::theme::{ThemeExt, radius, space, weight};
-use gpui::{App, ClickEvent, ElementId, ImageSource, InteractiveElement, IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px};
+use gpui::{App, ClickEvent, ElementId, InteractiveElement, IntoElement, ObjectFit, ParentElement, RenderOnce, SharedString, StatefulInteractiveElement, Styled, StyledImage, Window, div, img, prelude::FluentBuilder, px};
 use super::icon_button::IconButton;
 use std::rc::Rc;
 
@@ -12,7 +12,7 @@ pub struct MediaInfo {
     pub title: SharedString,
     pub artist: Option<SharedString>,
     pub site: SharedString,
-    pub artwork: Option<ImageSource>,
+    pub artwork: Option<FaviconSource>,
     pub favicon: Option<FaviconSource>,
     pub playing: bool,
     pub muted: bool,
@@ -61,9 +61,21 @@ macro_rules! callbacks {
     };
 }
 
-fn art(info: &MediaInfo, size: f32, fav: f32) -> gpui::AnyElement {
-    match info.artwork.clone() {
-        Some(src) => img(src).size(px(size)).object_fit(ObjectFit::Cover).into_any_element(),
+/// Cover art through the app's download cache (GPUI has no HTTP client), with the favicon while it loads and
+/// whenever it fails or cannot be decoded: never an empty square.
+fn art(info: &MediaInfo, size: f32, fav: f32, w: &mut Window, cx: &mut App) -> gpui::AnyElement {
+    let favicon = info.favicon.clone();
+    let source = match info.artwork.clone() {
+        Some(FaviconSource::Url(u)) => resolve_url(&u, w, cx).map(FaviconSource::Bytes),
+        Some(FaviconSource::Bytes(b)) => Some(FaviconSource::Bytes(b)),
+        _ => None,
+    };
+    match source {
+        Some(src) => img(src)
+            .size(px(size))
+            .object_fit(ObjectFit::Cover)
+            .with_fallback(move || Favicon::new(favicon.clone()).size(fav).into_any_element())
+            .into_any_element(),
         None => Favicon::new(info.favicon.clone()).size(fav).into_any_element(),
     }
 }
@@ -106,7 +118,7 @@ fn wire(b: IconButton, cb: &Option<Cb>) -> IconButton {
 }
 
 impl RenderOnce for MediaCard {
-    fn render(self, _w: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, w: &mut Window, cx: &mut App) -> impl IntoElement {
         let t = cx.signet().clone();
         let reduced = reduced_motion(cx);
         let (info, l, cb) = (self.info, self.labels, self.cb);
@@ -132,7 +144,7 @@ impl RenderOnce for MediaCard {
             .active(move |s| s.opacity(0.92))
             .when_some(activate, |d, f| d.on_click(move |e, w, cx| f(e, w, cx)))
             .child(
-                div().flex_none().size(px(32.0)).flex().items_center().justify_center().rounded(radius::ROW_IN).overflow_hidden().bg(t.surface_2).child(art(&info, 32.0, 18.0)),
+                div().flex_none().size(px(32.0)).flex().items_center().justify_center().rounded(radius::ROW_IN).overflow_hidden().bg(t.surface_2).child(art(&info, 32.0, 18.0, w, cx)),
             )
             .child(
                 div()
@@ -183,7 +195,7 @@ impl MediaChip {
 callbacks!(MediaChip);
 
 impl RenderOnce for MediaChip {
-    fn render(self, _w: &mut Window, cx: &mut App) -> impl IntoElement {
+    fn render(self, w: &mut Window, cx: &mut App) -> impl IntoElement {
         let t = cx.signet().clone();
         let reduced = reduced_motion(cx);
         let (info, l, cb) = (self.info, self.labels, self.cb);
@@ -201,7 +213,7 @@ impl RenderOnce for MediaChip {
             .bg(t.surface_2)
             .cursor_pointer()
             .when_some(activate, |d, f| d.on_click(move |e, w, cx| f(e, w, cx)))
-            .child(div().flex_none().size(px(20.0)).flex().items_center().justify_center().rounded(radius::ICON).overflow_hidden().child(art(&info, 20.0, 16.0)))
+            .child(div().flex_none().size(px(20.0)).flex().items_center().justify_center().rounded(radius::ICON).overflow_hidden().child(art(&info, 20.0, 16.0, w, cx)))
             .child(wire(
                 IconButton::new(ElementId::from((self.id.clone(), "toggle")), if info.playing { IconName::Pause } else { IconName::Play })
                     .small()

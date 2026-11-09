@@ -260,6 +260,42 @@ pub fn electron_note_url(url: &str) -> Option<String> {
     (matches!(kind.as_str(), "note" | "easel") && valid).then(|| format!("signet://{kind}/{}", id.to_ascii_lowercase()))
 }
 
+/// Normalizes a media session artwork URL for the card. Only `http(s)` and `data:image/` are kept (a `blob:` URL
+/// is unreachable from the app). YouTube thumbnails (`sqp` variants are AVIF, which nothing here decodes) are
+/// rewritten to the plain JPEG `mqdefault` of the same video.
+pub fn artwork_url(src: &str) -> Option<String> {
+    let src = src.trim();
+    let lower = src.to_ascii_lowercase();
+    if lower.starts_with("data:image/") {
+        return Some(src.to_string());
+    }
+    let rest = if lower.starts_with("https://") {
+        &src[8..]
+    } else if lower.starts_with("http://") {
+        &src[7..]
+    } else {
+        return None;
+    };
+    let (host, path) = rest.split_once('/').map_or((rest, ""), |(h, p)| (h, p));
+    let host = host.to_ascii_lowercase();
+    let youtube = host == "i.ytimg.com" || host.strip_prefix('i').and_then(|h| h.strip_suffix(".ytimg.com")).is_some_and(|d| d.len() == 1 && d.chars().all(|c| c.is_ascii_digit()));
+    if youtube {
+        let path = path.split(['?', '#']).next().unwrap_or("");
+        let mut parts = path.split('/');
+        if let (Some("vi" | "vi_webp"), Some(id), Some(file), None) = (parts.next(), parts.next(), parts.next(), parts.next()) {
+            if !id.is_empty() && !file.is_empty() {
+                let stem = file.split('.').next().unwrap_or("");
+                let name = if stem.ends_with("_live") { "mqdefault_live" } else { "mqdefault" };
+                return Some(format!("https://i.ytimg.com/vi/{id}/{name}.jpg"));
+            }
+        }
+    }
+    if host.is_empty() {
+        return None;
+    }
+    Some(src.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -439,5 +475,18 @@ mod tests {
         ] {
             assert_eq!(electron_note_url(&u), None, "{u}");
         }
+    }
+
+    #[test]
+    fn artwork_urls_are_normalized() {
+        let sqp = "https://i.ytimg.com/vi/-sA9c3QGHJk/hqdefault.jpg?sqp=-oaymwEnCNACELwB&rs=AOn4CLB";
+        assert_eq!(artwork_url(sqp).as_deref(), Some("https://i.ytimg.com/vi/-sA9c3QGHJk/mqdefault.jpg"));
+        assert_eq!(artwork_url("https://i9.ytimg.com/vi_webp/abc/maxresdefault.webp").as_deref(), Some("https://i.ytimg.com/vi/abc/mqdefault.jpg"));
+        assert_eq!(artwork_url("https://i.ytimg.com/vi/abc/maxresdefault_live.jpg?x=1").as_deref(), Some("https://i.ytimg.com/vi/abc/mqdefault_live.jpg"));
+        assert_eq!(artwork_url("https://example.com/a.png?x=1").as_deref(), Some("https://example.com/a.png?x=1"));
+        assert_eq!(artwork_url("data:image/png;base64,AAAA").as_deref(), Some("data:image/png;base64,AAAA"));
+        assert_eq!(artwork_url("blob:https://example.com/1234"), None);
+        assert_eq!(artwork_url("/relative.png"), None);
+        assert_eq!(artwork_url(""), None);
     }
 }

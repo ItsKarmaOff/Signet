@@ -49,7 +49,7 @@ fn apply_main_options(b: &Rc<Browser>, cx: &AsyncApp) {
                 tab_id,
                 title: "Nuits blanches - Épisode 12".into(),
                 artist: Some("Radio Exemple".into()),
-                artwork: None,
+                artwork: var("SIGNET_MEDIA_ART").filter(|a| !a.is_empty()),
                 site: "example.fm".into(),
                 playing: true,
                 muted: false,
