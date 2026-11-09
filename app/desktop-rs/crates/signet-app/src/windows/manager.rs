@@ -300,6 +300,9 @@ impl Manager {
                 focus: true,
                 show: true,
                 window_min_size: Some(size(px(640.0), px(420.0))),
+                // macOS: the title areas of the interface move the window and run the double-click action
+                // (`signet_ui::title_area`); the native title bar band neither drags nor delays clicks.
+                app_owns_titlebar_drag: IS_MAC,
                 ..Default::default()
             },
             move |window, cx| {
