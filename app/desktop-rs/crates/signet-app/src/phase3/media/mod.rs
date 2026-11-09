@@ -290,6 +290,18 @@ fn drain(core: &mut Core) {
     }
 }
 
+impl Core {
+    /// Handles the finished mini player reads at once (the controls must not wait for the next tick).
+    pub fn pip_drain(&mut self) {
+        for done in self.phase3.media.outbox.take() {
+            match done {
+                Done::Pip(p) => pip::finish(self, p),
+                other => self.phase3.media.outbox.push(other),
+            }
+        }
+    }
+}
+
 /// Standard base64 (RFC 4648, padded), for data URLs.
 pub(super) fn base64(bytes: &[u8]) -> String {
     const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

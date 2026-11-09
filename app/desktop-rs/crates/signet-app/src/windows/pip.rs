@@ -205,6 +205,7 @@ fn pointer(scale: f64) -> Option<((f64, f64), bool)> {
 impl PipWindows {
     /// Executes the queued operations and gestures.
     pub fn pump(&mut self, browser: &Rc<Browser>, cx: &mut App) {
+        browser.core.borrow_mut().pip_drain();
         let link = browser.core.borrow().pip_link();
         for op in link.take_ops() {
             match op {

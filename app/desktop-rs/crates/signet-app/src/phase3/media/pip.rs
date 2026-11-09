@@ -258,7 +258,8 @@ pub(super) struct Reading {
 
 pub(super) enum PipDone {
     Opened { tab: String, auto: bool, away: bool, found: Option<Found> },
-    Read { tab: String, reading: Option<Reading> },
+    /// `seq`: the command counter when the read started; a read older than the last command is stale.
+    Read { tab: String, seq: u64, reading: Option<Reading> },
 }
 
 fn num(v: &Value, k: &str) -> f64 {
@@ -298,6 +299,8 @@ struct Session {
     last_json: String,
     read_at: Option<Instant>,
     reading: bool,
+    /// Bumped by every command sent to the page.
+    seq: u64,
 }
 
 #[derive(Default)]
@@ -381,6 +384,12 @@ impl Core {
             _ => {
                 if let (Some(view), Some(script)) = (self.views.view_of(&id), command_script(command, value.unwrap_or(0.0))) {
                     view.execute_js(&script);
+                    // Read the result at once (the periodic read would show it up to 500 ms later).
+                    if let Some(s) = self.phase3.media.pip.session.as_mut() {
+                        s.seq += 1;
+                        s.reading = true;
+                    }
+                    launch_read(self, view, id);
                 }
                 if let Some(s) = self.phase3.media.pip.session.as_mut() {
                     s.read_at = None;
@@ -452,11 +461,15 @@ pub(super) fn finish(core: &mut Core, done: PipDone) {
             let saved = core.state().pip_bounds;
             pip_op(core, PipWindowOp::Open { tab_id: tab.clone(), ratio, saved, home });
             core.phase3.media.pip.session =
-                Some(Session { tab_id: tab, ratio, away, home, opened_at: Instant::now(), replays: 0, last_json: String::new(), read_at: None, reading: false });
+                Some(Session { tab_id: tab, ratio, away, home, opened_at: Instant::now(), replays: 0, last_json: String::new(), read_at: None, reading: false, seq: 0 });
             core.changed_view();
         }
-        PipDone::Read { tab, reading } => {
+        PipDone::Read { tab, seq, reading } => {
             let Some(s) = core.phase3.media.pip.session.as_mut().filter(|s| s.tab_id == tab) else { return };
+            // Launched before the last command: it shows the old state, a newer read is on its way.
+            if seq < s.seq {
+                return;
+            }
             s.reading = false;
             let Some(r) = reading else { return close(core, CloseMode::Keep, None) };
             if let Some(ratio) = ratio_of(r.w, r.h)
@@ -544,8 +557,18 @@ pub(super) fn tick(core: &mut Core) {
     s.reading = true;
     let id = s.tab_id.clone();
     let Some(view) = core.views.view_of(&id) else { return close(core, CloseMode::Dispose, None) };
+    launch_read(core, view, id);
+}
+
+/// Reads the video; the result is delivered to the controls as soon as the window manager is woken.
+fn launch_read(core: &mut Core, view: WebView, id: String) {
+    let seq = core.phase3.media.pip.session.as_ref().map_or(0, |s| s.seq);
     let outbox = core.phase3.media.outbox.clone();
-    eval(view, &read_script(), move |v| outbox.push(Done::Pip(PipDone::Read { tab: id, reading: parse_reading(&v) })));
+    let cmds = core.cmds.clone();
+    eval(view, &read_script(), move |v| {
+        outbox.push(Done::Pip(PipDone::Read { tab: id, seq, reading: parse_reading(&v) }));
+        let _ = cmds.unbounded_send(crate::windows::Cmd::PipPump);
+    });
 }
 
 // ---------------------------------------------------------------------------------------------- geometry
