@@ -192,8 +192,14 @@ impl Core {
         self.ext_register_reply(call_id, ReplyTo { msg_id: inner.id.clone(), ..reply_to });
         let dirs = shared.loaded.read().map(|m| m.iter().map(|(k, v)| (k.clone(), v.dir.clone())).collect()).unwrap_or_default();
         let snap = snapshot(self, dirs);
+        let trace = std::env::var_os("SIGNET_DEBUG_EXT").is_some_and(|v| !v.is_empty() && v != "0");
         let call = Call { id: call_id, extension_id: ext, context, method: Value::String(inner.method), args: inner.args };
+        let line = trace.then(|| format!("[ext-call] {} {} {}", call.extension_id, call.method.as_str().unwrap_or(""), call.args.to_string().chars().take(200).collect::<String>()));
         let fx = shared.host().call(call, &snap);
+        if let Some(line) = line {
+            let failed = fx.iter().find_map(|e| if let signet_extensions::host::Effect::Reply { call_id: c, result: signet_extensions::common::CrxResult::Err(m) } = e { (*c == call_id).then(|| m.clone()) } else { None });
+            self.log(match failed { Some(m) => format!("{line} -> ERROR {m}"), None => line });
+        }
         for a in snap.take_actions() {
             let HostAction::Activate(id) = a;
             self.activate_tab(&id);
