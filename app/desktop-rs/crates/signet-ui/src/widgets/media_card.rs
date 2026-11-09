@@ -212,6 +212,8 @@ impl RenderOnce for MediaChip {
             .rounded(radius::CONTROL)
             .bg(t.surface_2)
             .cursor_pointer()
+            // Sits in the title strip: the press stays on the chip.
+            .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .when_some(activate, |d, f| d.on_click(move |e, w, cx| f(e, w, cx)))
             .child(div().flex_none().size(px(20.0)).flex().items_center().justify_center().rounded(radius::ICON).overflow_hidden().child(art(&info, 20.0, 16.0, w, cx)))
             .child(wire(

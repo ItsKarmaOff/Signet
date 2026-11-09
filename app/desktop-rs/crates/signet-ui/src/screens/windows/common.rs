@@ -173,10 +173,7 @@ pub fn pane_card(t: &SignetTheme) -> Div {
     div().absolute().rounded(radius::CARD).bg(t.surface).shadow(t.shadow_card.clone())
 }
 
-/// Makes a stateful element a button that stops the press from reaching a drag area behind it.
-pub fn no_drag<E: StatefulInteractiveElement>(el: E) -> E {
-    el.on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-}
+pub use crate::title_area::no_drag;
 
 #[cfg(test)]
 mod tests {

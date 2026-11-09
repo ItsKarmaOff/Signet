@@ -21,6 +21,7 @@ use super::custom::{RenameEvent, RenameField, display_title, emoji_icon, folder_
 use super::groups::{Drop, Indicator, Run, runs_of, today_mark};
 use super::optimistic::{Optimistic, activate_tab, optimistic};
 use super::preview_hover::{PreviewDriver, preview_driver};
+use crate::title_area::no_drag;
 use super::row::{BoundsMap, DragGhost, NavRing, RowCallbacks, RowEnv, TabDrag, probe, tab_line, with_gestures};
 use super::{find_folder, folder_ids, item_key, item_tab_ids, media_labels, media_view};
 use crate::app_state::{api, tr, tr_args, ui_state};
@@ -287,11 +288,13 @@ fn vmarker(t: &SignetTheme, ind: Indicator) -> AnyElement {
 
 fn drag_wrap(el: gpui::Stateful<gpui::Div>, drag: TabDrag, env: &RowEnv) -> AnyElement {
     let (cbs, src) = (env.callbacks.clone(), drag.src.clone());
-    el.on_drag(drag, move |d, _o, w, cx| {
-        (cbs.drag_start)(&src, w, cx);
-        DragGhost::view(d.label.clone(), cx)
-    })
-    .into_any_element()
+    // A chip never starts a window move or a title double-click: the press stays here.
+    no_drag(el)
+        .on_drag(drag, move |d, _o, w, cx| {
+            (cbs.drag_start)(&src, w, cx);
+            DragGhost::view(d.label.clone(), cx)
+        })
+        .into_any_element()
 }
 
 /// Per-render context of the chips.
@@ -420,7 +423,7 @@ fn day_chip(c: &Ctx, tab: &TabInfo, i: usize, mark: Option<Indicator>, run: Opti
     if let Some(ind) = mark {
         el = el.child(vmarker(t, ind));
     }
-    let el = with_gestures(el, tab, activate, c.env, &tab.id, cx);
+    let el = no_drag(with_gestures(el, tab, activate, c.env, &tab.id, cx));
     if c.env.editing.as_ref().is_some_and(|(e, _)| e == &tab.id) {
         return el.into_any_element();
     }
@@ -816,6 +819,7 @@ impl Render for TabStrip {
                     let r = bounds.get("space-switcher").map(rect_of).unwrap_or_default();
                     api(cx).open_popover(PopoverRequest::Spaces, r)
                 })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_mouse_down(MouseButton::Right, move |_, _, cx| api(cx).show_space_menu(&sp_id))
                 .on_drag_move::<TabDrag>(cx.listener(|this, e: &DragMoveEvent<TabDrag>, _w, cx| {
                     let inside = e.bounds.contains(&e.event.position);
@@ -889,7 +893,7 @@ impl Render for TabStrip {
             .text_size(t.type_scale.base)
             .text_color(t.text)
             .when(self.floating, |d| d.rounded(radius::POP))
-            .when(!self.floating, |d| d.window_control_area(gpui::WindowControlArea::Drag))
+            .when(!self.floating, crate::title_area::title_area)
             .child(probe(self.root.clone()))
             .on_drag_move::<TabDrag>(cx.listener(|this, e: &DragMoveEvent<TabDrag>, _w, cx| this.drag_over(e, cx)))
             .on_drop::<TabDrag>(cx.listener(|this, d: &TabDrag, _w, cx| this.dropped(d, cx)))

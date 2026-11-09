@@ -27,7 +27,7 @@ use background::{apply_space_theme, layers};
 use geometry::{BAR_OVERFLOW, GAP, TAB_BAR, stretched, top_left};
 use gpui::{
     Animation, AnimationExt, AnyView, App, AppContext, BoxShadow, Context, Entity, InteractiveElement, IntoElement, ParentElement, Render, SharedString, StatefulInteractiveElement, Styled,
-    Window, WindowControlArea, div, point, prelude::FluentBuilder, px, relative,
+    Window, div, point, prelude::FluentBuilder, px, relative,
 };
 use gpui_component::Icon;
 use signet_core::api::UiEvent;
@@ -54,10 +54,7 @@ fn drag_area<E: InteractiveElement>(d: E, covered: bool) -> E {
     if covered {
         return d;
     }
-    let d = d.window_control_area(WindowControlArea::Drag);
-    #[cfg(target_os = "linux")]
-    let d = d.on_mouse_down(gpui::MouseButton::Left, |_, w, _| w.start_window_move());
-    d
+    crate::title_area::title_area(d)
 }
 
 /// Linear interpolation of two rectangles.
@@ -187,16 +184,15 @@ impl Render for MainWindow {
             root = root.child(div().absolute().top(px(0.0)).left(px(0.0)).right(px(0.0)).h(px(TAB_BAR)).child(self.strip.clone()));
         }
         if compact {
-            root = root.child(
-                div()
-                    .id("top-hover")
-                    .absolute()
-                    .top(px(0.0))
-                    .left(px(0.0))
-                    .right(px(0.0))
-                    .h(px(6.0))
-                    .on_hover(|hover, _, cx| api(cx).set_toolbar_hover(*hover)),
-            );
+            let hover = div()
+                .id("top-hover")
+                .absolute()
+                .top(px(0.0))
+                .left(px(0.0))
+                .right(px(0.0))
+                .h(px(6.0))
+                .on_hover(|hover, _, cx| api(cx).set_toolbar_hover(*hover));
+            root = root.child(drag_area(hover, covered));
         }
         if !s.sidebar_visible && !horizontal {
             let rim = div().id("rim-hover").absolute().top(px(0.0)).bottom(px(0.0)).w(space::GAP).on_hover(|hover, _, cx| {
@@ -260,7 +256,7 @@ impl Render for MainWindow {
             let top = if horizontal && !compact { 44.0 } else if compact { 6.0 } else { GAP };
             let l = if s.sidebar_visible && !side_right { left } else { 6.0 };
             let r = if s.sidebar_visible && side_right { left } else { 6.0 };
-            let button = div()
+            let button = crate::title_area::no_drag(div()
                 .id("empty-new-tab")
                 .flex()
                 .items_center()
@@ -275,7 +271,7 @@ impl Render for MainWindow {
                 .on_click(|_, _, cx| api(cx).open_palette(PaletteMode::NewTab, None))
                 .child(Icon::from(IconName::Plus).size(px(15.0)))
                 .child(tr("sidebar.newTab"))
-                .when_some(new_tab_keys.filter(|k| !k.is_empty()), |d, k| d.child(div().text_size(t.type_scale.cap).opacity(0.7).child(k)));
+                .when_some(new_tab_keys.filter(|k| !k.is_empty()), |d, k| d.child(div().text_size(t.type_scale.cap).opacity(0.7).child(k))));
             let empty = div()
                 .id("empty")
                 .absolute()

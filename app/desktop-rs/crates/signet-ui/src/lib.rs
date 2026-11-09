@@ -8,6 +8,7 @@ pub mod icon;
 pub(crate) mod lang_names;
 pub mod motion;
 pub mod theme;
+pub mod title_area;
 pub mod widgets;
 pub mod screens;
 

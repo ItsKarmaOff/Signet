@@ -10,7 +10,7 @@ use crate::app_state::{api, snapshot, tr, tr_args, ui_state};
 use crate::theme::{ThemeExt, radius, space, weight};
 use gpui::{
     App, AppContext, ClickEvent, Context, ElementId, Entity, Hsla, InteractiveElement, IntoElement, ParentElement, Render, SharedString,
-    StatefulInteractiveElement, Styled, Window, WindowControlArea, div, prelude::FluentBuilder, px,
+    StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{Icon, tooltip::Tooltip};
 use signet_core::api::UiEvent;
@@ -242,7 +242,7 @@ impl Render for Toolbar {
             .pl(if p.leading { px(78.0) } else { space::S1 })
             .pr(space::S2)
             .text_color(bar.fg)
-            .when(!p.no_drag, |d| d.window_control_area(WindowControlArea::Drag))
+            .when(!p.no_drag && !p.floating, crate::title_area::title_area)
             .when(p.dim, |d| d.opacity(0.7).hover(|s| s.opacity(1.0)));
 
         if p.sidebar_toggle {
@@ -505,8 +505,6 @@ impl Render for Toolbar {
         if !IS_MAC {
             row = row.child(click(bar_button("app-menu", lucide("ellipsis-vertical", 16.0), tr("toolbar.appMenu"), bar, 28.0, None, false), false, |_, _, cx| api(cx).show_app_menu()));
         }
-        #[cfg(target_os = "linux")]
-        let row = row.on_mouse_down(gpui::MouseButton::Left, |_, w, _| w.start_window_move());
         row.into_any_element()
     }
 }

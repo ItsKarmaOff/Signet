@@ -413,6 +413,7 @@ impl Render for ExtensionButtons {
                         let title = title.clone();
                         move |w, cx| Tooltip::new(title.clone()).build(w, cx)
                     })
+                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                     .on_drag(drag, move |d: &ExtDrag, _, _, cx| cx.new(|_| DragGhost(d.label.clone(), bar)))
                     .on_drag_move::<ExtDrag>(cx.listener(move |this, e: &gpui::DragMoveEvent<ExtDrag>, _, cx| {
                         let d = e.drag(cx).clone();

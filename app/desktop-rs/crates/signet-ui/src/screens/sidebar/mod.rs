@@ -1236,7 +1236,7 @@ impl Sidebar {
             .h(sp::TOOLBAR_H)
             .pl(left_pad)
             .pr(sp::S2)
-            .when(!self.floating, |d| d.window_control_area(gpui::WindowControlArea::Drag))
+            .when(!self.floating, crate::title_area::title_area)
             .on_mouse_down(MouseButton::Right, move |_, _, cx| api(cx).show_space_menu(&id))
             .child(div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis().font_weight(weight::STRONG).text_color(t.text).child(SharedString::from(space.name.clone())))
             .when(space.profile == Some(SpaceProfile::Isolated), |d| {
