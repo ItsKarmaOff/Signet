@@ -103,6 +103,7 @@ impl WebView {
                     visible: opts.visible,
                     bounds: opts.bounds,
                     closing: false,
+                    pinned: false,
                     devtools_for,
                 },
             );
@@ -173,7 +174,24 @@ impl WebView {
             tlog(|| format!("set_bounds view={} {:?} vis={}", self.id.0, bounds, vis));
             crate::platform::apply(&host, parent, bounds, vis);
             host.was_resized();
+            self.repin();
         }
+    }
+
+    /// macOS: re-applies the pin of a parked view (a later CEF reset of its autoresizing mask would bring back its growth).
+    pub(crate) fn repin(&self) {
+        #[cfg(target_os = "macos")]
+        if with_state(|st| st.views.get(&self.id).is_some_and(|e| e.pinned)).unwrap_or(false) {
+            if let Some(host) = host_of(self.id) {
+                crate::mac::pin_view_top_left(host.window_handle());
+            }
+        }
+    }
+
+    /// Marks the view as parked: it keeps its size and top-left position when the window resizes (macOS only).
+    pub(crate) fn pin_top_left(&self) {
+        with_state(|st| st.views.get_mut(&self.id).map(|e| e.pinned = true));
+        self.repin();
     }
 
     /// Rounds the corners of the page (macOS; the other platforms keep square views).

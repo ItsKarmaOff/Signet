@@ -326,6 +326,18 @@ pub fn set_view_hidden(view: *mut c_void, hidden: bool) {
     }
 }
 
+/// Pins a native view to the top-left of its parent with a fixed size (`NSViewMaxXMargin | NSViewMinYMargin`):
+/// AppKit no longer resizes it with the window (CEF creates its host view width and height sizable).
+pub fn pin_view_top_left(view: *mut c_void) {
+    if view.is_null() {
+        return;
+    }
+    unsafe {
+        let view = &*(view as *mut objc2::runtime::AnyObject);
+        let _: () = objc2::msg_send![view, setAutoresizingMask: 4usize | 8usize];
+    }
+}
+
 /// Make the browser's native view first responder of its window (keyboard focus).
 pub fn focus_view(view: *mut c_void) {
     unsafe {

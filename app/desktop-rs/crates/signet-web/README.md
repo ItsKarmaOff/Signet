@@ -326,3 +326,8 @@ size (the "blink"). `mac::install_page_view_fill` forces that view to the bounds
 is attached and on every `setFrame:`. `SIGNET_TRACE_VIEWS=1` logs every change of the native view tree (frames, layer
 scales) to stderr; `SIGNET_NO_PAGE_FILL=1` turns the fix off to compare. On X11 and Win32 the browser is created at
 its pixel size (`platform::initial_size`).
+
+Extension backgrounds and offscreen documents (`WebView::create_background`) are parked 2x2 views at (-40,-40). CEF
+creates its host view width and height sizable, so a growing window would stretch them into the visible area (a white
+rectangle at the top-left): `mac::pin_view_top_left` fixes their size and corner, and `set_bounds` and
+`on_render_view_ready` apply it again.

@@ -72,6 +72,9 @@ pub(crate) struct ViewEntry {
     pub visible: bool,
     pub bounds: Bounds,
     pub closing: bool,
+    /// macOS: the native view keeps a fixed size and top-left position when the window resizes (parked views).
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub pinned: bool,
     #[allow(dead_code)]
     pub devtools_for: Option<ViewId>,
 }

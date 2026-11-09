@@ -551,6 +551,7 @@ wrap_request_handler! {
                 host.notify_screen_info_changed();
                 host.was_resized();
             }
+            crate::view::WebView::from_id(self.view).map(|v| v.repin());
         }
 
         fn on_open_urlfrom_tab(

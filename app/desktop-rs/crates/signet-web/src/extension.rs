@@ -241,6 +241,9 @@ impl WebView {
         let bounds = Bounds::new(-40.0, -40.0, 2.0, 2.0);
         let parent = crate::platform::parent_to_usize(parent).map_err(Error::Parent)?;
         let view = Self::create_native(parent, ViewOptions { profile, url: url.to_string(), bounds, visible: true, transparent_background: false }, None)?;
+        // CEF's host view resizes with the window (width and height sizable): a larger window would grow this parked
+        // view into the visible area (a white rectangle at the top-left). Signet places it itself.
+        view.pin_top_left();
         view.set_bounds(bounds);
         Ok(view)
     }
