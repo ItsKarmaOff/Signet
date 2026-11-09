@@ -22,7 +22,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 url = "2"
 
 [dev-dependencies]
-gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland"] }
 
 [[example]]
 name = "gallery"

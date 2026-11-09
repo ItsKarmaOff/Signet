@@ -33,7 +33,7 @@ signet-pages = { path = "crates/signet-pages" }
 # UI: gpui-component 0.9 pins the published gpui prerelease, so we use the same one.
 gpui = { package = "gpui-pre", version = "=0.3.11" }
 gpui-component = "0.9"
-gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland", "runtime_shaders"] }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.11", features = ["font-kit", "x11", "wayland"] }
 
 # Web engine
 cef = "156.3"
