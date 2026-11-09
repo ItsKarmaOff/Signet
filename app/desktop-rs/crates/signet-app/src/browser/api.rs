@@ -13,6 +13,10 @@ impl SignetApi for Browser {
         self.bus.subscribe(listener)
     }
 
+    fn titlebar_double_click_action(&self) -> signet_core::titlebar::TitlebarAction {
+        crate::titlebar::action()
+    }
+
     fn get_state(&self) -> Snapshot {
         self.core.borrow().snapshot()
     }

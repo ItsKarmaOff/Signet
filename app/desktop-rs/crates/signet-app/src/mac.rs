@@ -285,3 +285,34 @@ pub fn mouse_location() -> (f64, f64) {
         (p.x, h - p.y)
     }
 }
+
+/// The system's double-click action on a title bar, read from the global preferences on every call.
+pub fn titlebar_action() -> signet_core::titlebar::TitlebarAction {
+    use objc2::class;
+    unsafe {
+        let defaults: *mut AnyObject = msg_send![class!(NSUserDefaults), standardUserDefaults];
+        if defaults.is_null() {
+            return signet_core::titlebar::TitlebarAction::Zoom;
+        }
+        let domain = NSString::from_str("NSGlobalDomain");
+        let dict: *mut AnyObject = msg_send![defaults, persistentDomainForName: &*domain];
+        if dict.is_null() {
+            return signet_core::titlebar::mac_action(None, false);
+        }
+        let string_class = class!(NSString);
+        let get = |key: &str| -> *mut AnyObject {
+            let k = NSString::from_str(key);
+            msg_send![dict, objectForKey: &*k]
+        };
+        let value = get("AppleActionOnDoubleClick");
+        let action: Option<String> = if !value.is_null() && msg_send![value, isKindOfClass: string_class] {
+            let s = &*(value as *const NSString);
+            Some(s.to_string())
+        } else {
+            None
+        };
+        let legacy = get("AppleMiniaturizeOnDoubleClick");
+        let legacy_min: bool = if legacy.is_null() { false } else { msg_send![legacy, boolValue] };
+        signet_core::titlebar::mac_action(action.as_deref(), legacy_min)
+    }
+}

@@ -5,6 +5,7 @@ mod browser;
 mod dev;
 mod focus;
 mod syslang;
+mod titlebar;
 #[cfg(target_os = "macos")]
 mod mac;
 #[cfg(target_os = "windows")]
@@ -133,6 +134,7 @@ fn main() {
             cx.quit();
             return;
         }
+        titlebar::warm_up();
         // Create the request contexts now: they finish initializing while the app keeps starting.
         signet_web::prewarm_profile(&signet_web::ProfileKind::persistent("default"));
         {

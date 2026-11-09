@@ -9,6 +9,7 @@
 
 use crate::core::store::SettingsPatch;
 use crate::i18n::Locale;
+use crate::titlebar::TitlebarAction;
 use crate::types::*;
 use serde::{Deserialize, Serialize};
 
@@ -190,6 +191,13 @@ impl Drop for Subscription {
 /// API the interface calls. Implemented by `signet-app`.
 #[allow(clippy::too_many_arguments)]
 pub trait SignetApi {
+    // Window
+
+    /// What a double-click on a window's title area does (system setting). Zoom when the platform has none.
+    fn titlebar_double_click_action(&self) -> TitlebarAction {
+        TitlebarAction::Zoom
+    }
+
     // Events
 
     /// Registers a listener for pushed events. Events are delivered on the thread that produced them: listeners must
