@@ -732,6 +732,21 @@ impl T {
                 _ => false,
             };
             self.rec("pip.viewport", tracked, format!("saved {after:?}, viewports (controls, panel) {vps:?}"));
+            // A command is read back and rendered right away, not at the next 250 ms tick.
+            let last = |t: &Self| t.seen(0, &["pip-state"]).last().cloned().unwrap_or_default();
+            let (before, m) = (last(self), self.mark());
+            let t0 = std::time::Instant::now();
+            self.b.core.borrow_mut().pip_command(signet_core::types::PipCommand::Toggle, None);
+            let mut got = None;
+            while t0.elapsed().as_millis() < 400 {
+                self.sleep(10).await;
+                if let Some(l) = self.seen(m, &["pip-state"]).into_iter().next() {
+                    got = Some((l, t0.elapsed().as_millis()));
+                    break;
+                }
+            }
+            let ok = got.as_ref().is_some_and(|(l, ms)| *ms <= 150 && *l != before);
+            self.rec("pip.command_latency", ok, format!("before={before:?} after={got:?}"));
             if let Some(ms) = std::env::var("SIGNET_PIP_HOLD").ok().and_then(|v| v.parse::<u64>().ok()) {
                 eprintln!("[pip-diag] holding {ms} ms");
                 self.sleep(ms).await;

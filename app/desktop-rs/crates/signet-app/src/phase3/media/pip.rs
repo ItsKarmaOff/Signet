@@ -487,6 +487,7 @@ pub(super) fn finish(core: &mut Core, done: PipDone) {
             let Some(s) = core.phase3.media.pip.session.as_mut() else { return };
             if json != s.last_json {
                 s.last_json = json;
+                core.note(format!("pip-state playing={} muted={} t={:.1}", state.playing, state.muted, state.current_time));
                 core.emit(UiEvent::PipState(state));
             }
         }
