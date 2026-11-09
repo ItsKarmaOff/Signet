@@ -132,14 +132,27 @@ pub fn raise_window(window: RawWindowHandle) -> Result<(), String> {
 }
 
 /// Moves and resizes a top-level window natively, in logical points of the GPUI global space (Windows and X11: the
-/// frame is scaled to device pixels with `scale`). macOS callers use their own `set_frame`.
+/// frame is scaled to device pixels with `scale`). On Windows the rect is the client area; the invisible frame GPUI
+/// keeps is added around it. macOS callers use their own `set_frame`.
 pub fn set_window_frame(window: RawWindowHandle, x: f64, y: f64, w: f64, h: f64, scale: f64) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use windows_sys::Win32::Foundation::{POINT, RECT};
+        use windows_sys::Win32::Graphics::Gdi::ClientToScreen;
         use windows_sys::Win32::UI::WindowsAndMessaging::*;
         let hw = hwnd(window)?;
         let s = scale.max(0.1);
-        if unsafe { SetWindowPos(hw, std::ptr::null_mut(), (x * s).round() as i32, (y * s).round() as i32, (w * s).round() as i32, (h * s).round() as i32, SWP_NOZORDER | SWP_NOACTIVATE) } == 0 {
+        let zero = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        let (mut wr, mut cr) = (zero, zero);
+        let mut o = POINT { x: 0, y: 0 };
+        if unsafe { GetWindowRect(hw, &mut wr) == 0 || GetClientRect(hw, &mut cr) == 0 || ClientToScreen(hw, &mut o) == 0 } {
+            return Err("cannot read the window frame".into());
+        }
+        // The invisible frame GPUI keeps is asymmetric (no top border), so measure each inset.
+        let (l, t) = (o.x - wr.left, o.y - wr.top);
+        let (r, b) = ((wr.right - wr.left) - cr.right - l, (wr.bottom - wr.top) - cr.bottom - t);
+        let (cx, cy, cw, ch) = ((x * s).round() as i32, (y * s).round() as i32, (w * s).round() as i32, (h * s).round() as i32);
+        if unsafe { SetWindowPos(hw, std::ptr::null_mut(), cx - l, cy - t, cw + l + r, ch + t + b, SWP_NOZORDER | SWP_NOACTIVATE) } == 0 {
             return Err("SetWindowPos failed".into());
         }
         Ok(())
