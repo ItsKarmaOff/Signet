@@ -10,6 +10,7 @@ mod hooks;
 mod media;
 #[cfg(target_os = "macos")]
 pub mod mac;
+mod cors_proxy;
 mod platform;
 mod profile;
 mod runtime;
@@ -36,6 +37,7 @@ pub use runtime::{
     default_user_agent, drain_events, init, is_initialized, pump, set_certificate_handler, set_key_filter, set_key_observer, set_page_scripts,
     set_scheme_handler, set_wake_handler, shutdown, Config,
 };
+pub use cors_proxy::set_cors_exemption;
 pub use extension::{set_extension_handler, set_preference_json, ExtensionRequest, ExtensionResponse, EXTENSION_SCHEME};
 pub use scheme::CUSTOM_SCHEMES;
 pub use subprocess::run_subprocess;

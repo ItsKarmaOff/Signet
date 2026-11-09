@@ -316,6 +316,8 @@ impl Core {
             return;
         };
         self.ext_close_background(shared, &id);
+        // Host permissions also exempt the extension's pages from CORS (its fetches to its API servers).
+        signet_web::set_cors_exemption(&id, &cors_of(&m), true);
         if let Ok(mut l) = shared.loaded.write() {
             l.insert(id.clone(), Loaded { dir, manifest: m, background: background.clone() });
         }
@@ -331,8 +333,9 @@ impl Core {
 
     fn ext_unload(&mut self, shared: &Arc<Shared>, id: &str) {
         self.ext_close_background(shared, id);
-        if let Ok(mut l) = shared.loaded.write() {
-            l.remove(id);
+        let gone = shared.loaded.write().ok().and_then(|mut l| l.remove(id));
+        if let Some(l) = gone {
+            signet_web::set_cors_exemption(id, &cors_of(&l.manifest), false);
         }
         if let Some(rt) = self.phase3.extensions.rt.as_mut() {
             rt.waiting.retain(|w| w != id);
@@ -661,4 +664,10 @@ mod tests {
         let ui = counts_to_ui(&c);
         assert_eq!(ui.get("7").and_then(|m| m.get("ext")), Some(&3));
     }
+}
+
+/// The origins an extension may fetch across origins: its host permissions (and Manifest V2 style host entries).
+fn cors_of(m: &Manifest) -> Vec<(String, String, bool)> {
+    let patterns: Vec<String> = m.host_permissions.iter().chain(m.permissions.iter().filter(|p| p.contains("://") || *p == "<all_urls>")).cloned().collect();
+    signet_extensions::urlmatch::cors_targets(&patterns)
 }

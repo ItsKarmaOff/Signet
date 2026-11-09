@@ -676,6 +676,20 @@ wrap_resource_request_handler! {
     struct SignetResourceRequest { view: ViewId, initiator: String }
 
     impl ResourceRequestHandler {
+        fn resource_handler(
+            &self,
+            browser: Option<&mut Browser>,
+            _frame: Option<&mut Frame>,
+            request: Option<&mut Request>,
+        ) -> Option<ResourceHandler> {
+            // Requests of extension pages to hosts their permissions cover are exempt from CORS (see cors_proxy).
+            if self.initiator.is_empty() {
+                return None;
+            }
+            let ctx = browser.and_then(|b| b.host()).and_then(|h| h.request_context());
+            crate::cors_proxy::handler_for(&self.initiator, request?, ctx)
+        }
+
         fn on_before_resource_load(
             &self,
             browser: Option<&mut Browser>,

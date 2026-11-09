@@ -219,6 +219,47 @@ pub fn extension_file_path(root: &Path, extension_id: &str, reference: &str) -> 
     Some(abs)
 }
 
+/// What an extension's host patterns allow its pages to fetch across origins (CORS exemption, like Chrome gives
+/// extensions with host permissions): `(scheme, domain, with_subdomains)` triples for the engine's origin whitelist.
+/// An empty domain with subdomains means every host. Patterns for other schemes (`file`, `chrome`...) are ignored.
+pub fn cors_targets(patterns: &[String]) -> Vec<(String, String, bool)> {
+    let mut out: Vec<(String, String, bool)> = Vec::new();
+    let mut push = |t: (String, String, bool)| {
+        if !out.contains(&t) {
+            out.push(t);
+        }
+    };
+    for p in patterns {
+        let p = p.trim();
+        let (schemes, rest): (Vec<&str>, &str) = if p == "<all_urls>" {
+            (vec!["http", "https"], "*/*")
+        } else if let Some((scheme, rest)) = p.split_once("://") {
+            match scheme {
+                "*" => (vec!["http", "https"], rest),
+                "http" | "https" | "ws" | "wss" => (vec![scheme], rest),
+                _ => continue,
+            }
+        } else {
+            continue;
+        };
+        let host = rest.split('/').next().unwrap_or("");
+        let host = host.split(':').next().unwrap_or("");
+        let (domain, sub) = match host {
+            "" => continue,
+            "*" => (String::new(), true),
+            h => match h.strip_prefix("*.") {
+                Some(base) if !base.is_empty() && !base.contains('*') => (base.to_string(), true),
+                _ if h.contains('*') => continue,
+                _ => (h.to_string(), false),
+            },
+        };
+        for s in schemes {
+            push((s.to_string(), domain.clone(), sub));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -290,5 +331,17 @@ mod tests {
         assert!(!t("https://example.com:8080/*", "https://example.com/x"));
         assert!(t("https://example.com:*/*", "https://example.com:99/x"));
         assert!(MatchPattern::parse("nonsense").is_none());
+    }
+
+    #[test]
+    fn host_patterns_become_cors_whitelist_entries() {
+        let v = |l: &[&str]| cors_targets(&l.iter().map(|s| s.to_string()).collect::<Vec<_>>());
+        assert_eq!(v(&["<all_urls>"]), [("http".into(), "".into(), true), ("https".into(), "".into(), true)]);
+        assert_eq!(v(&["*://*/*"]), v(&["<all_urls>"]));
+        assert_eq!(v(&["https://*.nordvpn.com/*"]), [("https".into(), "nordvpn.com".into(), true)]);
+        assert_eq!(v(&["*://api.example.com/v1/*"]), [("http".into(), "api.example.com".into(), false), ("https".into(), "api.example.com".into(), false)]);
+        assert_eq!(v(&["https://localhost:8080/*"]), [("https".into(), "localhost".into(), false)]);
+        assert!(v(&["file:///*", "chrome://*/*", "https://a*b.com/*", "tabs", "https:///x"]).is_empty());
+        assert_eq!(v(&["https://*.a.com/*", "https://*.a.com/x"]).len(), 1);
     }
 }
