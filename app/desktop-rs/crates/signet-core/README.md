@@ -23,6 +23,7 @@ Test: `CARGO_TARGET_DIR=target-core CARGO_BUILD_JOBS=4 cargo test -p signet-core
 | `shortcuts` | `app/desktop/src/shared/shortcuts.ts` |
 | `devhosts`, `pagesettings`, `slide`, `languages` | `shared/devhosts.ts`, `shared/pagesettings.ts`, `shared/slide.ts`, pure parts of `main/web/languages.ts` |
 | `paths` | new: data folders and first-run import from the Electron folder |
+| `titlebar` | new: parsers of the system double-click-on-title-bar setting (macOS, GNOME) |
 
 Not ported: `ipc/validate.ts` and `contract.ts` (Rust types replace them), `feeds.ts` (belongs to `signet-features`;
 core only has `tree::clean_live_source` / `clean_live_folder` which the store needs), `link/` (belongs to `signet-link`;

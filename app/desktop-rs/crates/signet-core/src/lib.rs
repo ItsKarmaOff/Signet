@@ -19,6 +19,7 @@ pub mod site;
 pub mod split;
 pub mod slide;
 pub mod tab_list;
+pub mod titlebar;
 pub mod tree;
 pub mod types;
 pub mod urls;
