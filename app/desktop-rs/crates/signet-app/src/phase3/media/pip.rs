@@ -2,9 +2,8 @@
 //!
 //! In Electron the tab's real page view was moved into a small always-on-top window, where the video was made to
 //! fill a full-screen container, and the `#pip` controls view lay over it. This port keeps the same page scripts,
-//! the same state machine and the same geometry, but a CEF view cannot yet change window (signet-web has no
-//! re-parenting) and the window manager has no `#pip` window. Until it has, [`PIP_WINDOWS`] is false and
-//! `open_pip` only logs: opening the player would leave the tab empty.
+//! the same state machine and the same geometry: `windows/pip.rs` re-parents the CEF view into a panel window
+//! (`WebView::reparent`) and executes the [`PipWindowOp`]s and gestures defined here.
 //!
 //! What the window manager needs (see [`PipWindowOp`], [`PipLink`]):
 //! - a frameless, transparent-capable, always-on-top, all-workspaces panel window ("floating", not in the Dock),

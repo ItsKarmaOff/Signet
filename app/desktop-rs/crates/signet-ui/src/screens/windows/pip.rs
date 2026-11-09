@@ -3,8 +3,8 @@
 //! Window: frameless, transparent background, at the size of the video window. The native web view with the video fills the
 //! whole window underneath; this view is laid over it (it is a separate transparent window above, like the Electron `UiView`).
 //! Moving and resizing the window is done by the app: install a [`PipHost`] with [`install_pip_host`] (the `SignetApi` has no
-//! method for it, `window.signetPip` in the preload). Without a host, a press outside the controls moves the window
-//! through the platform and the resize handles do nothing.
+//! method for it, `window.signetPip` in the preload). Without a host, a press outside the controls moves only this
+//! window through the platform and the resize handles do nothing: the app always installs one.
 
 use crate::app_state::{api, tr, ui_state};
 use crate::icon::IconName;
