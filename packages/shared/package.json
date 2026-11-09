@@ -14,11 +14,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "i18next": "^26.5.11",
+    "i18next": "^26.7.2",
     "tldts": "^7.4.17"
   },
   "devDependencies": {
     "typescript": "~6.0.3",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.0"
   }
 }
