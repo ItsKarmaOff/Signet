@@ -12,28 +12,13 @@ use crate::windows::{Cmd, Later, Win};
 impl Core {
     pub fn on_main_created(&mut self, raw: Option<RawWindowHandle>, size: (f64, f64), origin: (f64, f64)) {
         self.views.parent = raw;
-        self.win = Some(MainWin { size, origin, fullscreen: false, active: true, first_frame: false });
+        self.win = Some(MainWin { size, origin, fullscreen: false, active: true });
         self.refresh_key_table();
         self.request_focus();
         self.send(Cmd::Later(60_000, Later::SleepCheck));
         self.send(Cmd::Later(5 * 60_000, Later::Sweep));
         self.log(format!("main window {}x{} at ({}, {})", size.0, size.1, origin.0, origin.1));
         self.changed();
-    }
-
-    /// GPUI started the first frame of the main window: the page views may be created now, and the URLs that
-    /// arrived earlier are opened.
-    pub fn on_first_frame(&mut self) {
-        let Some(w) = self.win.as_mut() else { return };
-        if w.first_frame {
-            return;
-        }
-        w.first_frame = true;
-        self.request_focus();
-        for u in std::mem::take(&mut self.pending_urls) {
-            self.open_external(&u);
-        }
-        self.changed_view();
     }
 
     /// The user closed the main window (macOS: the app stays alive; the Dock icon opens a new one). Port of
