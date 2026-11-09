@@ -725,6 +725,13 @@ impl T {
                 _ => false,
             };
             self.rec("pip.resize", before != after && after.is_some() && same, format!("bounds {before:?} -> {after:?}, view {view:?}"));
+            // GPUI must have learned the new native size: a stale viewport lays the controls out for the old card.
+            let vps = crate::windows::pip::viewports();
+            let tracked = match (after, vps) {
+                (Some(a), Some((c, p))) => [c, p].iter().all(|v| (f64::from(v.0) - a.width).abs() < 1.5 && (f64::from(v.1) - a.height).abs() < 1.5),
+                _ => false,
+            };
+            self.rec("pip.viewport", tracked, format!("saved {after:?}, viewports (controls, panel) {vps:?}"));
             if let Some(ms) = std::env::var("SIGNET_PIP_HOLD").ok().and_then(|v| v.parse::<u64>().ok()) {
                 eprintln!("[pip-diag] holding {ms} ms");
                 self.sleep(ms).await;

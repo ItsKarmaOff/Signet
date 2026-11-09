@@ -168,6 +168,21 @@ fn apply(s: &Session, r: Rect, cx: &mut App) {
     set_frame(s.panel, s.panel_raw, r, cx);
     set_frame(s.controls, s.controls_raw, r, cx);
     s.view.set_bounds(signet_web::Bounds::new(0.0, 0.0, r.width as f32, r.height as f32));
+    let vp = |h: AnyWindowHandle, cx: &mut App| h.update(cx, |_, w, _| {
+        let v = w.viewport_size();
+        (f32::from(v.width), f32::from(v.height))
+    }).unwrap_or((0.0, 0.0));
+    let seen = (vp(s.controls, cx), vp(s.panel, cx));
+    VIEWPORTS.with(|c| c.set(Some(seen)));
+}
+
+thread_local! {
+    static VIEWPORTS: std::cell::Cell<Option<((f32, f32), (f32, f32))>> = const { std::cell::Cell::new(None) };
+}
+
+/// Viewport sizes GPUI holds for the controls and the panel after the last frame change (self-test).
+pub fn viewports() -> Option<((f32, f32), (f32, f32))> {
+    VIEWPORTS.with(std::cell::Cell::get)
 }
 
 /// Global pointer position in logical points and whether the left button is down.
