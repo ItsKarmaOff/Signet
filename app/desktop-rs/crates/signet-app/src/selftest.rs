@@ -24,6 +24,7 @@ use crate::windows::{Cmd, Win};
 
 struct T {
     b: Rc<Browser>,
+    cx: AsyncApp,
     ex: BackgroundExecutor,
     base: String,
     ext_dir: String,
@@ -40,7 +41,7 @@ pub fn spawn(browser: Rc<Browser>, cx: &mut App) {
         let base = std::env::var("SIGNET_TEST_BASE").unwrap_or_default();
         let ext_dir = std::env::var("SIGNET_TEST_EXT").unwrap_or_default();
         let only = std::env::var("SIGNET_TEST_ONLY").unwrap_or_default().split(',').filter(|s| !s.is_empty()).map(str::to_string).collect();
-        let mut t = T { b: browser, ex, base, ext_dir, only, pass: Default::default(), fail: Default::default(), rows: Default::default() };
+        let mut t = T { b: browser, cx: cx.clone(), ex, base, ext_dir, only, pass: Default::default(), fail: Default::default(), rows: Default::default() };
         t.run().await;
     })
     .detach();
@@ -726,12 +727,19 @@ impl T {
             };
             self.rec("pip.resize", before != after && after.is_some() && same, format!("bounds {before:?} -> {after:?}, view {view:?}"));
             // GPUI must have learned the new native size: a stale viewport lays the controls out for the old card.
-            let vps = crate::windows::pip::viewports();
-            let tracked = match (after, vps) {
+            let fits = |after: Option<signet_core::types::Rect>, vps: Option<((f32, f32), (f32, f32))>| match (after, vps) {
                 (Some(a), Some((c, p))) => [c, p].iter().all(|v| (f64::from(v.0) - a.width).abs() < 1.5 && (f64::from(v.1) - a.height).abs() < 1.5),
                 _ => false,
             };
-            self.rec("pip.viewport", tracked, format!("saved {after:?}, viewports (controls, panel) {vps:?}"));
+            let t0 = std::time::Instant::now();
+            let first = self.cx.update(|cx| crate::windows::pip::viewports(cx));
+            let mut vps = first;
+            while !fits(after, vps) && t0.elapsed().as_millis() < 1000 {
+                self.sleep(20).await;
+                vps = self.cx.update(|cx| crate::windows::pip::viewports(cx));
+            }
+            let tracked = fits(after, vps);
+            self.rec("pip.viewport", tracked, format!("saved {after:?}, viewports (controls, panel) first {first:?} settled {vps:?} after {} ms", t0.elapsed().as_millis()));
             // A command is read back and rendered right away, not at the next 250 ms tick.
             let last = |t: &Self| t.seen(0, &["pip-state"]).last().cloned().unwrap_or_default();
             let (before, m) = (last(self), self.mark());

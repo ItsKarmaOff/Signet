@@ -133,8 +133,9 @@ fn set_frame(handle: AnyWindowHandle, raw: Option<RawWindowHandle>, r: Rect, cx:
     if !set_native_frame(handle, raw, r, cx) {
         let _ = handle.update(cx, |_, w, _| w.resize(size(px(r.width as f32), px(r.height as f32))));
     }
-    // The native resize calls GPUI's size callback synchronously, while the App is borrowed here: GPUI drops that
-    // callback, so the window keeps its old viewport (stale layout, stale hitboxes). Tell it the frame changed.
+    // On macOS and Windows the native resize calls GPUI's size callback synchronously, while the App is borrowed
+    // here: GPUI drops that callback, so the window keeps its old viewport (stale layout, stale hitboxes). This call
+    // is what updates it. On X11 GPUI learns the size later from its own ConfigureNotify, so this is a harmless re-read.
     let _ = handle.update(cx, |_, w, cx| w.bounds_changed(cx));
 }
 
@@ -172,21 +173,23 @@ fn apply(s: &Session, r: Rect, cx: &mut App) {
     set_frame(s.panel, s.panel_raw, r, cx);
     set_frame(s.controls, s.controls_raw, r, cx);
     s.view.set_bounds(signet_web::Bounds::new(0.0, 0.0, r.width as f32, r.height as f32));
-    let vp = |h: AnyWindowHandle, cx: &mut App| h.update(cx, |_, w, _| {
-        let v = w.viewport_size();
-        (f32::from(v.width), f32::from(v.height))
-    }).unwrap_or((0.0, 0.0));
-    let seen = (vp(s.controls, cx), vp(s.panel, cx));
-    VIEWPORTS.with(|c| c.set(Some(seen)));
 }
 
 thread_local! {
-    static VIEWPORTS: std::cell::Cell<Option<((f32, f32), (f32, f32))>> = const { std::cell::Cell::new(None) };
+    static LIVE: std::cell::Cell<Option<(AnyWindowHandle, AnyWindowHandle)>> = const { std::cell::Cell::new(None) };
 }
 
-/// Viewport sizes GPUI holds for the controls and the panel after the last frame change (self-test).
-pub fn viewports() -> Option<((f32, f32), (f32, f32))> {
-    VIEWPORTS.with(std::cell::Cell::get)
+/// Viewport sizes GPUI holds right now for the controls and the panel (self-test); `None` without a mini player.
+pub fn viewports(cx: &mut App) -> Option<((f32, f32), (f32, f32))> {
+    let (controls, panel) = LIVE.with(std::cell::Cell::get)?;
+    let vp = |h: AnyWindowHandle, cx: &mut App| {
+        h.update(cx, |_, w, _| {
+            let v = w.viewport_size();
+            (f32::from(v.width), f32::from(v.height))
+        })
+        .ok()
+    };
+    Some((vp(controls, cx)?, vp(panel, cx)?))
 }
 
 /// Global pointer position in logical points and whether the left button is down.
@@ -263,10 +266,12 @@ impl PipWindows {
         apply(&s, start, cx);
         view.set_visible(true);
         browser.core.borrow_mut().pip_moved(bounds);
+        let live = (s.controls, s.panel);
         let sess = Rc::new(RefCell::new(s));
         if start != bounds {
             glide(browser, sess.clone(), start, bounds, 0, false, cx);
         }
+        LIVE.with(|c| c.set(Some(live)));
         self.cur = Some(sess);
     }
 
@@ -448,6 +453,7 @@ fn release(browser: &Rc<Browser>, sess: &Rc<RefCell<Session>>, cx: &mut App) {
 /// Gives the view back to the main window and removes both windows.
 fn finish(browser: &Rc<Browser>, s: &mut Session, cx: &mut App) {
     s.epoch += 1;
+    LIVE.with(|c| c.set(None));
     let parent = browser.core.borrow().views.parent;
     if let Some(p) = parent {
         let _ = s.view.reparent(p);
