@@ -708,6 +708,27 @@ impl T {
             self.sleep(1500).await;
             let (_, auxw) = self.core().selftest_aux();
             self.rec("pip.open", owned, format!("pip owns tab={owned} aux={auxw}"));
+            // The controls' resize gesture goes through the host: the saved rect and the tab view must follow.
+            let before = self.core().state().pip_bounds;
+            let host = crate::phase3::pip_host(&self.core());
+            {
+                use signet_ui::screens::windows::pip::{PipHandle, PipResizePhase};
+                host.resize(PipResizePhase::Start);
+                host.resize(PipResizePhase::Move { handle: PipHandle::NW, dx: -200.0, dy: -150.0 });
+                host.resize(PipResizePhase::End);
+            }
+            self.sleep(1200).await;
+            let after = self.core().state().pip_bounds;
+            let view = self.core().views.view_of(&vtab).map(|v| v.bounds());
+            let same = match (after, view) {
+                (Some(a), Some(v)) => (f64::from(v.width) - a.width).abs() < 1.5 && (f64::from(v.height) - a.height).abs() < 1.5,
+                _ => false,
+            };
+            self.rec("pip.resize", before != after && after.is_some() && same, format!("bounds {before:?} -> {after:?}, view {view:?}"));
+            if let Some(ms) = std::env::var("SIGNET_PIP_HOLD").ok().and_then(|v| v.parse::<u64>().ok()) {
+                eprintln!("[pip-diag] holding {ms} ms");
+                self.sleep(ms).await;
+            }
             self.b.core.borrow_mut().pip_command(signet_core::types::PipCommand::Close, None);
             let freed = self.wait(5000, |c| !c.pip_owns(&vtab)).await;
             self.rec("pip.close", freed, format!("released={freed}"));
