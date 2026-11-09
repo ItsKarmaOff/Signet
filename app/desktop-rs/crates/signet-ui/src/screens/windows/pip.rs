@@ -140,6 +140,19 @@ impl Pip {
         view
     }
 
+    /// Flips the icon of a toggle on the click frame; the next state from the page reconciles it (a rejected `play()`
+    /// is corrected by the read that follows the command).
+    fn optimistic(&mut self, cmd: PipCommand, cx: &mut Context<Self>) {
+        if let Some(st) = self.st.as_mut() {
+            match cmd {
+                PipCommand::Toggle => st.playing = !st.playing,
+                PipCommand::Mute => st.muted = !st.muted,
+                _ => return,
+            }
+            cx.notify();
+        }
+    }
+
     fn command(&self, cmd: PipCommand, value: Option<f64>, cx: &App) {
         api(cx).pip_command(cmd, value);
     }
@@ -243,6 +256,7 @@ impl Render for Pip {
         // Round button: translucent white on hover, scale-down feedback is not available.
         let round = |id: &'static str, size_px: f32, tip: String, cmd: PipCommand, child: AnyElement| -> AnyElement {
             let a = a.clone();
+            let me = me.clone();
             div()
                 .id(id)
                 .flex_none()
@@ -256,7 +270,10 @@ impl Render for Pip {
                 .hover(|s| s.bg(hsla(0.0, 0.0, 1.0, 0.14)))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .tooltip(move |w, cx| Tooltip::new(tip.clone()).build(w, cx))
-                .on_click(move |_, _, _| a.pip_command(cmd, None))
+                .on_click(move |_, _, cx| {
+                    me.update(cx, |this, cx| this.optimistic(cmd, cx));
+                    a.pip_command(cmd, None);
+                })
                 .child(child)
                 .into_any_element()
         };
@@ -387,7 +404,13 @@ impl Render for Pip {
                     let tip = if st.muted { tr("pip.unmute") } else { tr("pip.mute") };
                     move |w, cx| Tooltip::new(tip.clone()).build(w, cx)
                 })
-                .on_click(move |_, _, _| a_mute.pip_command(PipCommand::Mute, None))
+                .on_click({
+                    let me = me.clone();
+                    move |_, _, cx| {
+                        me.update(cx, |this, cx| this.optimistic(PipCommand::Mute, cx));
+                        a_mute.pip_command(PipCommand::Mute, None);
+                    }
+                })
                 .child(Icon::from(if st.muted { IconName::VolumeX } else { IconName::Volume2 }).size(px(18.0))),
         );
 
@@ -431,7 +454,9 @@ impl Render for Pip {
                     cx.notify();
                 })
             })
-            .on_key_down(move |ev, _, cx| {
+            .on_key_down({
+                let me = me.clone();
+                move |ev, _, cx| {
                 let m = ev.keystroke.modifiers;
                 if m.platform || m.control || m.alt {
                     return;
@@ -445,8 +470,9 @@ impl Render for Pip {
                     _ => return,
                 };
                 cx.stop_propagation();
+                me.update(cx, |this, cx| this.optimistic(cmd, cx));
                 a_key.pip_command(cmd, None);
-            })
+            }})
             // Drag the window from anywhere outside the buttons and the bar.
             .on_mouse_down(MouseButton::Left, {
                 let me = me.clone();
