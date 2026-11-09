@@ -652,31 +652,28 @@ pub fn resized_bounds(s: &Rect, handle: &str, dx: f64, dy: f64, ratio: f64, wa: 
     Rect::new(x, y, w, h)
 }
 
-/// Where the window lands after a drag released with velocity `v` (px/s): near a corner (less than [`SNAP`]) it snaps
-/// to [`MARGIN`] from the edges, otherwise it lands where the momentum takes it, within the work area. `area_at`
-/// gives the work area of the screen nearest a point.
+/// Where the window lands after a drag released with velocity `v` (px/s). The projected point is kept [`MARGIN`]
+/// inside the work area, then each axis snaps on its own to the margin line of the nearest edge when closer than
+/// [`SNAP`]. (Electron's `release` snapped only when both axes were close to one corner and otherwise clamped with
+/// no margin, so flicks landed flush against the Dock or the screen edge: this deliberately differs.) `area_at` gives
+/// the work area of the screen nearest a point.
 pub fn release_target(r: &Rect, v: (f64, f64), here: &Rect, area_at: &dyn Fn(f64, f64) -> Rect) -> Rect {
     let v = (clamp(v.0, -MAX_VELOCITY, MAX_VELOCITY), clamp(v.1, -MAX_VELOCITY, MAX_VELOCITY));
     let px = r.x + clamp(project(v.0), -here.width, here.width);
     let py = r.y + clamp(project(v.1), -here.height, here.height);
     let wa = area_at((px + r.width / 2.0).round(), (py + r.height / 2.0).round());
-    let xs = [wa.x + MARGIN, wa.x + wa.width - MARGIN - r.width];
-    let ys = [wa.y + MARGIN, wa.y + wa.height - MARGIN - r.height];
-    let mut best: Option<(f64, f64)> = None;
-    let mut best_d = f64::INFINITY;
-    for x in xs {
-        for y in ys {
-            let (dx, dy) = ((px - x).abs(), (py - y).abs());
-            if dx < SNAP && dy < SNAP && dx + dy < best_d {
-                best = Some((x, y));
-                best_d = dx + dy;
-            }
+    let snap = |p: f64, lo: f64, size: f64, len: f64| {
+        let (near, far) = (lo + MARGIN, lo + len - MARGIN - size);
+        let c = clamp(p, near, near.max(far));
+        if (c - near).abs() < SNAP {
+            near
+        } else if (c - far).abs() < SNAP {
+            far.max(near)
+        } else {
+            c.round()
         }
-    }
-    let (x, y) = best.unwrap_or_else(|| {
-        (clamp(px.round(), wa.x, wa.x.max(wa.x + wa.width - r.width)), clamp(py.round(), wa.y, wa.y.max(wa.y + wa.height - r.height)))
-    });
-    Rect::new(x, y, r.width, r.height)
+    };
+    Rect::new(snap(px, wa.x, r.width, wa.width), snap(py, wa.y, r.height, wa.height), r.width, r.height)
 }
 
 #[cfg(test)]
@@ -751,6 +748,26 @@ mod tests {
         let r = Rect::new(800.0, 400.0, 400.0, 225.0);
         let t = release_target(&r, (0.0, 0.0), &WA, &|_, _| WA);
         assert_eq!((t.x, t.y), (800.0, 400.0));
+    }
+
+    #[test]
+    fn release_keeps_the_margin_and_snaps_each_axis() {
+        let r = Rect::new(800.0, 400.0, 400.0, 225.0);
+        // A hard throw into the corner lands on the margin lines, never flush with the edges.
+        let t = release_target(&r, (3000.0, 3000.0), &WA, &|_, _| WA);
+        assert_eq!((t.x, t.y), (1920.0 - 16.0 - 400.0, 1080.0 - 16.0 - 225.0));
+        // Close to the right edge on x, overshooting on y: both axes end on the margin.
+        let r = Rect::new(1490.0, 700.0, 400.0, 225.0);
+        let t = release_target(&r, (0.0, 3000.0), &WA, &|_, _| WA);
+        assert_eq!((t.x, t.y), (1920.0 - 16.0 - 400.0, 1080.0 - 16.0 - 225.0));
+        // A slow drop in the middle stays where it is.
+        let r = Rect::new(800.0, 400.0, 400.0, 225.0);
+        let t = release_target(&r, (0.0, 0.0), &WA, &|_, _| WA);
+        assert_eq!((t.x, t.y), (800.0, 400.0));
+        // Dropped past the left edge: the margin.
+        let r = Rect::new(-100.0, 400.0, 400.0, 225.0);
+        let t = release_target(&r, (0.0, 0.0), &WA, &|_, _| WA);
+        assert_eq!((t.x, t.y), (16.0, 400.0));
     }
 
     #[test]
