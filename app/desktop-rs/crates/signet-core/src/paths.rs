@@ -98,12 +98,23 @@ pub fn import_from_electron(electron: &Path, data: &Path) -> ImportReport {
     report
 }
 
-/// Resolves both folders for this user and runs the first-run import. Returns the data folder to use.
+/// Whether the first-run import may run: only for the default data folder (no `SIGNET_DATA_DIR`), or when
+/// `SIGNET_IMPORT_ELECTRON=1` opts in. A scratch folder (tests, captures) must never copy the user's real profile.
+pub fn import_allowed_for(data_dir_env: Option<&std::ffi::OsStr>, opt_in: Option<&std::ffi::OsStr>) -> bool {
+    data_dir_env.is_none_or(|v| v.is_empty()) || opt_in.is_some_and(|v| v == "1")
+}
+
+/// `import_allowed_for` with the process environment.
+pub fn import_allowed() -> bool {
+    import_allowed_for(std::env::var_os("SIGNET_DATA_DIR").as_deref(), std::env::var_os("SIGNET_IMPORT_ELECTRON").as_deref())
+}
+
+/// Resolves both folders for this user and runs the first-run import (see `import_allowed`). Returns the data folder to use.
 pub fn prepare_data_dir() -> io::Result<(PathBuf, ImportReport)> {
     let data = data_dir().ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "no config directory"))?;
     let report = match electron_dir() {
-        Some(e) => import_from_electron(&e, &data),
-        None => ImportReport::default(),
+        Some(e) if import_allowed() => import_from_electron(&e, &data),
+        _ => ImportReport::default(),
     };
     fs::create_dir_all(&data)?;
     Ok((data, report))
@@ -155,6 +166,16 @@ mod tests {
         let r = import_from_electron(&d.path().join("absent"), &d.path().join("data"));
         assert!(!r.ran);
         assert!(!d.path().join("data").exists());
+    }
+
+    #[test]
+    fn import_only_for_default_dir_or_opt_in() {
+        use std::ffi::OsStr;
+        assert!(import_allowed_for(None, None));
+        assert!(import_allowed_for(Some(OsStr::new("")), None));
+        assert!(!import_allowed_for(Some(OsStr::new("/tmp/x")), None));
+        assert!(!import_allowed_for(Some(OsStr::new("/tmp/x")), Some(OsStr::new("0"))));
+        assert!(import_allowed_for(Some(OsStr::new("/tmp/x")), Some(OsStr::new("1"))));
     }
 
     #[test]

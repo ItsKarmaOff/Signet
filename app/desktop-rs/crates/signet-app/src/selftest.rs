@@ -335,7 +335,7 @@ impl T {
             let tabs = c.state().tabs.len();
             let spaces = c.state().spaces.len();
             let win = c.win.as_ref().map(|w| w.size);
-            let electron = signet_core::paths::electron_dir().map(|d| d.join("state.json").exists()).unwrap_or(false);
+            let electron = signet_core::paths::electron_dir().map(|d| d.join("state.json").exists()).unwrap_or(false) && signet_core::paths::import_allowed();
             let (ok_win, detail) = (win.is_some(), format!("window {win:?} tabs={tabs} spaces={spaces} views={}", c.views.ids().len()));
             let imported = !electron || spaces > 0;
             drop(c);

@@ -22,7 +22,7 @@ Changes the extensions rely on: pages of extensions are navigated under the alia
 `chrome-extension://` ids); signet-web maps URLs back, so the app only sees `chrome-extension://`. The extension bridge uses `__signetCrxDispatch`.
 
 Launch (release): `cd app/desktop-rs && ./scripts/bundle-macos.sh --release && open dist/Signet.app` (or run `dist/Signet.app/Contents/MacOS/signet` in a terminal
-to read the logs; add `SIGNET_DEBUG=1`). Reset the Rust data folder for a fresh import from the Electron folder: quit the app, then
+to read the logs; add `SIGNET_DEBUG=1`). A `SIGNET_DATA_DIR` scratch folder never imports the Electron profile (set `SIGNET_IMPORT_ELECTRON=1` to opt in, e.g. to test the import itself); the selftest `startup.import` check follows this. Reset the Rust data folder for a fresh import from the Electron folder: quit the app, then
 `rm -rf "$HOME/Library/Application Support/Signet GPUI"` (the Electron `Signet/` folder is only read). Automated run: `scripts/selftest.sh [seconds]`
 (`ONLY=ext,devtools` limits it to groups; windows open on the screen).
 

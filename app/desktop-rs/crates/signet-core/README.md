@@ -89,4 +89,4 @@ Settings updates use `SettingsPatch` (a JSON object of changed camelCase fields)
 
 `paths::data_dir()` is `<config dir>/Signet GPUI`, `paths::electron_dir()` is `<config dir>/Signet`.
 `paths::prepare_data_dir()` resolves the data folder and COPIES the Electron JSON files and `notes/` into it when it
-has no `state.json` yet (see `IMPORT_FILES`). The Electron folder is never written.
+has no `state.json` yet (see `IMPORT_FILES`), but only for the default data folder: with `SIGNET_DATA_DIR` set the import is skipped unless `SIGNET_IMPORT_ELECTRON=1`. The Electron folder is never written.
