@@ -280,22 +280,28 @@ mod x11 {
         })
     }
 
+    /// Moves and resizes `w` on the persistent connection of the browser views (main thread only): the pip calls this
+    /// every few milliseconds, so it must not reconnect each time.
     pub fn move_resize(w: c_ulong, x: i32, y: i32, width: u32, height: u32) -> Result<(), String> {
-        with_display(|xl, d| unsafe {
-            (xl.XMoveResizeWindow)(d, w, x, y, width, height);
-        })
+        let c = crate::platform::x11host::conn().ok_or("cannot open the X display")?;
+        unsafe {
+            (c.xlib.XMoveResizeWindow)(c.dpy, w, x, y, width, height);
+            (c.xlib.XFlush)(c.dpy);
+        }
+        Ok(())
     }
 
-    /// Pointer position on the default root in device pixels, and whether Button1 is down.
+    /// Pointer position on the default root in device pixels, and whether Button1 is down (persistent connection).
     pub fn pointer() -> Result<((i32, i32), bool), String> {
-        with_display(|xl, d| unsafe {
-            let root = (xl.XDefaultRootWindow)(d);
+        let c = crate::platform::x11host::conn().ok_or("cannot open the X display")?;
+        unsafe {
+            let root = (c.xlib.XDefaultRootWindow)(c.dpy);
             let (mut rr, mut cr) = (0 as c_ulong, 0 as c_ulong);
             let (mut rx, mut ry, mut wx, mut wy) = (0i32, 0i32, 0i32, 0i32);
             let mut mask = 0u32;
-            (xl.XQueryPointer)(d, root, &mut rr, &mut cr, &mut rx, &mut ry, &mut wx, &mut wy, &mut mask);
-            ((rx, ry), mask & x11_dl::xlib::Button1Mask != 0)
-        })
+            (c.xlib.XQueryPointer)(c.dpy, root, &mut rr, &mut cr, &mut rx, &mut ry, &mut wx, &mut wy, &mut mask);
+            Ok(((rx, ry), mask & x11_dl::xlib::Button1Mask != 0))
+        }
     }
 
     pub fn raise(w: c_ulong) -> Result<(), String> {
