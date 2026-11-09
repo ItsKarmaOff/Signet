@@ -26,6 +26,12 @@ to read the logs; add `SIGNET_DEBUG=1`). Reset the Rust data folder for a fresh 
 `rm -rf "$HOME/Library/Application Support/Signet GPUI"` (the Electron `Signet/` folder is only read). Automated run: `scripts/selftest.sh [seconds]`
 (`ONLY=ext,devtools` limits it to groups; windows open on the screen).
 
+Startup timeline: `SIGNET_TRACE_STARTUP=1 dist/Signet.app/Contents/MacOS/signet` prints `[startup] <ms since the process was created> (+<ms since the
+previous line>) <phase>` on stderr: data folder, store, GPUI start, CEF load and initialize, child process launches (the helpers print
+`[startup:<type>]` lines on the same time base), UI init, menus, main window, first frame, first browser and its request context, first
+`load_start` / `load_end`, and main thread stalls over 50 ms during the first 15 seconds. Without the variable the marks cost one atomic load.
+A first launch of a freshly built or copied bundle spends 2 to 3 s before `main.entry` (macOS checks the new ad hoc signed bundle).
+
 # Manual test checklist: Signet in Rust
 
 For the person who tests the app once everything is assembled. Derived from [docs/MANUAL-CHECKS.md](../../docs/MANUAL-CHECKS.md) and

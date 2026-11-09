@@ -105,27 +105,19 @@ impl Phase3 {
 impl Core {
     /// Runs every module's `startup` hook. Called once from `main.rs`, after `signet_web::init`.
     pub fn phase3_startup(&mut self) {
-        autofill::startup(self);
-        backup::startup(self);
-        boosts::startup(self);
-        data::startup(self);
-        devtools::startup(self);
-        extensions::startup(self);
-        import::startup(self);
-        link::startup(self);
-        live_folders::startup(self);
-        media::startup(self);
-        mods::startup(self);
-        net::startup(self);
-        notes::startup(self);
-        page_tools::startup(self);
-        pages::startup(self);
-        passwords::startup(self);
-        reader::startup(self);
-        system::startup(self);
-        web_pages::startup(self);
-        webapps::startup(self);
-        windows::startup(self);
+        // Each hook is timed by `SIGNET_TRACE_STARTUP` (see `signet_web::startup`).
+        macro_rules! timed {
+            ($($m:ident),* $(,)?) => {
+                $({
+                    let _span = signet_web::startup::span(concat!("phase3.", stringify!($m)));
+                    $m::startup(self);
+                })*
+            };
+        }
+        timed!(
+            autofill, backup, boosts, data, devtools, extensions, import, link, live_folders, media, mods, net, notes, page_tools, pages,
+            passwords, reader, system, web_pages, webapps, windows,
+        );
     }
 
     /// Runs every module's `web_event` hook, before the core handles the event.

@@ -181,7 +181,11 @@ impl Manager {
                 });
             }
             Cmd::OpenWin(win, section) => {
+                let span = signet_web::startup::enabled().then(std::time::Instant::now);
                 cx.update(|app| self.open_win(&b, win, section, app));
+                if let Some(t) = span {
+                    signet_web::startup::mark_with(|| format!("window {win:?} opened in {:.1} ms", t.elapsed().as_secs_f64() * 1000.0));
+                }
             }
             Cmd::OpenAux { id, kind } => {
                 cx.update(|app| self.aux.open(&b, id, kind, app));
@@ -217,6 +221,7 @@ impl Manager {
                 });
             }
             Cmd::Urls(urls) => {
+                signet_web::startup::once("cmd.urls (first)");
                 let mut c = b.core.borrow_mut();
                 for u in urls {
                     c.open_external(&u);
@@ -286,6 +291,7 @@ impl Manager {
         };
         let (titlebar, background) = window_chrome("Signet", Some((16.0, 16.0)), transparency);
         let b = browser.clone();
+        signet_web::startup::once("main_window.open_window");
         let opened = cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
@@ -297,6 +303,7 @@ impl Manager {
                 ..Default::default()
             },
             move |window, cx| {
+                signet_web::startup::once("main_window.platform_window_created");
                 let raw = window.window_handle().ok().map(|h| h.as_raw());
                 let vp = window.viewport_size();
                 let wb = window.bounds();
@@ -305,9 +312,20 @@ impl Manager {
                     (f64::from(f32::from(vp.width)), f64::from(f32::from(vp.height))),
                     (f64::from(f32::from(wb.origin.x)), f64::from(f32::from(wb.origin.y))),
                 );
+                signet_web::startup::once("main_window.core_notified");
                 let child = factory::build(Kind::Main, window, cx);
                 let host = cx.new(|_| MainHost::new(child, b.clone()));
-                cx.new(|cx| Root::new(host, window, cx))
+                let root = cx.new(|cx| Root::new(host, window, cx));
+                signet_web::startup::once("main_window.views_built");
+                if signet_web::startup::enabled() {
+                    // The first callback runs when the first frame starts, the nested one when the next frame starts
+                    // (the first one was presented by then).
+                    window.on_next_frame(|window, _| {
+                        signet_web::startup::once("main_window.first_frame_start");
+                        window.on_next_frame(|_, _| signet_web::startup::once("main_window.second_frame_start (first presented)"));
+                    });
+                }
+                root
             },
         );
         match opened {
@@ -332,6 +350,7 @@ impl Manager {
                 })
                 .ok();
                 self.main = Some(h.into());
+                signet_web::startup::once("main_window.opened");
             }
             Err(e) => eprintln!("cannot open the main window: {e}"),
         }

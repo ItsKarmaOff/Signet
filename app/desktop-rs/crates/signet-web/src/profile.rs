@@ -41,13 +41,17 @@ pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
     };
     let ready = Arc::new(AtomicBool::new(false));
     let mut handler = ProfileReady::new(ready.clone());
+    let started = Instant::now();
     let ctx = request_context_create_context(Some(&settings), Some(&mut handler))?;
     // Chrome-style contexts initialize asynchronously; browsers need an initialized context.
     let deadline = Instant::now() + Duration::from_secs(10);
+    let mut spins = 0u32;
     while !ready.load(Ordering::SeqCst) && Instant::now() < deadline {
         do_message_loop_work();
         std::thread::sleep(Duration::from_millis(2));
+        spins += 1;
     }
+    crate::startup::mark_with(|| format!("web.request_context {key} ready in {:.1} ms ({spins} pump+sleep(2 ms) rounds, main thread blocked)", started.elapsed().as_secs_f64() * 1000.0));
     if !ready.load(Ordering::SeqCst) {
         eprintln!("[signet-web] request context for {key} was not initialized in time");
     }

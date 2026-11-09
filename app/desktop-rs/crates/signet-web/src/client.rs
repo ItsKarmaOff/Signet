@@ -64,6 +64,7 @@ wrap_life_span_handler! {
         }
 
         fn on_after_created(&self, browser: Option<&mut Browser>) {
+            crate::startup::mark_with(|| format!("web.on_after_created view={}", self.view.0));
             if let Some(b) = browser {
                 crate::view::attach_browser(self.view, b.clone());
             }
@@ -187,6 +188,9 @@ wrap_load_handler! {
 
         fn on_load_start(&self, _browser: Option<&mut Browser>, frame: Option<&mut Frame>, _t: TransitionType) {
             crate::view::tlog(|| format!("load_start view={}", self.view.0));
+            if let Some(f) = frame.as_ref().filter(|f| f.is_main() == 1) {
+                crate::startup::mark_with(|| format!("web.load_start view={} {}", self.view.0, userfree(&f.url())));
+            }
             if let Some(f) = frame {
                 if f.is_main() == 1 {
                     crate::media::reset(self.view);
@@ -196,6 +200,9 @@ wrap_load_handler! {
         }
 
         fn on_load_end(&self, _browser: Option<&mut Browser>, frame: Option<&mut Frame>, http_status_code: ::std::os::raw::c_int) {
+            if let Some(f) = frame.as_ref().filter(|f| f.is_main() == 1) {
+                crate::startup::mark_with(|| format!("web.load_end view={} {}", self.view.0, userfree(&f.url())));
+            }
             if let Some(f) = frame {
                 push_event(WebEvent::LoadEnd {
                     view: self.view,

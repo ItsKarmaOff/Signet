@@ -267,7 +267,10 @@ pub fn init(config: Config) -> Result<(), Error> {
         crate::mac::install_cef_app_protocols();
         crate::mac::trace_views_start();
         let loader = cef::library_loader::LibraryLoader::new(&exe_path(), false);
-        if !loader.load() {
+        let load_span = crate::startup::span("cef.library_load");
+        let loaded = loader.load();
+        drop(load_span);
+        if !loaded {
             return Err(Error::LibraryLoad("Contents/Frameworks/Chromium Embedded Framework.framework".into()));
         }
         // Keep the framework loaded until the process exits.
@@ -277,7 +280,9 @@ pub fn init(config: Config) -> Result<(), Error> {
 
     let args = cef::args::Args::new();
     let mut app = SignetApp::build(false);
+    let exec_span = crate::startup::span("cef.execute_process");
     let ret = execute_process(Some(args.as_main_args()), Some(&mut app), std::ptr::null_mut());
+    drop(exec_span);
     if ret >= 0 {
         // This process was a CEF subprocess (non-macOS builds that re-run the main binary).
         std::process::exit(ret);
@@ -336,7 +341,10 @@ pub fn init(config: Config) -> Result<(), Error> {
     });
 
     let mut app = SignetApp::build(false);
-    if initialize(Some(args.as_main_args()), Some(&settings), Some(&mut app), std::ptr::null_mut()) != 1 {
+    let init_span = crate::startup::span("cef.initialize");
+    let ok = initialize(Some(args.as_main_args()), Some(&settings), Some(&mut app), std::ptr::null_mut());
+    drop(init_span);
+    if ok != 1 {
         STATE.with(|s| *s.borrow_mut() = None);
         return Err(Error::Init("cef::initialize returned 0".into()));
     }
@@ -346,10 +354,15 @@ pub fn init(config: Config) -> Result<(), Error> {
     crate::mac::install_page_view_fill();
     // Browsers can only be created once the browser context is initialized (OnContextInitialized).
     let deadline = Instant::now() + Duration::from_secs(15);
+    let ctx_span = crate::startup::span("cef.wait_context_initialized");
+    let mut spins = 0u32;
     while !CONTEXT_READY.load(std::sync::atomic::Ordering::SeqCst) && Instant::now() < deadline {
         do_message_loop_work();
         std::thread::sleep(Duration::from_millis(5));
+        spins += 1;
     }
+    drop(ctx_span);
+    crate::startup::mark_with(|| format!("cef.context_ready after {spins} pump+sleep(5 ms) rounds"));
     if !CONTEXT_READY.load(std::sync::atomic::Ordering::SeqCst) {
         return Err(Error::Init("browser context was not initialized in time".into()));
     }

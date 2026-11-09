@@ -15,6 +15,7 @@ mod platform;
 mod profile;
 mod runtime;
 mod scheme;
+pub mod startup;
 mod subprocess;
 mod types;
 mod view;

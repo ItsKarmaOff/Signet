@@ -45,6 +45,7 @@ pub fn install(cx: &mut gpui::App, mut on_event: impl FnMut(WebEvent, &mut gpui:
             let now = Instant::now();
             if due || next.is_some_and(|t| t <= now) {
                 next = None;
+                crate::startup::once("pump.first_tick");
                 crate::pump();
                 for ev in crate::drain_events() {
                     on_event(ev, cx);

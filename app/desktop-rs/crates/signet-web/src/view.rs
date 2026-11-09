@@ -127,7 +127,11 @@ impl WebView {
         let bs = BrowserSettings { size: std::mem::size_of::<BrowserSettings>(), ..Default::default() };
         let mut client = make_client(id);
         let url = cs(&crate::extension::to_nav(&opts.url));
+        let create_span = crate::startup::enabled().then(|| (std::time::Instant::now(), opts.url.clone()));
         let browser = browser_host_create_browser_sync(Some(&wi), Some(&mut client), Some(&url), Some(&bs), Some(&mut extra), Some(&mut ctx));
+        if let Some((t, u)) = create_span {
+            crate::startup::mark_with(|| format!("web.create_browser_sync view={} took {:.1} ms url={u}", id.0, t.elapsed().as_secs_f64() * 1000.0));
+        }
         match browser {
             Some(b) => {
                 attach_browser(id, b);

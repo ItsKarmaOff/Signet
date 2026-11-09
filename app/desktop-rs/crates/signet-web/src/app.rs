@@ -110,6 +110,7 @@ wrap_render_process_handler! {
 
     impl RenderProcessHandler {
         fn on_browser_created(&self, browser: Option<&mut Browser>, extra_info: Option<&mut DictionaryValue>) {
+            crate::startup::once("renderer.first_browser_created");
             let Some(browser) = browser else { return };
             let Some(extra) = extra_info else {
                 rlog(&format!("on_browser_created id={} WITHOUT extra_info", browser.identifier()));
@@ -139,6 +140,7 @@ wrap_render_process_handler! {
         ) {
             let (Some(browser), Some(frame), Some(context)) = (browser, frame, context) else { return };
             rlog(&format!("on_context_created browser={} url={} main={}", browser.identifier(), CefString::from(&frame.url()), frame.is_main()));
+            crate::startup::once_with("renderer.first_v8_context", || CefString::from(&frame.url()).to_string());
             // Only browsers created by the app carry the bridge (not DevTools).
             let known = RENDER_SCRIPTS.lock().ok().and_then(|g| g.as_ref().and_then(|m| m.get(&browser.identifier()).cloned()));
             let entry = match known {
@@ -222,10 +224,15 @@ wrap_browser_process_handler! {
 
     impl BrowserProcessHandler {
         fn on_context_initialized(&self) {
+            crate::startup::mark("cef.on_context_initialized");
             crate::runtime::CONTEXT_READY.store(true, std::sync::atomic::Ordering::SeqCst);
         }
 
         fn on_before_child_process_launch(&self, command_line: Option<&mut CommandLine>) {
+            if crate::startup::enabled() {
+                let kind = command_line.as_ref().map(|c| CefString::from(&c.switch_value(Some(&CefString::from("type")))).to_string()).unwrap_or_default();
+                crate::startup::mark_with(|| format!("cef.child_launch type={kind}"));
+            }
             if let (Some(cl), Some(v)) = (command_line, crate::bundle::child_switch_value()) {
                 cl.append_switch_with_value(Some(&CefString::from(crate::bundle::SWITCH)), Some(&CefString::from(v.as_str())));
             }
