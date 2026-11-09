@@ -45,6 +45,8 @@ struct Session {
     bounds: Rect,
     ratio: f64,
     drag: Option<Drag>,
+    /// The last frame given to the windows: identical frames are skipped.
+    last_applied: std::cell::Cell<Option<Rect>>,
     resize_start: Option<Rect>,
     resize_last: Option<(PipHandle, f64, f64)>,
     /// Bumped when the window closes or a new glide starts: running tasks stop.
@@ -124,10 +126,21 @@ fn open_window(cx: &mut App, b: Rect, transparent: bool, root: impl FnOnce(&mut 
 }
 
 fn set_frame(handle: AnyWindowHandle, raw: Option<RawWindowHandle>, r: Rect, cx: &mut App) {
+    if !set_native_frame(handle, raw, r, cx) {
+        let _ = handle.update(cx, |_, w, _| w.resize(size(px(r.width as f32), px(r.height as f32))));
+    }
+    // The native resize calls GPUI's size callback synchronously, while the App is borrowed here: GPUI drops that
+    // callback, so the window keeps its old viewport (stale layout, stale hitboxes). Tell it the frame changed.
+    let _ = handle.update(cx, |_, w, cx| w.bounds_changed(cx));
+}
+
+/// Moves the native window; false when only a GPUI resize is possible.
+fn set_native_frame(handle: AnyWindowHandle, raw: Option<RawWindowHandle>, r: Rect, cx: &mut App) -> bool {
     #[cfg(target_os = "macos")]
     if let Some(raw) = &raw {
+        let _ = (handle, cx);
         crate::mac::set_frame(super::manager::raw_ptr(raw), r.x, r.y, r.width, r.height);
-        return;
+        return true;
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -135,11 +148,11 @@ fn set_frame(handle: AnyWindowHandle, raw: Option<RawWindowHandle>, r: Rect, cx:
         if let Some(raw) = raw
             && signet_web::overlay::set_window_frame(raw, r.x, r.y, r.width, r.height, scale).is_ok()
         {
-            return;
+            return true;
         }
     }
-    let _ = raw;
-    let _ = handle.update(cx, |_, w, _| w.resize(size(px(r.width as f32), px(r.height as f32))));
+    let _ = (handle, raw, r, cx);
+    false
 }
 
 /// Device pixels per logical point of a window.
@@ -148,6 +161,10 @@ fn scale_of(handle: AnyWindowHandle, cx: &mut App) -> f64 {
 }
 
 fn apply(s: &Session, r: Rect, cx: &mut App) {
+    if s.last_applied.get() == Some(r) {
+        return;
+    }
+    s.last_applied.set(Some(r));
     set_frame(s.panel, s.panel_raw, r, cx);
     set_frame(s.controls, s.controls_raw, r, cx);
     s.view.set_bounds(signet_web::Bounds::new(0.0, 0.0, r.width as f32, r.height as f32));
@@ -222,7 +239,7 @@ impl PipWindows {
                 eprintln!("[pip] cannot move the view: {e}");
             }
         }
-        let s = Session { tab, view, panel, panel_raw, controls, controls_raw, bounds: start, ratio, drag: None, resize_start: None, resize_last: None, epoch: 0 };
+        let s = Session { tab, view, panel, panel_raw, controls, controls_raw, bounds: start, ratio, drag: None, last_applied: std::cell::Cell::new(None), resize_start: None, resize_last: None, epoch: 0 };
         apply(&s, start, cx);
         view.set_visible(true);
         browser.core.borrow_mut().pip_moved(bounds);
@@ -386,7 +403,7 @@ fn glide(browser: &Rc<Browser>, sess: Rc<RefCell<Session>>, from: Rect, to: Rect
                 if s.epoch != gen_ {
                     return false;
                 }
-                let r = Rect::new((from.x + (to.x - from.x) * e).round(), (from.y + (to.y - from.y) * e).round(), from.width + (to.width - from.width) * e, from.height + (to.height - from.height) * e);
+                let r = Rect::new((from.x + (to.x - from.x) * e).round(), (from.y + (to.y - from.y) * e).round(), (from.width + (to.width - from.width) * e).round(), (from.height + (to.height - from.height) * e).round());
                 s.bounds = r;
                 apply(&s, r, cx);
                 if t >= 1.0 {
