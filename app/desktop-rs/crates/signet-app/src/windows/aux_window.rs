@@ -125,6 +125,8 @@ impl AuxWindows {
                 focus: true,
                 show: true,
                 window_min_size: min.map(|(mw, mh)| size(px(mw), px(mh))),
+                // macOS: the bar is a title area (`signet_ui::title_area`), the native band neither drags nor delays clicks.
+                app_owns_titlebar_drag: crate::app::platform::IS_MAC,
                 ..Default::default()
             },
             |window, cx| {

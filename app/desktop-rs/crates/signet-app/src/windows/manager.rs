@@ -559,6 +559,8 @@ impl Manager {
                 is_resizable: resizable,
                 is_minimizable: resizable,
                 window_min_size: min.map(|(mw, mh)| size(px(mw), px(mh))),
+                // Library, Welcome, Passkey and Devtools draw a title area; Settings and Boost rely on the native band.
+                app_owns_titlebar_drag: IS_MAC && !matches!(win, Win::Settings | Win::Boost),
                 ..Default::default()
             },
             |window, cx| {

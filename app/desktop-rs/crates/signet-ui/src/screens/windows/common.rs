@@ -4,7 +4,7 @@ use crate::color::{from_hex, luminance};
 use crate::icon::IconName;
 use crate::theme::{SignetTheme, radius, space, weight};
 use crate::widgets::Favicon;
-use gpui::{AnyElement, App, Div, ElementId, Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, WindowControlArea, div, hsla, px};
+use gpui::{AnyElement, App, Div, ElementId, Hsla, InteractiveElement, IntoElement, MouseButton, ParentElement, SharedString, Stateful, StatefulInteractiveElement, Styled, Window, div, hsla, px};
 use gpui_component::{Icon, tooltip::Tooltip};
 
 /// Host without `www.`; internal `signet:` addresses are shown in full (`lib/util.ts` `domainOf`).
@@ -56,9 +56,10 @@ impl BarColors {
     }
 }
 
-/// Makes an area move the window (title bar replacement). Buttons inside stop the mouse down themselves.
+/// Makes an area move the window (title bar replacement) and run the system double-click action. Buttons inside stop
+/// the mouse down themselves.
 pub fn drag_area<E: InteractiveElement + Styled>(el: E) -> E {
-    el.window_control_area(WindowControlArea::Drag).on_mouse_down(MouseButton::Left, |_, window: &mut Window, _cx: &mut App| window.start_window_move())
+    crate::title_area::title_area(el)
 }
 
 /// A favicon from the string the state carries (URL or `data:` URL).
@@ -84,6 +85,7 @@ pub fn st_btn(id: impl Into<ElementId>, t: &SignetTheme) -> Stateful<Div> {
         .text_color(t.text)
         .text_size(t.type_scale.base)
         .cursor_pointer()
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .hover(|s| s.opacity(0.9))
         .active(|s| s.opacity(0.8))
 }
@@ -106,6 +108,7 @@ pub fn accent_btn(id: impl Into<ElementId>, t: &SignetTheme) -> Stateful<Div> {
         .text_size(t.type_scale.base)
         .font_weight(weight::LABEL)
         .cursor_pointer()
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .hover(|s| s.opacity(0.94))
         .active(|s| s.opacity(0.85))
 }
