@@ -101,7 +101,12 @@ fn open_window(cx: &mut App, b: Rect, transparent: bool, root: impl FnOnce(&mut 
             raw_cell.set(window.window_handle().ok().map(|h| h.as_raw()));
             let child = root(window, cx);
             let child = super::factory::with_line_height(child, cx);
-            cx.new(|cx| Root::new(child, window, cx))
+            // The Root paints the theme background: the controls must let the video through, the panel is black as in Electron.
+            cx.new(|cx| {
+                let mut root = Root::new(child, window, cx);
+                gpui::Styled::style(&mut root).background = Some(if transparent { gpui::transparent_black() } else { gpui::black() }.into());
+                root
+            })
         },
     );
     opened.ok().map(|h| (h.into(), raw_cell.take()))
@@ -165,6 +170,7 @@ impl PipWindows {
 
     fn open(&mut self, browser: &Rc<Browser>, tab: String, ratio: f64, saved: Option<Rect>, home_video: Option<Rect>, cx: &mut App) {
         self.close(browser, cx);
+        signet_ui::screens::windows::pip::install_pip_host(cx, crate::phase3::pip_host(&browser.core.borrow()));
         let Some(view) = browser.core.borrow().views.view_of(&tab) else { return };
         let (all, home) = work_areas(browser, cx);
         let bounds = initial_bounds(ratio, saved.as_ref(), &all, &home);
