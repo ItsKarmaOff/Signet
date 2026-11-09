@@ -223,6 +223,10 @@ impl Manager {
             Cmd::Urls(urls) => {
                 signet_web::startup::once("cmd.urls (first)");
                 let mut c = b.core.borrow_mut();
+                if c.win.as_ref().is_some_and(|w| !w.first_frame) {
+                    c.pending_urls.extend(urls);
+                    return;
+                }
                 for u in urls {
                     c.open_external(&u);
                 }
@@ -317,6 +321,10 @@ impl Manager {
                 let host = cx.new(|_| MainHost::new(child, b.clone()));
                 let root = cx.new(|cx| Root::new(host, window, cx));
                 signet_web::startup::once("main_window.views_built");
+                let cmds = b.core.borrow().cmds.clone();
+                window.on_next_frame(move |_, _| {
+                    let _ = cmds.unbounded_send(Cmd::Run(Box::new(|c| c.on_first_frame())));
+                });
                 if signet_web::startup::enabled() {
                     // The first callback runs when the first frame starts, the nested one when the next frame starts
                     // (the first one was presented by then).

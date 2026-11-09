@@ -55,6 +55,8 @@ pub struct MainWin {
     pub origin: (f64, f64),
     pub fullscreen: bool,
     pub active: bool,
+    /// Set once GPUI started its first frame: until then no page view is created, so the window shows up first.
+    pub first_frame: bool,
 }
 
 /// Overlay state (`overlay.ts`).
@@ -161,6 +163,8 @@ pub struct Core {
     pub open_windows: std::collections::HashSet<String>,
     pub phase3: crate::phase3::Phase3,
     pub focus_pending: bool,
+    /// URLs received before the main window's first frame, opened right after it.
+    pub pending_urls: Vec<String>,
     pub preview: Option<Rect>,
     pub suggest: palette::SuggestCache,
     /// Slide, Peek and overlay window state of the layout (see `layout.rs`).
@@ -266,6 +270,7 @@ impl Core {
             open_windows: Default::default(),
             phase3: Default::default(),
             focus_pending: false,
+            pending_urls: Vec::new(),
             preview: None,
             suggest: Default::default(),
             lx: Default::default(),

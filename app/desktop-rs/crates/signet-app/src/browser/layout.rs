@@ -97,6 +97,10 @@ impl Core {
         if let Some(v) = self.views.view_of(tab_id) {
             return Some(v);
         }
+        // The main window paints its first frame before any browser is created (`on_first_frame`).
+        if self.win.as_ref().is_some_and(|w| !w.first_frame) {
+            return None;
+        }
         let tab = self.state().tabs.get(tab_id)?.clone();
         let profile = self.profile_for_tab(tab_id);
         let url = if tab.url.is_empty() { "about:blank".to_string() } else { signet_features::internal::resolve_internal(DOC_BASE, &tab.url) };
