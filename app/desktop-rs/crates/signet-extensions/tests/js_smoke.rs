@@ -71,6 +71,14 @@ const assert = require('assert');
   chrome.storage.onChanged.addListener((c, area) => (got = [c, area]));
   globalThis.__signetCrxDispatch('signet-crx-event', JSON.stringify({{ name: 'storage.onChanged', args: [{{ k: {{ newValue: 1 }} }}, 'local'] }}));
   assert.deepStrictEqual(got, [{{ k: {{ newValue: 1 }} }}, 'local']);
+  // events of namespaces Signet only stubs as methods are still delivered (tabs, alarms...)
+  let upd, alarm;
+  chrome.tabs.onUpdated.addListener((id, change, tab) => (upd = [id, change, tab]));
+  chrome.alarms.onAlarm.addListener((a) => (alarm = a));
+  globalThis.__signetCrxDispatch('signet-crx-event', JSON.stringify({{ name: 'tabs.onUpdated', args: [5, {{ url: 'https://x.test/' }}, {{ id: 5 }}] }}));
+  globalThis.__signetCrxDispatch('signet-crx-event', JSON.stringify({{ name: 'alarms.onAlarm', args: [{{ name: 'a1' }}] }}));
+  assert.deepStrictEqual(upd, [5, {{ url: 'https://x.test/' }}, {{ id: 5 }}]);
+  assert.deepStrictEqual(alarm, {{ name: 'a1' }});
   // runtime messaging: a listener answers through sendResponse
   chrome.runtime.onMessage.addListener((m, s, send) => {{ send({{ echo: m }}); return true; }});
   globalThis.__signetCrxDispatch('signet-crx-ctx', JSON.stringify({{ name: 'runtime.onMessage', args: ['hi', {{}}, 7] }}));

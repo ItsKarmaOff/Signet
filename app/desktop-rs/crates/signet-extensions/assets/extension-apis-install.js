@@ -456,8 +456,11 @@
       Object.defineProperty(ctor, 'name', { value: name })
       return ctor
     }
-    function stubEvent(declarative) {
-      var e = new ExtensionEvent()
+    // An event the host may raise (tabs.onUpdated, alarms.onAlarm, webNavigation.*...): the same object the host's pushed
+    // events are dispatched to (see `bridge.subscribe` above), so listeners really hear it. One the host never raises
+    // simply never fires.
+    function stubEvent(declarative, name) {
+      var e = event(name)
       if (declarative) {
         e.addRules = function () { return settle(arguments, []) }
         e.getRules = function () { return settle(arguments, []) }
@@ -479,7 +482,7 @@
       })
       ;(spec.events || []).forEach(function (name) {
         if (name in obj && crashes.indexOf(name) < 0) return
-        define(obj, name, stubEvent(declarative.indexOf(name) >= 0))
+        define(obj, name, stubEvent(declarative.indexOf(name) >= 0, path + '.' + name))
       })
       Object.keys(spec.constants || {}).forEach(function (k) {
         if (!(k in obj)) define(obj, k, JSON.parse(JSON.stringify(spec.constants[k])))

@@ -302,7 +302,11 @@ impl Core {
                 continue;
             }
             let js = event_js(name, &make_args(sensitive));
-            for c in shared.ctxs().running(&id) {
+            let running = shared.ctxs().running(&id);
+            if std::env::var_os("SIGNET_DEBUG_EXT").is_some() {
+                self.log(format!("[ext-event] {name} -> {id}: {} context(s)", running.len()));
+            }
+            for c in running {
                 self.ext_run_in(c.view, &c.frame, &js);
             }
         }
