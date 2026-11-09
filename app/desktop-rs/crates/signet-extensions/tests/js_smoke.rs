@@ -131,3 +131,85 @@ const assert = require('assert');
     assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
     assert!(String::from_utf8_lossy(&out.stdout).contains("JS OK"));
 }
+
+/// What a store page does after "Add to Chrome": the install promise resolves, the install events and
+/// `management.onInstalled` fire, and `management.getAll/get` answer with the real installed set (so the page switches
+/// to "Remove from Chrome"). Unknown methods must settle too, never hang.
+#[test]
+fn the_store_script_resolves_installs_and_answers_management() {
+    if !node_available() {
+        eprintln!("node not found: skipping");
+        return;
+    }
+    let dir = tempfile::tempdir().unwrap();
+    fs::write(dir.path().join("store.js"), signet_extensions::assets::webstore_script()).unwrap();
+    fs::write(
+        dir.path().join("driver.js"),
+        r#"
+const installed = new Map();
+const posted = [];
+globalThis.document = { addEventListener() {} };
+globalThis.addEventListener = () => {};
+globalThis.__signetCrx = {
+  call: (method, args) => {
+    posted.push(method);
+    const ok = (value) => Promise.resolve(value === undefined ? { ok: true } : { ok: true, value });
+    switch (method) {
+      case 'webstorePrivate.completeInstall': installed.set(args[0], { id: args[0], name: 'N', enabled: true }); return ok();
+      case 'management.getAll': return ok([...installed.values()]);
+      case 'management.get': return installed.has(args[0]) ? ok(installed.get(args[0])) : Promise.resolve({ ok: false, error: 'Failed to find extension.' });
+      case 'management.uninstall': installed.delete(args[0]); return ok();
+      case 'webstorePrivate.getExtensionStatus': return ok(installed.has(args[0]) ? 'enabled' : 'installable');
+      default: return ok();
+    }
+  }
+};
+globalThis.chrome = { runtime: {} };
+require('./store.js');
+const assert = require('assert');
+(async () => {
+  const ws = chrome.webstorePrivate, mg = chrome.management;
+  const id = 'a'.repeat(32);
+  const events = [];
+  ws.onInstallStageChanged.addListener((s) => events.push('stage:' + s));
+  ws.onDownloadProgress.addListener((i, p) => events.push('progress:' + p));
+  mg.onInstalled.addListener((info) => events.push('installed:' + info.id));
+  mg.onUninstalled.addListener((i) => events.push('uninstalled:' + i));
+
+  assert.deepStrictEqual(await mg.getAll(), []);
+  assert.strictEqual(await ws.getExtensionStatus(id), 'installable');
+
+  // Promise form of completeInstall resolves (with nothing), and so does the callback form.
+  assert.strictEqual(await ws.completeInstall(id), undefined);
+  assert.ok(events.includes('stage:installing') && events.includes('progress:1') && events.includes('installed:' + id), events.join());
+  await new Promise((r) => ws.completeInstall(id, function () { assert.strictEqual(arguments.length, 0); r(); }));
+
+  assert.strictEqual(await ws.getExtensionStatus(id), 'enabled');
+  assert.deepStrictEqual((await mg.getAll()).map((e) => e.id), [id]);
+  assert.strictEqual((await mg.get(id)).id, id);
+  await new Promise((r) => mg.getAll((list) => { assert.strictEqual(list.length, 1); r(); }));
+
+  // A missing extension: rejected promise, or lastError in the callback.
+  await assert.rejects(mg.get('b'.repeat(32)), /Failed to find/);
+  await new Promise((r) => mg.get('b'.repeat(32), (v) => { assert.strictEqual(v, undefined); assert.match(chrome.runtime.lastError.message, /Failed to find/); r(); }));
+  assert.strictEqual(chrome.runtime.lastError, undefined);
+
+  // Unknown methods and events settle.
+  assert.strictEqual(await ws.requestExtension('x'), undefined);
+  await new Promise((r) => mg.launchApp(id, () => r()));
+  assert.strictEqual(typeof ws.onSomethingNew.addListener, 'function');
+
+  await mg.uninstall(id, { showConfirmDialog: true });
+  assert.ok(events.includes('uninstalled:' + id));
+  assert.deepStrictEqual(await mg.getAll(), []);
+  assert.ok(posted.includes('management.uninstall'));
+  console.log('JS OK');
+  process.exit(0);
+})().catch((e) => { console.error(e); process.exit(1); });
+"#,
+    )
+    .unwrap();
+    let out = Command::new("node").arg("driver.js").current_dir(dir.path()).output().expect("run node");
+    assert!(out.status.success(), "{}\n{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr));
+    assert!(String::from_utf8_lossy(&out.stdout).contains("JS OK"));
+}

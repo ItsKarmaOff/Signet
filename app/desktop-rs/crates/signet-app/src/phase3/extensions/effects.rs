@@ -144,6 +144,15 @@ impl Core {
                     s.push(Inbox::Install { ticket, allowed });
                 });
             }
+            Effect::UninstallPrompt { call_id, extension_id: id, name } => {
+                let (title, detail) = (tr_args("dialog.removeExtension.message", &[("name", &name)]), tr("dialog.removeExtension.detail"));
+                let (ok, cancel) = (tr("dialog.removeExtension.confirm"), tr("dialog.cancel"));
+                let s = shared.clone();
+                std::thread::spawn(move || {
+                    let allowed = dialogs::confirm("Signet", &format!("{title}\n\n{detail}"), &ok, &cancel);
+                    s.push(Inbox::StoreUninstall { call_id, id, allowed });
+                });
+            }
             Effect::InstallFromStore { call_id, extension_id } => self.ext_store_install(&shared, call_id, extension_id),
             Effect::Notification(n) => {
                 if let NotifEffect::Show { spec, .. } = n {

@@ -284,6 +284,7 @@ impl Core {
                 Inbox::Install { ticket, allowed } => shared.host().install_decision(ticket, allowed),
                 Inbox::StoreInstall { call_id, result } => shared.host().store_install_done(call_id, result),
                 Inbox::RemoveConfirmed(id) => shared.host().remove_extension(&id),
+                Inbox::StoreUninstall { call_id, id, allowed } => shared.host().store_uninstall_done(call_id, &id, allowed),
                 Inbox::Unpacked(Some(path)) => {
                     let r = shared.host().add_unpacked(&path);
                     match r {

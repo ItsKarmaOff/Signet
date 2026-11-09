@@ -17,6 +17,7 @@ pub enum Inbox {
     Install { ticket: u64, allowed: bool },
     StoreInstall { call_id: u64, result: Result<Vec<Effect>, String> },
     RemoveConfirmed(String),
+    StoreUninstall { call_id: u64, id: String, allowed: bool },
     Unpacked(Option<std::path::PathBuf>),
 }
 

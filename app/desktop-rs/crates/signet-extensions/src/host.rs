@@ -83,6 +83,11 @@ pub struct Call {
     pub args: Value,
 }
 
+/// `SIGNET_DEBUG_STORE=1` logs every call a Web Store page makes (to find which methods a new store version uses).
+fn store_debug() -> bool {
+    std::env::var_os("SIGNET_DEBUG_STORE").is_some_and(|v| !v.is_empty() && v != "0")
+}
+
 /// What the app must do.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Effect {
@@ -137,6 +142,8 @@ pub enum Effect {
     InstallPrompt { ticket: u64, extension_id: String, name: String, lines: Vec<PermissionLine> },
     /// Download and install from the store (`install_from_store`), then call `store_install_done(call_id, result)`.
     InstallFromStore { call_id: u64, extension_id: String },
+    /// A store page asks to remove `extension_id`: confirm, then call `store_uninstall_done(call_id, id, allowed)`.
+    UninstallPrompt { call_id: u64, extension_id: String, name: String },
     /// Open a URL in a tab (uninstall URL...).
     OpenUrl { url: String },
     /// Development log line.
@@ -235,6 +242,8 @@ pub struct ExtensionHost {
     install_ticket: u64,
     install_prompts: HashMap<u64, (u64, String)>,
     approved_installs: HashSet<String>,
+    /// `completeInstall` calls in flight: call id -> extension id (to pin the button once installed).
+    store_installs: HashMap<u64, String>,
     last_hooks: Vec<DnrEvent>,
     last_commands_key: String,
 }
@@ -322,6 +331,7 @@ impl ExtensionHost {
             install_ticket: 0,
             install_prompts: HashMap::new(),
             approved_installs: HashSet::new(),
+            store_installs: HashMap::new(),
             last_hooks: vec![],
             last_commands_key: String::new(),
             out,
@@ -1171,7 +1181,7 @@ impl ExtensionHost {
             return vec![reply(call_id, CrxResult::err("Access to extension API denied."))];
         }
         let a = |i: usize| args.get(i).cloned().unwrap_or(Value::Null);
-        match method {
+        let mut fx = match method {
             "webstorePrivate.beginInstallWithManifest3" => {
                 let d = a(0);
                 let id = d.get("id").and_then(|i| i.as_str()).unwrap_or("");
@@ -1196,6 +1206,7 @@ impl ExtensionHost {
                     return vec![reply(call_id, CrxResult::err("The installation was not approved."))];
                 }
                 self.approved_installs.remove(&id);
+                self.store_installs.insert(call_id, id.clone());
                 vec![Effect::InstallFromStore { call_id, extension_id: id }]
             }
             "webstorePrivate.getExtensionStatus" => {
@@ -1206,9 +1217,75 @@ impl ExtensionHost {
                 };
                 vec![reply(call_id, CrxResult::ok(json!(status)))]
             }
+            "management.getAll" => {
+                let all: Vec<Value> = self.registry.list().iter().map(Self::management_info).collect();
+                vec![reply(call_id, CrxResult::ok(Value::Array(all)))]
+            }
+            "management.get" => match self.registry.get(a(0).as_str().unwrap_or("")) {
+                Some(i) => vec![reply(call_id, CrxResult::ok(Self::management_info(i)))],
+                None => vec![reply(call_id, CrxResult::err("Failed to find extension."))],
+            },
+            "management.setEnabled" => {
+                let id = a(0).as_str().unwrap_or("").to_string();
+                if self.registry.get(&id).is_none() {
+                    return vec![reply(call_id, CrxResult::err("Failed to find extension."))];
+                }
+                let mut fx = self.set_enabled(&id, a(1).as_bool().unwrap_or(true));
+                fx.push(reply(call_id, CrxResult::Ok(None)));
+                fx
+            }
+            "management.uninstall" => {
+                let id = a(0).as_str().unwrap_or("").to_string();
+                match self.registry.get(&id) {
+                    Some(i) => vec![Effect::UninstallPrompt { call_id, extension_id: id.clone(), name: i.name.clone() }],
+                    None => vec![reply(call_id, CrxResult::err("Failed to find extension."))],
+                }
+            }
             "webstorePrivate.getFullChromeVersion" => vec![reply(call_id, CrxResult::ok(json!({ "version_number": self.cfg.prodversion, "app_name": self.cfg.app_name })))],
-            _ => vec![reply(call_id, CrxResult::Ok(None))],
+            _ => {
+                let mut fx = vec![reply(call_id, CrxResult::Ok(None))];
+                if store_debug() {
+                    fx.insert(0, Effect::Log(format!("[webstore] unhandled {method}")));
+                }
+                fx
+            }
+        };
+        if store_debug() {
+            let shown: String = Value::Array(args.to_vec()).to_string().chars().take(160).collect();
+            fx.insert(0, Effect::Log(format!("[webstore] {method} {shown}")));
         }
+        fx
+    }
+
+    /// `chrome.management.ExtensionInfo` of an installed extension, as the store pages and `management.getSelf` see it.
+    fn management_info(i: &Installed) -> Value {
+        let m = &i.manifest.raw;
+        json!({
+            "id": i.id,
+            "name": i.name,
+            "shortName": m.get("short_name").and_then(|n| n.as_str()).unwrap_or(&i.name),
+            "description": i.manifest.description,
+            "version": i.version,
+            "mayDisable": true,
+            "enabled": i.enabled,
+            "isApp": false,
+            "type": "extension",
+            "installType": if i.source == Source::Unpacked { "development" } else { "normal" },
+            "offlineEnabled": false,
+            "optionsUrl": "",
+            "permissions": m.get("permissions").cloned().unwrap_or_else(|| json!([])),
+            "hostPermissions": m.get("host_permissions").cloned().unwrap_or_else(|| json!([])),
+        })
+    }
+
+    /// The user's answer to an `UninstallPrompt` (`management.uninstall` from a store page).
+    pub fn store_uninstall_done(&mut self, call_id: u64, id: &str, allowed: bool) -> Vec<Effect> {
+        if !allowed {
+            return vec![reply(call_id, CrxResult::err("User cancelled uninstall."))];
+        }
+        let mut fx = self.remove_extension(id);
+        fx.push(reply(call_id, CrxResult::Ok(None)));
+        fx
     }
 
     /// The user's decision on an `InstallPrompt`: answers the store page's `beginInstallWithManifest3`.
@@ -1224,10 +1301,21 @@ impl ExtensionHost {
     pub fn store_install_done(&mut self, call_id: u64, result: Result<Vec<Effect>, String>) -> Vec<Effect> {
         match result {
             Ok(mut fx) => {
+                // An extension the user just added from the store gets its button on the toolbar (Chrome points at it
+                // after an install); imports and restores stay unpinned.
+                if let Some(id) = self.store_installs.remove(&call_id)
+                    && self.registry.get(&id).is_some_and(|i| i.manifest.has_action())
+                    && !self.pinned.iter().any(|p| *p == id)
+                {
+                    fx.extend(self.set_pinned(&id, true));
+                }
                 fx.push(reply(call_id, CrxResult::Ok(None)));
                 fx
             }
-            Err(e) => vec![reply(call_id, CrxResult::err(e))],
+            Err(e) => {
+                self.store_installs.remove(&call_id);
+                vec![reply(call_id, CrxResult::err(e))]
+            }
         }
     }
 
@@ -1315,7 +1403,7 @@ impl ExtensionHost {
             "windows" => finish(self.windows_call(method, args, tabs)),
             "runtime" => return self.runtime_call(call, method, args, manifest, fx),
             "i18n" => ok_val(self.all_messages(ext, manifest)),
-            "management" => ok_val(self.registry.get(ext).map(|i| json!({ "id": i.id, "name": i.name, "version": i.version, "enabled": i.enabled, "type": "extension", "installType": if i.source == Source::Unpacked { "development" } else { "normal" }, "description": i.manifest.description, "mayDisable": true })).unwrap_or(Value::Null)),
+            "management" => ok_val(self.registry.get(ext).map(Self::management_info).unwrap_or(Value::Null)),
             _ if method == INSTALLED_METHOD => {
                 self.log_installed(ext, &a(0), fx);
                 CrxResult::Ok(None)
@@ -2067,6 +2155,11 @@ mod tests {
         assert!(fx.iter().any(|e| matches!(e, Effect::InstallFromStore { call_id: 4, extension_id } if extension_id == id)));
         let fx = h.webstore_call(5, page, "webstorePrivate.getExtensionStatus", &[json!(id)]);
         assert_eq!(reply_of(&fx, 5), Some(CrxResult::ok(json!("installable"))));
+        // Once installed, the page gets its answer and the button is pinned to the toolbar.
+        let installed = h.install_crx_bytes(RSA3, None).unwrap();
+        let fx = h.store_install_done(4, Ok(installed));
+        assert_eq!(reply_of(&fx, 4), Some(CrxResult::Ok(None)));
+        assert!(fx.iter().any(|e| matches!(e, Effect::PinnedChanged(_))));
         // A refusal is reported to the page.
         let fx = h.webstore_call(6, page, "webstorePrivate.beginInstallWithManifest3", &[json!({ "id": id, "manifest": manifest })]);
         let t2 = fx.iter().find_map(|e| if let Effect::InstallPrompt { ticket, .. } = e { Some(*ticket) } else { None }).unwrap();
@@ -2074,6 +2167,46 @@ mod tests {
         // A broken manifest is a manifest error, not a dialog.
         let fx = h.webstore_call(7, page, "webstorePrivate.beginInstallWithManifest3", &[json!({ "id": id, "manifest": "{ nope" })]);
         assert_eq!(reply_of(&fx, 7), Some(CrxResult::ok(json!("manifest_error"))));
+    }
+
+    #[test]
+    fn a_store_page_sees_the_installed_set_through_management() {
+        let d = tempfile::tempdir().unwrap();
+        let mut h = host(d.path());
+        let page = "https://chromewebstore.google.com/detail/x/y";
+        let list = |h: &mut ExtensionHost, n: u64| match reply_of(&h.webstore_call(n, page, "management.getAll", &[]), n) {
+            Some(CrxResult::Ok(Some(Value::Array(a)))) => a,
+            other => panic!("{other:?}"),
+        };
+        assert!(list(&mut h, 1).is_empty());
+        h.install_crx_bytes(RSA3, None).unwrap();
+        let all = list(&mut h, 2);
+        assert_eq!(all.len(), 1);
+        let id = all[0]["id"].as_str().unwrap().to_string();
+        assert_eq!((all[0]["enabled"].as_bool(), all[0]["type"].as_str()), (Some(true), Some("extension")));
+        let fx = h.webstore_call(3, page, "webstorePrivate.getExtensionStatus", &[json!(id)]);
+        assert_eq!(reply_of(&fx, 3), Some(CrxResult::ok(json!("enabled"))));
+        let fx = h.webstore_call(4, page, "management.get", &[json!(id)]);
+        assert!(matches!(reply_of(&fx, 4), Some(CrxResult::Ok(Some(v))) if v["id"] == json!(id)));
+        let fx = h.webstore_call(5, page, "management.get", &[json!("b".repeat(32))]);
+        assert!(matches!(reply_of(&fx, 5), Some(CrxResult::Err(_))));
+        // Not from a foreign page.
+        let fx = h.webstore_call(6, "https://evil.example/", "management.getAll", &[]);
+        assert!(matches!(reply_of(&fx, 6), Some(CrxResult::Err(_))));
+        // Disabled shows as such.
+        let fx = h.webstore_call(7, page, "management.setEnabled", &[json!(id), json!(false)]);
+        assert_eq!(reply_of(&fx, 7), Some(CrxResult::Ok(None)));
+        let fx = h.webstore_call(8, page, "webstorePrivate.getExtensionStatus", &[json!(id)]);
+        assert_eq!(reply_of(&fx, 8), Some(CrxResult::ok(json!("disabled"))));
+        // Uninstall asks first; a refusal keeps it, a yes removes it.
+        let fx = h.webstore_call(9, page, "management.uninstall", &[json!(id), json!({ "showConfirmDialog": true })]);
+        assert!(fx.iter().any(|e| matches!(e, Effect::UninstallPrompt { call_id: 9, extension_id, .. } if *extension_id == id)));
+        assert!(matches!(reply_of(&h.store_uninstall_done(9, &id, false), 9), Some(CrxResult::Err(_))));
+        assert_eq!(list(&mut h, 10).len(), 1);
+        assert_eq!(reply_of(&h.store_uninstall_done(9, &id, true), 9), Some(CrxResult::Ok(None)));
+        assert!(list(&mut h, 11).is_empty());
+        let fx = h.webstore_call(12, page, "webstorePrivate.getExtensionStatus", &[json!(id)]);
+        assert_eq!(reply_of(&fx, 12), Some(CrxResult::ok(json!("installable"))));
     }
 
     #[test]
