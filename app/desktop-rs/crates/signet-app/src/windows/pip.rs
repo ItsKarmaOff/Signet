@@ -57,6 +57,17 @@ pub struct PipWindows {
     cur: Option<Rc<RefCell<Session>>>,
 }
 
+fn reduced_motion() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        crate::mac::prefers_reduced_motion()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
 fn handle_name(h: PipHandle) -> &'static str {
     match h {
         PipHandle::N => "n",
@@ -118,8 +129,22 @@ fn set_frame(handle: AnyWindowHandle, raw: Option<RawWindowHandle>, r: Rect, cx:
         crate::mac::set_frame(super::manager::raw_ptr(raw), r.x, r.y, r.width, r.height);
         return;
     }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let scale = scale_of(handle, cx);
+        if let Some(raw) = raw
+            && signet_web::overlay::set_window_frame(raw, r.x, r.y, r.width, r.height, scale).is_ok()
+        {
+            return;
+        }
+    }
     let _ = raw;
     let _ = handle.update(cx, |_, w, _| w.resize(size(px(r.width as f32), px(r.height as f32))));
+}
+
+/// Device pixels per logical point of a window.
+fn scale_of(handle: AnyWindowHandle, cx: &mut App) -> f64 {
+    handle.update(cx, |_, w, _| f64::from(w.scale_factor())).unwrap_or(1.0)
 }
 
 fn apply(s: &Session, r: Rect, cx: &mut App) {
@@ -128,15 +153,16 @@ fn apply(s: &Session, r: Rect, cx: &mut App) {
     s.view.set_bounds(signet_web::Bounds::new(0.0, 0.0, r.width as f32, r.height as f32));
 }
 
-fn pointer() -> Option<(f64, f64)> {
+/// Global pointer position in logical points and whether the left button is down.
+fn pointer(scale: f64) -> Option<((f64, f64), bool)> {
     #[cfg(target_os = "macos")]
     {
-        Some(crate::mac::mouse_location())
+        let _ = scale;
+        Some((crate::mac::mouse_location(), crate::mac::left_button_down()))
     }
     #[cfg(not(target_os = "macos"))]
     {
-        // No portable global pointer query without extra dependencies: the window can still be resized and closed.
-        None
+        signet_web::overlay::pointer(scale)
     }
 }
 
@@ -157,7 +183,7 @@ impl PipWindows {
                         apply(&s, nb, cx);
                     }
                 }
-                PipWindowOp::Close { to: _ } => self.close(browser, cx),
+                PipWindowOp::Close { to } => self.close_to(browser, to, cx),
             }
         }
         for input in link.take_inputs() {
@@ -174,9 +200,10 @@ impl PipWindows {
         let Some(view) = browser.core.borrow().views.view_of(&tab) else { return };
         let (all, home) = work_areas(browser, cx);
         let bounds = initial_bounds(ratio, saved.as_ref(), &all, &home);
-        let _ = home_video;
-        let Some((panel, panel_raw)) = open_window(cx, bounds, false, |_, cx| cx.new(|cx| super::host::QuitKeys(cx.new(|_| Blank).into())).into()) else { return };
-        let Some((controls, controls_raw)) = open_window(cx, bounds, true, |window, cx| { let v: gpui::AnyView = signet_ui::screens::windows::pip::Pip::new(window, cx).into(); cx.new(|_| super::host::QuitKeys(v)).into() }) else {
+        // Like Electron, the window grows out of the video's place in the page.
+        let start = home_video.filter(|_| !reduced_motion()).unwrap_or(bounds);
+        let Some((panel, panel_raw)) = open_window(cx, start, false, |_, cx| cx.new(|cx| super::host::QuitKeys(cx.new(|_| Blank).into())).into()) else { return };
+        let Some((controls, controls_raw)) = open_window(cx, start, true, |window, cx| { let v: gpui::AnyView = signet_ui::screens::windows::pip::Pip::new(window, cx).into(); cx.new(|_| super::host::QuitKeys(v)).into() }) else {
             let _ = panel.update(cx, |_, w, _| w.remove_window());
             return;
         };
@@ -195,30 +222,41 @@ impl PipWindows {
                 eprintln!("[pip] cannot move the view: {e}");
             }
         }
-        let s = Session { tab, view, panel, panel_raw, controls, controls_raw, bounds, ratio, drag: None, resize_start: None, resize_last: None, epoch: 0 };
-        apply(&s, bounds, cx);
+        let s = Session { tab, view, panel, panel_raw, controls, controls_raw, bounds: start, ratio, drag: None, resize_start: None, resize_last: None, epoch: 0 };
+        apply(&s, start, cx);
         view.set_visible(true);
         browser.core.borrow_mut().pip_moved(bounds);
-        self.cur = Some(Rc::new(RefCell::new(s)));
+        let sess = Rc::new(RefCell::new(s));
+        if start != bounds {
+            glide(browser, sess.clone(), start, bounds, 0, false, cx);
+        }
+        self.cur = Some(sess);
     }
 
     /// Closes the windows and gives the view back to the main window.
     fn close(&mut self, browser: &Rc<Browser>, cx: &mut App) {
         let Some(s) = self.cur.take() else { return };
-        let mut s = s.borrow_mut();
-        s.epoch += 1;
-        let parent = browser.core.borrow().views.parent;
-        if let Some(p) = parent {
-            let _ = s.view.reparent(p);
-        }
-        let _ = s.controls.update(cx, |_, w, _| w.remove_window());
-        let _ = s.panel.update(cx, |_, w, _| w.remove_window());
+        finish(browser, &mut s.borrow_mut(), cx);
+    }
+
+    /// Closes after gliding to `to` ("back to tab"), at once without a target or with reduced motion.
+    fn close_to(&mut self, browser: &Rc<Browser>, to: Option<Rect>, cx: &mut App) {
+        let Some(to) = to.filter(|_| !reduced_motion()) else { return self.close(browser, cx) };
+        let Some(sess) = self.cur.take() else { return };
+        let (from, gen_) = {
+            let mut s = sess.borrow_mut();
+            s.epoch += 1;
+            s.drag = None;
+            (s.bounds, s.epoch)
+        };
+        glide(browser, sess, from, to, gen_, true, cx);
     }
 
     fn drag(&mut self, browser: &Rc<Browser>, on: bool, cx: &mut App) {
         let Some(sess) = self.cur.clone() else { return };
         if on {
-            let Some(mouse) = pointer() else { return };
+            let scale = scale_of(sess.borrow().controls, cx);
+            let Some((mouse, _)) = pointer(scale) else { return };
             let gen_ = {
                 let mut s = sess.borrow_mut();
                 s.epoch += 1;
@@ -234,7 +272,15 @@ impl PipWindows {
                         if s.epoch != gen_ || s.drag.is_none() {
                             return false;
                         }
-                        if let Some(m) = pointer() {
+                        // A mouse-up the controls never saw (released outside, or while another window had it) ends the drag.
+                        let scale = scale_of(s.controls, cx);
+                        let polled = pointer(scale);
+                        if let Some((_, false)) = polled {
+                            drop(s);
+                            release(&b, &sess, cx);
+                            return false;
+                        }
+                        if let Some((m, _)) = polled {
                             let d = s.drag.as_mut().unwrap();
                             d.samples.push((std::time::Instant::now(), m));
                             let keep = d.samples.len().saturating_sub(12);
@@ -249,60 +295,11 @@ impl PipWindows {
                         break;
                     }
                 }
-                let _ = b;
             })
             .detach();
         } else {
-            // Release: the window glides to where its momentum takes it, snapping to a corner when near.
-            let (from, v, gen_) = {
-                let mut s = sess.borrow_mut();
-                let Some(d) = s.drag.take() else { return };
-                s.epoch += 1;
-                let v = match (d.samples.first(), d.samples.last()) {
-                    (Some((t0, p0)), Some((t1, p1))) if t1 > t0 => {
-                        let dt = (*t1 - *t0).as_secs_f64();
-                        ((p1.0 - p0.0) / dt, (p1.1 - p0.1) / dt)
-                    }
-                    _ => (0.0, 0.0),
-                };
-                (s.bounds, v, s.epoch)
-            };
-            let (all, home) = work_areas(browser, cx);
-            let area_at = move |x: f64, y: f64| all.iter().find(|r| x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height).copied().unwrap_or(home);
-            let target = release_target(&from, v, &home, &area_at);
-            self.glide(browser, sess, from, target, gen_, cx);
+            release(browser, &sess, cx);
         }
-    }
-
-    /// Moves the window from `from` to `to` with an ease-out over 250 ms; the end is remembered.
-    fn glide(&mut self, browser: &Rc<Browser>, sess: Rc<RefCell<Session>>, from: Rect, to: Rect, gen_: u64, cx: &mut App) {
-        let b = browser.clone();
-        cx.spawn(async move |cx| {
-            let started = std::time::Instant::now();
-            loop {
-                cx.background_executor().timer(Duration::from_millis(8)).await;
-                let t = (started.elapsed().as_secs_f64() / 0.25).min(1.0);
-                let e = 1.0 - (1.0 - t).powi(3);
-                let cont = cx.update(|cx| {
-                    let mut s = sess.borrow_mut();
-                    if s.epoch != gen_ {
-                        return false;
-                    }
-                    let r = Rect::new((from.x + (to.x - from.x) * e).round(), (from.y + (to.y - from.y) * e).round(), from.width + (to.width - from.width) * e, from.height + (to.height - from.height) * e);
-                    s.bounds = r;
-                    apply(&s, r, cx);
-                    if t >= 1.0 {
-                        b.core.borrow_mut().pip_moved(r);
-                        return false;
-                    }
-                    true
-                });
-                if !cont {
-                    break;
-                }
-            }
-        })
-        .detach();
     }
 
     fn resize(&mut self, browser: &Rc<Browser>, phase: PipResizePhase, cx: &mut App) {
@@ -336,9 +333,76 @@ impl PipWindows {
                 if to == from {
                     browser.core.borrow_mut().pip_moved(from);
                 } else {
-                    self.glide(browser, sess, from, to, gen_, cx);
+                    glide(browser, sess, from, to, gen_, false, cx);
                 }
             }
         }
     }
+}
+
+/// Ends a drag: the window glides to where its momentum takes it, snapping to a corner when near.
+fn release(browser: &Rc<Browser>, sess: &Rc<RefCell<Session>>, cx: &mut App) {
+    let (from, v, gen_) = {
+        let mut s = sess.borrow_mut();
+        let Some(d) = s.drag.take() else { return };
+        s.epoch += 1;
+        let v = match (d.samples.first(), d.samples.last()) {
+            (Some((t0, p0)), Some((t1, p1))) if t1 > t0 => {
+                let dt = (*t1 - *t0).as_secs_f64();
+                ((p1.0 - p0.0) / dt, (p1.1 - p0.1) / dt)
+            }
+            _ => (0.0, 0.0),
+        };
+        (s.bounds, v, s.epoch)
+    };
+    let (all, home) = work_areas(browser, cx);
+    let area_at = move |x: f64, y: f64| all.iter().find(|r| x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height).copied().unwrap_or(home);
+    let target = release_target(&from, v, &home, &area_at);
+    glide(browser, sess.clone(), from, target, gen_, false, cx);
+}
+
+/// Gives the view back to the main window and removes both windows.
+fn finish(browser: &Rc<Browser>, s: &mut Session, cx: &mut App) {
+    s.epoch += 1;
+    let parent = browser.core.borrow().views.parent;
+    if let Some(p) = parent {
+        let _ = s.view.reparent(p);
+    }
+    let _ = s.controls.update(cx, |_, w, _| w.remove_window());
+    let _ = s.panel.update(cx, |_, w, _| w.remove_window());
+}
+
+/// Moves the window from `from` to `to` with an ease-out over 250 ms; the end is remembered.
+fn glide(browser: &Rc<Browser>, sess: Rc<RefCell<Session>>, from: Rect, to: Rect, gen_: u64, close_after: bool, cx: &mut App) {
+    let b = browser.clone();
+    cx.spawn(async move |cx| {
+        let started = std::time::Instant::now();
+        loop {
+            cx.background_executor().timer(Duration::from_millis(8)).await;
+            let t = (started.elapsed().as_secs_f64() / 0.25).min(1.0);
+            let e = 1.0 - (1.0 - t).powi(3);
+            let cont = cx.update(|cx| {
+                let mut s = sess.borrow_mut();
+                if s.epoch != gen_ {
+                    return false;
+                }
+                let r = Rect::new((from.x + (to.x - from.x) * e).round(), (from.y + (to.y - from.y) * e).round(), from.width + (to.width - from.width) * e, from.height + (to.height - from.height) * e);
+                s.bounds = r;
+                apply(&s, r, cx);
+                if t >= 1.0 {
+                    if close_after {
+                        finish(&b, &mut s, cx);
+                    } else {
+                        b.core.borrow_mut().pip_moved(r);
+                    }
+                    return false;
+                }
+                true
+            });
+            if !cont {
+                break;
+            }
+        }
+    })
+    .detach();
 }

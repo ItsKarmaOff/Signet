@@ -243,6 +243,12 @@ pub fn prefers_reduced_motion() -> bool {
     }
 }
 
+/// Whether the left mouse button is down right now (any app).
+pub fn left_button_down() -> bool {
+    let mask: usize = unsafe { msg_send![objc2::class!(NSEvent), pressedMouseButtons] };
+    mask & 1 != 0
+}
+
 /// Pointer position in screen points, top-left origin of the primary screen (the GPUI global coordinates).
 pub fn mouse_location() -> (f64, f64) {
     unsafe {

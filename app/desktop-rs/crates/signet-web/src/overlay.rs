@@ -131,6 +131,60 @@ pub fn raise_window(window: RawWindowHandle) -> Result<(), String> {
     }
 }
 
+/// Moves and resizes a top-level window natively, in logical points of the GPUI global space (Windows and X11: the
+/// frame is scaled to device pixels with `scale`). macOS callers use their own `set_frame`.
+pub fn set_window_frame(window: RawWindowHandle, x: f64, y: f64, w: f64, h: f64, scale: f64) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::UI::WindowsAndMessaging::*;
+        let hw = hwnd(window)?;
+        let s = scale.max(0.1);
+        if unsafe { SetWindowPos(hw, std::ptr::null_mut(), (x * s).round() as i32, (y * s).round() as i32, (w * s).round() as i32, (h * s).round() as i32, SWP_NOZORDER | SWP_NOACTIVATE) } == 0 {
+            return Err("SetWindowPos failed".into());
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let win = xwindow(window)?;
+        let s = scale.max(0.1);
+        x11::move_resize(win, (x * s).round() as i32, (y * s).round() as i32, ((w * s).round() as u32).max(1), ((h * s).round() as u32).max(1))
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = (window, x, y, w, h, scale);
+        Err("not supported on this platform".into())
+    }
+}
+
+/// The global pointer position in logical points (device pixels divided by `scale`) and whether the left button is
+/// down. `None` when it cannot be read.
+pub fn pointer(scale: f64) -> Option<((f64, f64), bool)> {
+    let s = scale.max(0.1);
+    #[cfg(target_os = "windows")]
+    {
+        use windows_sys::Win32::Foundation::POINT;
+        use windows_sys::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON};
+        use windows_sys::Win32::UI::WindowsAndMessaging::GetCursorPos;
+        let mut p = POINT { x: 0, y: 0 };
+        if unsafe { GetCursorPos(&mut p) } == 0 {
+            return None;
+        }
+        let down = unsafe { GetAsyncKeyState(i32::from(VK_LBUTTON)) } as u16 & 0x8000 != 0;
+        Some(((f64::from(p.x) / s, f64::from(p.y) / s), down))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let ((x, y), down) = x11::pointer().ok()?;
+        Some(((f64::from(x) / s, f64::from(y) / s), down))
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = s;
+        None
+    }
+}
+
 /// Whether the GPUI view of the window of `parent` owns the native keyboard focus (macOS only, false elsewhere).
 pub fn gpui_has_keyboard(parent: RawWindowHandle) -> bool {
     #[cfg(target_os = "macos")]
@@ -223,6 +277,24 @@ mod x11 {
         with_display(|x, d| unsafe {
             // Transient-for with the parent id, or the root-less value 0 to clear it.
             (x.XSetTransientForHint)(d, child, parent.unwrap_or(0));
+        })
+    }
+
+    pub fn move_resize(w: c_ulong, x: i32, y: i32, width: u32, height: u32) -> Result<(), String> {
+        with_display(|xl, d| unsafe {
+            (xl.XMoveResizeWindow)(d, w, x, y, width, height);
+        })
+    }
+
+    /// Pointer position on the default root in device pixels, and whether Button1 is down.
+    pub fn pointer() -> Result<((i32, i32), bool), String> {
+        with_display(|xl, d| unsafe {
+            let root = (xl.XDefaultRootWindow)(d);
+            let (mut rr, mut cr) = (0 as c_ulong, 0 as c_ulong);
+            let (mut rx, mut ry, mut wx, mut wy) = (0i32, 0i32, 0i32, 0i32);
+            let mut mask = 0u32;
+            (xl.XQueryPointer)(d, root, &mut rr, &mut cr, &mut rx, &mut ry, &mut wx, &mut wy, &mut mask);
+            ((rx, ry), mask & x11_dl::xlib::Button1Mask != 0)
         })
     }
 
