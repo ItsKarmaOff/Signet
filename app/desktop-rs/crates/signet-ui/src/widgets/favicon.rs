@@ -19,7 +19,10 @@ impl From<FaviconSource> for ImageSource {
     fn from(s: FaviconSource) -> Self {
         match s {
             FaviconSource::Bytes(b) => b.into(),
-            FaviconSource::Url(u) | FaviconSource::Path(u) => u.into(),
+            FaviconSource::Url(u) => u.into(),
+            // A plain string is an embedded asset for GPUI: an absolute path must go through `Path` to be read from disk.
+            FaviconSource::Path(p) if std::path::Path::new(p.as_ref()).is_absolute() => std::path::PathBuf::from(p.as_ref()).into(),
+            FaviconSource::Path(p) => p.into(),
         }
     }
 }
@@ -148,5 +151,18 @@ impl RenderOnce for Favicon {
         } else {
             wrapper.into_any_element()
         }
+    }
+}
+
+#[cfg(test)]
+mod path_tests {
+    use super::*;
+    use gpui::Resource;
+
+    #[test]
+    fn an_absolute_path_is_read_from_disk_and_a_relative_one_from_the_assets() {
+        let abs = if cfg!(windows) { "C:\\ext\\icons\\i48.png" } else { "/ext/icons/i48.png" };
+        assert!(matches!(ImageSource::from(FaviconSource::Path(abs.into())), ImageSource::Resource(Resource::Path(_))));
+        assert!(matches!(ImageSource::from(FaviconSource::Path("icons/globe.svg".into())), ImageSource::Resource(Resource::Embedded(_))));
     }
 }

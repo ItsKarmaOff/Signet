@@ -8,7 +8,7 @@
 use std::time::Duration;
 
 use gpui::{
-    Animation, AnimationExt, AppContext, Context, ElementId, Entity, IntoElement, ObjectFit, ParentElement, Render, SharedString, Styled, StyledImage, Subscription, Window, div, img,
+    Animation, AnimationExt, AppContext, Context, ElementId, Entity, ImageSource, IntoElement, ObjectFit, ParentElement, Render, SharedString, Styled, StyledImage, Subscription, Window, div, img,
     prelude::FluentBuilder, px,
 };
 use gpui_component::Icon;
@@ -123,7 +123,7 @@ impl Render for TabPreviewView {
         }
         let fav = favicon.map(|f| match f {
             FaviconSource::Bytes(b) => img(b).size(px(14.0)).rounded(px(3.0)).into_any_element(),
-            FaviconSource::Url(u) | FaviconSource::Path(u) => img(u).size(px(14.0)).rounded(px(3.0)).into_any_element(),
+            src => img(ImageSource::from(src)).size(px(14.0)).rounded(px(3.0)).into_any_element(),
         });
         card = card.child(
             div()
