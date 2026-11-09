@@ -160,7 +160,7 @@ impl Core {
                 }
             }
             Effect::ApplySetting(a) => self.ext_apply_setting(&a),
-            Effect::SetActionIcon(_) => shared.notify(),
+            Effect::SetActionIcon(_) | Effect::ActionChanged { .. } => shared.notify(),
             Effect::ActionStates(v) => {
                 if let Ok(states) = serde_json::from_value(v) {
                     if let Some(rt) = self.phase3.extensions.rt.as_mut() {

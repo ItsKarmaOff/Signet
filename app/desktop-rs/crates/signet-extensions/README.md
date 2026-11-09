@@ -165,7 +165,7 @@ Everything returns `Vec<Effect>`; the app carries them out. Main groups:
 - **Time**: `tick()` about every 250 ms (alarms, retries, DNR rebuild/counts, watchers, persistence), `next_wakeup()`, `flush()` at quit.
 - **Effects**: `Reply`, `Router(DeliverRunning | StartWorker | DeliverToWorker)`, `ToContext`, `LoadExtension`,
   `UnloadExtension`, `ReloadExtension`, `PermissionPrompt`, `InstallPrompt`, `InstallFromStore`, `Notification`,
-  `ApplySetting`, `SetActionIcon`, `ActionStates`, `ActionCounts`, `NetworkHooks`, `CommandsChanged`, `OffscreenOpen/Close`,
+  `ApplySetting`, `SetActionIcon`, `ActionChanged`, `ActionStates`, `ActionCounts`, `NetworkHooks`, `CommandsChanged`, `OffscreenOpen/Close`,
   `TabAction`, `OpenOptions`, `RunAction`, `ExtensionsChanged`, `Unpacked/Pinned/OrderChanged`, `ProxyAuth`, `OpenUrl`, `Log`.
 
 Persistence (same names as Electron, in the data folder): `extension-permissions.json`, `extension-alarms.json`,

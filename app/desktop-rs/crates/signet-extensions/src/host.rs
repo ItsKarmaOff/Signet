@@ -111,6 +111,8 @@ pub enum Effect {
     ApplySetting(Apply),
     /// Draw this icon on the extension's button.
     SetActionIcon(IconUpdate),
+    /// Badge text or color, title or popup of the extension's button changed: redraw the toolbar.
+    ActionChanged { extension_id: String },
     /// Button state for the toolbar (`{ extId: { enabled?, textColor?, tabs? } }`).
     ActionStates(Value),
     /// Blocked-request counts for the toolbar badges.
@@ -1460,7 +1462,11 @@ impl ExtensionHost {
             "enable" | "disable" | "isEnabled" | "setBadgeTextColor" | "getBadgeTextColor" => finish(self.actions.call(ext, &alias, args)),
             _ => match self.action_model.call(ext, &alias, args) {
                 Ok(Some(v)) => CrxResult::ok(v),
-                Ok(None) => CrxResult::Ok(None),
+                Ok(None) => {
+                    // Setters answer None: the toolbar must redraw, or a cleared badge stays on screen.
+                    fx.push(Effect::ActionChanged { extension_id: ext.to_string() });
+                    CrxResult::Ok(None)
+                }
                 Err(e) => CrxResult::err(e.0),
             },
         }
@@ -1988,7 +1994,11 @@ mod tests {
         assert!(h.popup_url(&id, None).is_none(), "a disabled button has no popup");
         let fx = call(&mut h, &id, 4, ctx(ContextKind::Worker, "w"), "action.setBadgeText", json!([{ "text": "5" }]));
         assert_eq!(reply_of(&fx, 4), Some(CrxResult::Ok(None)));
+        assert!(fx.iter().any(|e| matches!(e, Effect::ActionChanged { .. })), "a badge change redraws the toolbar");
         assert_eq!(h.button_state(&id, None)["badgeText"], "5");
+        let fx = call(&mut h, &id, 5, ctx(ContextKind::Worker, "w"), "action.setBadgeText", json!([{ "text": "" }]));
+        assert!(fx.iter().any(|e| matches!(e, Effect::ActionChanged { .. })), "clearing the badge redraws the toolbar too");
+        assert_eq!(h.button_state(&id, None)["badgeText"], "");
     }
 
     #[test]
