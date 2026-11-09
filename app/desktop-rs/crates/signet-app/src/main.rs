@@ -39,6 +39,7 @@ fn env_flag(name: &str) -> bool {
 
 fn main() {
     startup::mark("main.entry");
+    signet_web::preload_framework();
     // A CEF subprocess started from this very executable (no helper next to it): never run the app logic (data
     // folder, single instance forwarding) in it.
     #[cfg(not(target_os = "macos"))]
@@ -132,6 +133,14 @@ fn main() {
             cx.quit();
             return;
         }
+        // Create the request contexts now: they finish initializing while the app keeps starting.
+        signet_web::prewarm_profile(&signet_web::ProfileKind::persistent("default"));
+        {
+            let space = signet_core::model::active_space(&store.state);
+            if space.is_isolated() {
+                signet_web::prewarm_profile(&signet_web::ProfileKind::persistent(format!("space-{}", space.id)));
+            }
+        }
 
         // Key filter: app shortcuts work while a page has focus. The table is rebuilt when shortcuts change.
         let key_table: browser::KeyTable = Arc::new(Mutex::new(browser::commands::build_key_table(store.state.settings.shortcuts.as_ref())));
@@ -167,6 +176,8 @@ fn main() {
         let settings = theme::settings_from_snapshot(&browser.core.borrow().snapshot());
         signet_ui::init(cx, settings);
         drop(ui_span);
+        // Let CEF run its posted tasks now instead of in one go at the first pump (events stay queued).
+        signet_web::pump();
         let state_span = startup::span("ui.app_state");
         let api: Rc<dyn SignetApi> = browser.clone();
         signet_ui::app_state::install(api, cx);
@@ -180,6 +191,7 @@ fn main() {
         app::menu::register_actions(&browser, cx);
         app::menu::install(&browser, cx);
         drop(menu_span);
+        signet_web::pump();
 
         // Cmd+Q down and up, before the menu: hold-to-quit gauge (see `browser/quit.rs`).
         #[cfg(target_os = "macos")]

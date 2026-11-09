@@ -32,10 +32,10 @@ pub mod gpui_pump;
 
 pub use app::BRIDGE_FUNCTION;
 pub use profile::{
-    clear_profile_cache, clear_profile_data, delete_cookies, drop_profile, set_spellcheck,
+    clear_profile_cache, clear_profile_data, delete_cookies, drop_profile, prewarm_profile, set_spellcheck,
 };
 pub use runtime::{
-    default_user_agent, drain_events, init, is_initialized, pump, set_certificate_handler, set_key_filter, set_key_observer, set_page_scripts,
+    default_user_agent, drain_events, init, is_initialized, preload_framework, pump, set_certificate_handler, set_key_filter, set_key_observer, set_page_scripts,
     set_scheme_handler, set_wake_handler, shutdown, Config,
 };
 pub use cors_proxy::set_cors_exemption;

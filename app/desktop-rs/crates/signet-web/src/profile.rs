@@ -19,16 +19,23 @@ wrap_request_context_handler! {
     }
 }
 
-/// Get or create the request context of a profile. Persistent profiles live under
-/// `<data>/cef/profiles/<id>`; private ones are in memory (empty cache path).
-pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
-    let key = profile.key();
-    if let Some(Some(c)) = with_state(|st| st.contexts.get(&key).cloned()) {
-        return Some(c);
-    }
+/// A request context being created: it is usable once `ready` is set (the main thread pumps CEF meanwhile).
+struct Pending {
+    ctx: RequestContext,
+    ready: Arc<AtomicBool>,
+    started: Instant,
+}
+
+thread_local! {
+    /// Contexts created by `prewarm_profile` or `context_for` that are not finalized yet (main thread only).
+    static PENDING: std::cell::RefCell<std::collections::HashMap<String, Pending>> = std::cell::RefCell::new(std::collections::HashMap::new());
+}
+
+/// Starts the creation of a profile's request context without waiting for it.
+fn begin(profile: &ProfileKind, key: &str) -> Option<Pending> {
     let cache = match profile {
         ProfileKind::Persistent(_) => {
-            let p = profile_cache_path(&data_dir()?, &key)?;
+            let p = profile_cache_path(&data_dir()?, key)?;
             p.to_string_lossy().to_string()
         }
         ProfileKind::Private(_) => String::new(),
@@ -43,7 +50,38 @@ pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
     let mut handler = ProfileReady::new(ready.clone());
     let started = Instant::now();
     let ctx = request_context_create_context(Some(&settings), Some(&mut handler))?;
+    Some(Pending { ctx, ready, started })
+}
+
+/// Creates a profile's request context ahead of its first use, so that `context_for` finds it ready. Call it on the
+/// main thread after `init`; the context finishes initializing while the app keeps starting (CEF is pumped).
+pub fn prewarm_profile(profile: &ProfileKind) {
+    if !crate::runtime::is_initialized() {
+        return;
+    }
+    let key = profile.key();
+    if with_state(|st| st.contexts.contains_key(&key)).unwrap_or(false) || PENDING.with(|p| p.borrow().contains_key(&key)) {
+        return;
+    }
+    if let Some(p) = begin(profile, &key) {
+        PENDING.with(|m| m.borrow_mut().insert(key, p));
+    }
+}
+
+/// Get or create the request context of a profile. Persistent profiles live under
+/// `<data>/cef/profiles/<id>`; private ones are in memory (empty cache path).
+pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
+    let key = profile.key();
+    if let Some(Some(c)) = with_state(|st| st.contexts.get(&key).cloned()) {
+        return Some(c);
+    }
+    let pending = match PENDING.with(|m| m.borrow_mut().remove(&key)) {
+        Some(p) => p,
+        None => begin(profile, &key)?,
+    };
+    let Pending { ctx, ready, started } = pending;
     // Chrome-style contexts initialize asynchronously; browsers need an initialized context.
+    let waited = Instant::now();
     let deadline = Instant::now() + Duration::from_secs(10);
     let mut spins = 0u32;
     while !ready.load(Ordering::SeqCst) && Instant::now() < deadline {
@@ -51,7 +89,13 @@ pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
         std::thread::sleep(Duration::from_millis(2));
         spins += 1;
     }
-    crate::startup::mark_with(|| format!("web.request_context {key} ready in {:.1} ms ({spins} pump+sleep(2 ms) rounds, main thread blocked)", started.elapsed().as_secs_f64() * 1000.0));
+    crate::startup::mark_with(|| {
+        format!(
+            "web.request_context {key} ready in {:.1} ms ({:.1} ms since creation, {spins} pump+sleep(2 ms) rounds, main thread blocked)",
+            waited.elapsed().as_secs_f64() * 1000.0,
+            started.elapsed().as_secs_f64() * 1000.0
+        )
+    });
     if !ready.load(Ordering::SeqCst) {
         eprintln!("[signet-web] request context for {key} was not initialized in time");
     }
@@ -61,9 +105,15 @@ pub(crate) fn context_for(profile: &ProfileKind) -> Option<RequestContext> {
     Some(ctx)
 }
 
+/// Drops the contexts that were never finalized (shutdown).
+pub(crate) fn clear_pending() {
+    PENDING.with(|m| m.borrow_mut().clear());
+}
+
 /// Forget a private profile's context (drops its in-memory data once its views are closed).
 pub fn drop_profile(profile: &ProfileKind) {
     let key = profile.key();
+    PENDING.with(|m| m.borrow_mut().remove(&key));
     with_state(|st| st.contexts.remove(&key));
 }
 

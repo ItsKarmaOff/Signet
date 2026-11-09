@@ -153,6 +153,29 @@ pub(crate) fn wake(delay_ms: i64) {
     }
 }
 
+/// Thread started by `preload_framework`, joined by `init`.
+#[cfg(target_os = "macos")]
+static PRELOAD: std::sync::Mutex<Option<std::thread::JoinHandle<()>>> = std::sync::Mutex::new(None);
+
+/// macOS: starts loading the CEF framework (`dlopen`, no CEF call) on a background thread so that `init` finds it
+/// already mapped. Call it as early as possible in `main`. No-op on Linux and Windows.
+pub fn preload_framework() {
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        let Some(dir) = exe_path().parent().map(|p| p.join("../Frameworks/Chromium Embedded Framework.framework/Chromium Embedded Framework")) else { return };
+        let Ok(path) = std::ffi::CString::new(dir.as_os_str().as_bytes()) else { return };
+        let spawned = std::thread::Builder::new().name("cef-preload".into()).spawn(move || {
+            // Same flags as `cef_load_library`; the handle is never closed. A failure is ignored: `init` loads it again.
+            // SAFETY: `path` is a valid C string; dlopen is thread safe and CEF runs nothing at load time but static init.
+            unsafe { libc::dlopen(path.as_ptr(), libc::RTLD_LAZY | libc::RTLD_LOCAL | libc::RTLD_FIRST) };
+        });
+        if let (Ok(h), Ok(mut g)) = (spawned, PRELOAD.lock()) {
+            *g = Some(h);
+        }
+    }
+}
+
 /// Run one iteration of the CEF message loop. Call on the main thread.
 pub fn pump() {
     if is_initialized() {
@@ -268,6 +291,10 @@ pub fn init(config: Config) -> Result<(), Error> {
         crate::mac::trace_views_start();
         let loader = cef::library_loader::LibraryLoader::new(&exe_path(), false);
         let load_span = crate::startup::span("cef.library_load");
+        // Wait for `preload_framework` so that the two loads never overlap.
+        if let Some(h) = PRELOAD.lock().ok().and_then(|mut g| g.take()) {
+            let _ = h.join();
+        }
         let loaded = loader.load();
         drop(load_span);
         if !loaded {
@@ -408,6 +435,7 @@ pub fn shutdown() {
         do_message_loop_work();
         std::thread::sleep(Duration::from_millis(5));
     }
+    crate::profile::clear_pending();
     with_state(|s| {
         s.contexts.clear();
         s.views.clear();
