@@ -401,6 +401,9 @@ impl Manager {
         #[cfg(target_os = "macos")]
         if let Some(raw) = &f.raw {
             crate::mac::set_frame(raw_ptr(raw), g.x, g.y, g.width, g.height);
+            // The native resize reaches GPUI's size callback while the App is borrowed and is dropped there: tell
+            // the window its frame changed so its viewport and hitboxes follow.
+            let _ = f.handle.update(cx, |_, w, cx| w.bounds_changed(cx));
             return;
         }
         // No move API on this platform: reopen at the new place.
