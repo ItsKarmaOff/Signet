@@ -192,3 +192,14 @@ self-test log, and `screenshot*.png` taken while the app runs). With the CLI: `g
 - Blank window or "cannot load the CEF framework" on macOS: you ran the bare binary from `target/`. Use the bundle.
 - Linux: `libcef.so: cannot open shared object file`: run through `dist/signet-linux/signet` (rpath and `LD_LIBRARY_PATH`).
 - Linux, passkeys: `bluetoothd` must run and the adapter be powered on; the scan never turns it on.
+
+## Known issues
+
+- **Chromium autofill suggestions cannot be accepted** (saved emails, addresses, cards, passwords, `<datalist>`, "use a
+  passkey from another device"): hovering previews the value, but a click or Down+Enter does nothing. Cause: CEF bug
+  [chromiumembedded/cef#4332](https://github.com/chromiumembedded/cef/issues/4332). With `external_message_pump` (set in
+  `crates/signet-web/src/runtime.rs`), CEF never runs Chromium's idle work, so the `NextIdleBarrier` that guards
+  `AutofillPopupControllerImpl::AcceptSuggestion` never opens. There is no feature or switch to turn the guard off.
+  Decision: wait for a CEF release with the upstream fix, then bump `cef` in `Cargo.toml` and check a `<datalist>` field
+  (click and Down+Enter must fill it). Switching to Chromium's own message pump on macOS fixes it, but raises idle CPU
+  from about 1.9% to about 5.6%, so it was not adopted.
