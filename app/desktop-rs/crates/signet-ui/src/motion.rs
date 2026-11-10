@@ -177,7 +177,15 @@ pub fn surface_enter<E>(el: E, id: impl Into<gpui::ElementId>, closing: bool, re
 where
     E: IntoElement + Styled + 'static,
 {
-    let slide = if reduced { 0.0 } else { 4.0 };
+    surface_enter_dir(el, id, closing, reduced, 1.0)
+}
+
+/// [`surface_enter`] with a slide direction: `1.0` rises from below (bottom-anchored), `-1.0` drops from above (top-anchored).
+pub fn surface_enter_dir<E>(el: E, id: impl Into<gpui::ElementId>, closing: bool, reduced: bool, dir: f32) -> impl IntoElement
+where
+    E: IntoElement + Styled + 'static,
+{
+    let slide = if reduced { 0.0 } else { 4.0 * dir };
     el.with_animation(id, Animation::new(Duration::from_millis(EXIT_MS)).with_easing(ease_out), move |el, d| {
         let p = if closing { 1.0 - d } else { d };
         // Slide with margins, never `position` / `top`: the caller's own placement (absolute card anchored by its

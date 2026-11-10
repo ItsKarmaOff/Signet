@@ -150,6 +150,7 @@ pub fn downloads_panel(cx: &App) -> AnyElement {
         .flex_col()
         .p(px(6.0))
         .max_h(px(380.0))
+        .min_h_0()
         .rounded(radius::POP)
         .bg(t.surface)
         .border_1()
@@ -187,6 +188,7 @@ pub fn downloads_panel(cx: &App) -> AnyElement {
                 .flex()
                 .flex_col()
                 .gap(space::HALF)
+                .min_h_0()
                 .overflow_y_scroll()
                 .when(s.downloads.is_empty(), |d| d.child(div().py(space::S5).child(EmptyState::new(tr("downloads.empty")).icon(IconName::Download))))
                 .children(s.downloads.iter().map(|d| download_row(d, fr, cx))),

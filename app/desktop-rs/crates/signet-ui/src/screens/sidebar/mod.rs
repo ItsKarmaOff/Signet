@@ -40,7 +40,7 @@ use self::space::{per_page_for, space_preview};
 use self::swipe::{Swipe, SwipeCfg};
 use crate::app_state::{api, tr, tr_args, ui_state};
 use crate::icon::IconName;
-use crate::motion::{Presence, RUBBER_C, Spring, reduced_motion, rubberband, surface_enter};
+use crate::motion::{Presence, RUBBER_C, Spring, reduced_motion, rubberband, surface_enter, surface_enter_dir};
 use crate::screens::tabs::custom::{IconForm, IconFormClose, RenameEvent, RenameField};
 use crate::screens::tabs::groups::Drop;
 use crate::screens::tabs::motion::{Flip, PillKind, PillSlide, RowMotion, Unfold};
@@ -56,6 +56,17 @@ use gpui_component::{Icon, tooltip::Tooltip};
 pub const SIDEBAR_MIN: f32 = 180.0;
 pub const SIDEBAR_MAX: f32 = 420.0;
 const GAP: f32 = 6.0;
+/// Top of the downloads panel (`.dl-panel { top: 46px }`).
+const DL_TOP: f32 = 46.0;
+
+/// Tallest the downloads panel may be: `min(380px, 100% - 100px)` of the sidebar.
+fn downloads_max_h(sidebar_h: f32) -> f32 {
+    if sidebar_h <= 0.0 {
+        // Not measured yet (first frame).
+        return 380.0;
+    }
+    380.0_f32.min(sidebar_h - 100.0).max(0.0)
+}
 
 /// Requests the sidebar cannot serve itself (the panels live in other modules).
 #[derive(Clone, Debug, PartialEq)]
@@ -1075,10 +1086,19 @@ impl Render for Sidebar {
                 None => {}
             }
         }
-        let panel = |p: &Presence<AnyView>, id: &'static str| {
+        let sidebar_h = f32::from(self.root.get().size.height);
+        let panel = |p: &Presence<AnyView>, id: &'static str, top: bool| {
             p.value().cloned().map(|view| {
                 let closing = p.closing();
-                div().id(id).absolute().left(px(GAP)).right(px(GAP)).bottom(sp::TOOLBAR_H).child(surface_enter(div().w_full().text_size(t.type_scale.base).child(view), SharedString::from(format!("{id}-{closing}")), closing, reduced))
+                let body = div().w_full().min_h_0().flex().flex_col().text_size(t.type_scale.base).child(view);
+                let key = SharedString::from(format!("{id}-{closing}"));
+                // The downloads panel hangs from the header and drops in; the forms sit on the toolbar and rise.
+                let shell = div().id(id).absolute().left(px(GAP)).right(px(GAP)).flex().flex_col();
+                if top {
+                    shell.top(px(DL_TOP)).max_h(px(downloads_max_h(sidebar_h))).child(surface_enter_dir(body, key, closing, reduced, -1.0))
+                } else {
+                    shell.bottom(sp::TOOLBAR_H).child(surface_enter(body, key, closing, reduced))
+                }
             })
         };
         let origin = self.root.get().origin;
@@ -1121,9 +1141,9 @@ impl Render for Sidebar {
             })
             .children(media)
             .child(bottom)
-            .children(panel(&self.ex_icon, "icon-form"))
-            .children(panel(&self.ex_form, "space-form"))
-            .children(panel(&self.ex_downloads, "downloads-panel"))
+            .children(panel(&self.ex_icon, "icon-form", false))
+            .children(panel(&self.ex_form, "space-form", false))
+            .children(panel(&self.ex_downloads, "downloads-panel", true))
             .children(ghosts)
             .children(self.toast.clone())
             .child(handle)
@@ -1489,6 +1509,14 @@ mod tests {
     fn folding_changes_the_data_signature_but_not_the_glide_signature() {
         assert_ne!(data_sig(&space(true), &[], true), data_sig(&space(false), &[], true));
         assert_eq!(data_sig(&space(true), &[], false), data_sig(&space(false), &[], false));
+    }
+
+    #[test]
+    fn downloads_panel_height_follows_the_sidebar() {
+        assert_eq!(downloads_max_h(900.0), 380.0);
+        assert_eq!(downloads_max_h(300.0), 200.0);
+        assert_eq!(downloads_max_h(50.0), 0.0);
+        assert_eq!(downloads_max_h(0.0), 380.0);
     }
 
     #[test]
