@@ -412,7 +412,7 @@ impl Manager {
                         self.open_floating(browser, main, s, rect, g, cx);
                     }
                     #[cfg(target_os = "macos")]
-                    if s == Surface::Sidebar && !parked {
+                    if matches!(s, Surface::Sidebar | Surface::Toolbar) && !parked {
                         self.update_window_corner(browser, cx);
                     }
                     self.set_parked(browser, s, parked, cx);
@@ -455,8 +455,10 @@ impl Manager {
         signet_ui::theme::set_window_corner(cx, r);
         browser.core.borrow().log(format!("window corner radius {r:?}"));
         eprintln!("signet: window corner radius {r:?}");
-        if let Some(f) = self.floating.get(&Surface::Sidebar) {
-            let _ = f.handle.update(cx, |_, w, _| w.refresh());
+        for s in [Surface::Sidebar, Surface::Toolbar] {
+            if let Some(f) = self.floating.get(&s) {
+                let _ = f.handle.update(cx, |_, w, _| w.refresh());
+            }
         }
     }
 

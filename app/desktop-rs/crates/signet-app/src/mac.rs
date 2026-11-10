@@ -509,6 +509,11 @@ pub fn window_corner_radius(view: *mut c_void, right: bool) -> Option<f64> {
         return None;
     }
     unsafe {
+        // Fullscreen windows have square corners.
+        let mask: usize = msg_send![win, styleMask];
+        if mask & (1 << 14) != 0 {
+            return None;
+        }
         let content: *mut AnyObject = msg_send![win, contentView];
         if content.is_null() {
             return None;
@@ -537,11 +542,14 @@ pub fn window_corner_radius(view: *mut c_void, right: bool) -> Option<f64> {
                 let radii = send_obj(obj, sel);
                 let (Some(x), Some(y)) = (cgfloat_of(radii, a), cgfloat_of(radii, b)) else { continue };
                 let r = x.max(y);
+                if r.is_nan() || r <= 0.0 {
+                    continue;
+                }
                 signet_ui::trace::mark(|| format!("window corner radius {r} from {}", name.to_string_lossy()));
                 return Some(r);
             }
         }
-        let r = cgfloat_of(win, c"_cornerRadius")?;
+        let r = cgfloat_of(win, c"_cornerRadius").filter(|r| *r > 0.0)?;
         signet_ui::trace::mark(|| format!("window corner radius {r} from _cornerRadius"));
         Some(r)
     }

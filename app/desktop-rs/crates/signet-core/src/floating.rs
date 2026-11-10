@@ -77,11 +77,15 @@ pub fn float_pose(start: f32, target: f32, eased: f32) -> (f32, f32) {
 /// Radius of the floating card (Electron `--r-pop`) when nothing better is known.
 pub const CARD_RADIUS: f64 = 14.0;
 
+/// Smallest radius a concentric card gets.
+const MIN_CARD_RADIUS: f64 = 4.0;
+
 /// Radius of a card inset by `FLOAT_INSET` in a window whose corners have `window_radius`: concentric with them,
-/// never tighter than `CARD_RADIUS`. Absurd values (an SPI that changed meaning) are ignored.
+/// down to a small sanity floor (`MIN_CARD_RADIUS`) so a tiny radius never gives square corners. An unknown or absurd
+/// value (an SPI that changed meaning, Linux, Windows, fullscreen) gives `CARD_RADIUS`.
 pub fn card_radius(window_radius: Option<f64>) -> f64 {
     match window_radius {
-        Some(r) if r.is_finite() && r > 0.0 && r <= 64.0 => (r - FLOAT_INSET).max(CARD_RADIUS),
+        Some(r) if r.is_finite() && r > 0.0 && r <= 64.0 => (r - FLOAT_INSET).max(MIN_CARD_RADIUS),
         _ => CARD_RADIUS,
     }
 }
@@ -103,10 +107,14 @@ mod tests {
     #[test]
     fn card_radius_follows_the_window() {
         assert_eq!(card_radius(None), 14.0);
-        for r in [10.0, 16.0, 20.0, 0.0, f64::NAN, 500.0] {
+        for r in [0.0, -3.0, f64::NAN, f64::INFINITY, 500.0] {
             assert_eq!(card_radius(Some(r)), 14.0, "{r}");
         }
+        assert_eq!(card_radius(Some(16.0)), 10.0);
         assert_eq!(card_radius(Some(26.0)), 20.0);
+        // A tiny window radius hits the floor instead of going square or negative.
+        assert_eq!(card_radius(Some(8.0)), 4.0);
+        assert_eq!(card_radius(Some(2.0)), 4.0);
     }
 
     #[test]
