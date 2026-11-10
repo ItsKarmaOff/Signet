@@ -12,6 +12,7 @@ use signet_core::types::Rect;
 use super::factory::{self, Kind};
 use super::host::MainHost;
 use super::{Cmd, Desired, Entry, Surface, Win};
+use signet_core::floating::SidebarWindow;
 use crate::app::platform::{window_chrome, IS_MAC};
 use crate::browser::Browser;
 
@@ -19,6 +20,8 @@ struct Floating {
     handle: AnyWindowHandle,
     raw: Option<RawWindowHandle>,
     rect: Rect,
+    /// Open but waiting: transparent and ignoring the mouse (the floating sidebar on macOS).
+    parked: bool,
 }
 
 #[derive(Default)]
@@ -365,8 +368,20 @@ impl Manager {
     fn sync(&mut self, browser: &Rc<Browser>, d: &Desired, cx: &mut App) {
         let Some(main) = self.main else { return };
         let origin = browser.core.borrow().win.as_ref().map(|w| w.origin).unwrap_or((0.0, 0.0));
+        // macOS keeps the floating sidebar window open (parked) while the sidebar is hidden; the other platforms create
+        // it on reveal and close it on leave.
+        const KEEP_ALIVE: bool = cfg!(target_os = "macos");
         for s in Surface::ALL {
-            match d.get(s) {
+            let target = if s == Surface::Sidebar {
+                match signet_core::floating::sidebar_window(d.sidebar, d.sidebar_warm, KEEP_ALIVE) {
+                    SidebarWindow::Closed => None,
+                    SidebarWindow::Parked(r) => Some((r, true)),
+                    SidebarWindow::Shown(r) => Some((r, false)),
+                }
+            } else {
+                d.get(s).map(|r| (r, false))
+            };
+            match target {
                 None => {
                     if let Some(f) = self.floating.remove(&s) {
                         // A closing key window gives the keyboard back to the main window, not to a sibling surface.
@@ -384,18 +399,33 @@ impl Manager {
                         browser.core.borrow().note(format!("surface-closed {}", s.name()));
                     }
                 }
-                Some(rect) => {
+                Some((rect, parked)) => {
                     let g = Rect::new(origin.0 + rect.x, origin.1 + rect.y, rect.width, rect.height);
                     if let Some(f) = self.floating.get_mut(&s) {
-                        if f.rect != rect {
+                        // A parked window is invisible: skipping its moves avoids a relayout of the whole sidebar on
+                        // every live resize frame; it moves at the reveal.
+                        if !parked && f.rect != rect {
                             f.rect = rect;
                             self.move_floating(s, g, cx);
                         }
                     } else {
                         self.open_floating(browser, main, s, rect, g, cx);
                     }
+                    self.set_parked(s, parked);
                 }
             }
+        }
+    }
+
+    fn set_parked(&mut self, s: Surface, parked: bool) {
+        let Some(f) = self.floating.get_mut(&s) else { return };
+        if f.parked == parked {
+            return;
+        }
+        f.parked = parked;
+        #[cfg(target_os = "macos")]
+        if let Some(raw) = &f.raw {
+            crate::mac::set_ignores_mouse(raw_ptr(raw), parked);
         }
     }
 
@@ -418,6 +448,7 @@ impl Manager {
         // mode shows the toolbar next to a popover) must not steal the key window from the text field.
         let take_focus = s.takes_focus() && (s == Surface::Overlay || !self.floating.contains_key(&Surface::Overlay));
         let b = browser.clone();
+        let t_start = std::time::Instant::now();
         let mut raw_out: Option<RawWindowHandle> = None;
         let raw_cell = std::cell::Cell::new(None::<RawWindowHandle>);
         let opened = cx.open_window(
@@ -445,27 +476,35 @@ impl Manager {
                 })
             },
         );
+        let open_ms = t_start.elapsed().as_secs_f64() * 1000.0;
         raw_out =raw_cell.take().or(raw_out);
         match opened {
             Ok(h) => {
                 #[cfg(target_os = "macos")]
                 if let (Some(child), Some(parent)) = (&raw_out, b.core.borrow().views.parent.as_ref()) {
                     crate::mac::style_floating(raw_ptr(child));
+                    // The sidebar and toolbar cards are 6 px inset cards: no system corner mask (the overlay keeps it).
+                    if matches!(s, Surface::Sidebar | Surface::Toolbar) {
+                        crate::mac::make_borderless(raw_ptr(child));
+                    }
                     crate::mac::add_child(raw_ptr(parent), raw_ptr(child));
                     crate::mac::set_frame(raw_ptr(child), g.x, g.y, g.width, g.height);
+                    // A style change and a native frame while the App is borrowed: GPUI must learn the new bounds.
+                    let _ = h.update(cx, |_, w, cx| w.bounds_changed(cx));
                     // Adding a child window can reorder windows: the surface that wants the keyboard keeps it.
                     if take_focus {
                         crate::mac::make_key(raw_ptr(child));
                     }
                 }
                 let _ = (&main, IS_MAC);
+                signet_ui::trace::mark(|| format!("open {} window {open_ms:.1} ms total {:.1} ms", s.name(), t_start.elapsed().as_secs_f64() * 1000.0));
                 b.core.borrow().note(format!("surface-opened {}", s.name()));
                 b.core.borrow().log(format!("surface {} opened at ({:.0},{:.0},{:.0},{:.0})", s.name(), g.x, g.y, g.width, g.height));
                 #[cfg(not(target_os = "macos"))]
                 if let (Some(child), Some(parent)) = (raw_out, b.core.borrow().views.parent) {
                     let _ = signet_web::overlay::attach_child_window(parent, child);
                 }
-                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect });
+                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect, parked: false });
                 // The surfaces that missed an event sent before they existed, and the Peek view that lives in the
                 // overlay window.
                 match s {

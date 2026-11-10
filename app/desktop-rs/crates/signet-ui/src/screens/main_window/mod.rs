@@ -31,10 +31,12 @@ use gpui::{
 };
 use gpui_component::Icon;
 use signet_core::api::UiEvent;
+use signet_core::floating::float_pose;
 use signet_core::shortcuts::shortcut_label;
 use signet_core::slide::slide_at;
 use signet_core::types::{PaletteMode, Rect, SidebarSide, Snapshot, Space, TabLayout};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 fn active_space(s: &Snapshot) -> Option<&Space> {
     s.spaces.iter().find(|x| x.id == s.active_space_id).or_else(|| s.spaces.first())
@@ -334,11 +336,43 @@ impl Render for MainWindow {
     }
 }
 
+/// One slide of the floating card (enter or exit).
+#[derive(Clone, Copy)]
+struct FloatMotion {
+    at: Instant,
+    from: f32,
+    to: f32,
+    dur: Duration,
+    enter: bool,
+}
+
+impl FloatMotion {
+    fn eased(&self, p: f32, reduced: bool) -> f32 {
+        if self.enter && !reduced { spring_curve(p) } else { ease_out(p) }
+    }
+
+    fn done(&self) -> bool {
+        self.at.elapsed() >= self.dur
+    }
+
+    /// Offset now (card widths): an interrupted motion hands it to the next one.
+    fn offset_now(&self, reduced: bool) -> f32 {
+        let p = (self.at.elapsed().as_secs_f32() / self.dur.as_secs_f32()).min(1.0);
+        float_pose(self.from, self.to, self.eased(p, reduced)).0
+    }
+}
+
 /// The sidebar shown over the window while it is hidden (route `#sidebar`): slides in from its edge.
 pub struct FloatingSidebar {
     sidebar: Entity<Sidebar>,
+    /// The window presented its first frames: a fresh window's first frames are slow (Metal pipelines, empty glyph
+    /// atlas, the whole sidebar's first layout), the slide waits for them like the React version waits two animation
+    /// frames.
+    armed: bool,
     shown: bool,
     generation: u64,
+    motion: Option<FloatMotion>,
+    last_render: Option<Instant>,
     _sidebar_sub: gpui::Subscription,
 }
 
@@ -348,7 +382,16 @@ impl FloatingSidebar {
         let this = cx.new(|cx| {
             let (sidebar, sub) = embed::sidebar(window, true, cx);
             cx.observe(&ui_state(cx), |_, _, cx| cx.notify()).detach();
-            Self { sidebar, shown: false, generation: 0, _sidebar_sub: sub }
+            Self { sidebar, armed: false, shown: false, generation: 0, motion: None, last_render: None, _sidebar_sub: sub }
+        });
+        let weak = this.downgrade();
+        window.on_next_frame(move |window, _| {
+            window.on_next_frame(move |_, cx| {
+                let _ = weak.update(cx, |this, cx| {
+                    this.armed = true;
+                    cx.notify();
+                });
+            });
         });
         api(cx).overlay_ready();
         this
@@ -358,27 +401,52 @@ impl FloatingSidebar {
 impl Render for FloatingSidebar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let s = snapshot(cx);
-        let t = cx.signet().clone();
-        let right = s.settings.sidebar_side == Some(SidebarSide::Right);
-        if s.sidebar_floating && !self.shown {
-            self.generation += 1;
-        }
-        self.shown = s.sidebar_floating;
-        let from = if right { 1.0 } else { -1.0 };
-        let body = div().absolute().size_full().bg(t.glass_view).border_color(t.border).child(self.sidebar.clone());
-        let id = SharedString::from(format!("float-sidebar-{}", self.generation));
+        let parked = if s.settings.sidebar_side == Some(SidebarSide::Right) { 1.0 } else { -1.0 };
         let reduced = reduced_motion(cx);
-        let root = div().relative().size_full().overflow_hidden();
-        if !self.shown {
-            // Hidden: parked off its edge, the main process keeps the view in place during the slide.
-            return root.child(body.left(relative(from)).opacity(0.0)).into_any_element();
+        let want = s.sidebar_floating && self.armed;
+        if want != self.shown {
+            // Only an unfinished motion is continued (a finished one may be on the other side after a setting change).
+            let from = match self.motion {
+                Some(m) if !m.done() => m.offset_now(reduced),
+                _ => {
+                    if want {
+                        parked
+                    } else {
+                        0.0
+                    }
+                }
+            };
+            let (to, dur) = if want { (0.0, duration::SLOW) } else { (parked, if reduced { duration::FAST } else { duration::NORMAL }) };
+            self.generation += 1;
+            self.motion = Some(FloatMotion { at: Instant::now(), from, to, dur, enter: want });
+            self.shown = want;
+            if want {
+                self.sidebar.update(cx, |sb, _| sb.on_reveal());
+            }
         }
-        root.child(body.with_animation(
-            id,
-            Animation::new(duration::SLOW).with_easing(if reduced { ease_out } else { spring_curve }),
-            move |el, p| el.left(relative(from * (1.0 - p))).opacity((p * 2.7).min(1.0)),
-        ))
-        .into_any_element()
+        if crate::trace::on() {
+            let now = Instant::now();
+            let dt = self.last_render.map(|t| now.duration_since(t).as_secs_f64() * 1000.0).unwrap_or(0.0);
+            if let Some(m) = self.motion.filter(|m| m.at.elapsed() < m.dur + Duration::from_millis(100)) {
+                crate::trace::mark(|| format!("motion +{:.1} ms dt={dt:.1} ms gen={} enter={}", m.at.elapsed().as_secs_f64() * 1000.0, self.generation, m.enter));
+            }
+            self.last_render = Some(now);
+        }
+        // No background and no border here: the Sidebar draws the one rounded card.
+        let body = div().absolute().size_full().child(self.sidebar.clone());
+        let root = div().relative().size_full().overflow_hidden();
+        match self.motion {
+            Some(m) if self.shown || !m.done() => {
+                let id = SharedString::from(format!("float-sidebar-{}", self.generation));
+                root.child(body.with_animation(id, Animation::new(m.dur), move |el, p| {
+                    let (offset, opacity) = float_pose(m.from, m.to, m.eased(p, reduced));
+                    el.left(relative(offset)).opacity(opacity)
+                }))
+                .into_any_element()
+            }
+            // Parked: past its edge and invisible (the window ignores the mouse meanwhile).
+            _ => root.child(body.left(relative(parked)).opacity(0.0)).into_any_element(),
+        }
     }
 }
 

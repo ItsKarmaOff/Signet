@@ -9,6 +9,7 @@ pub(crate) mod lang_names;
 pub mod motion;
 pub mod theme;
 pub mod title_area;
+pub mod trace;
 pub mod widgets;
 pub mod screens;
 

@@ -5,7 +5,8 @@
 //!   transparent borderless GPUI windows placed over the main window, because native CEF views are drawn above all
 //!   GPUI content of their own window (PORTING.md section 7). The core declares which ones it wants and where
 //!   (`Desired`, window coordinates); `Manager::sync` opens, moves and closes them. On macOS they are child windows
-//!   of the main one (`addChildWindow:`), so they move and order with it.
+//!   of the main one (`addChildWindow:`), so they move and order with it. The floating sidebar window is kept open,
+//!   parked (transparent, ignoring the mouse), while the sidebar is hidden (macOS), so a reveal does not build one.
 //! - Secondary windows (Settings, Library, Welcome) are ordinary windows opened once and focused when asked again.
 
 // "aux" is a reserved device name on Windows: the file cannot be called aux.rs there.
@@ -64,6 +65,9 @@ impl Surface {
 pub struct Desired {
     pub overlay: Option<Rect>,
     pub sidebar: Option<Rect>,
+    /// Where the floating sidebar window waits, parked, while the sidebar is hidden (macOS keeps it open so a reveal
+    /// does not build a window).
+    pub sidebar_warm: Option<Rect>,
     pub toolbar: Option<Rect>,
     pub find: Option<Rect>,
     pub toast: Option<Rect>,
@@ -103,7 +107,8 @@ pub enum Win {
 #[derive(Clone, Debug)]
 pub enum Later {
     UndoExpire(u64),
-    SidebarLeave,
+    SidebarLeave(u64),
+    SidebarWarm,
     ToolbarLeave,
     SleepCheck,
     Sweep,

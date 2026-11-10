@@ -228,8 +228,28 @@ pub fn style_floating(view: *mut c_void) {
     unsafe {
         let _: () = msg_send![win, setHasShadow: false];
         let _: () = msg_send![win, setMovable: false];
+        // Long-lived surfaces (the parked floating sidebar) must not appear in the Window menu or in Cmd+backtick
+        // cycling: NSWindowCollectionBehaviorIgnoresCycle.
+        let _: () = msg_send![win, setExcludedFromWindowsMenu: true];
+        let _: () = msg_send![win, setCollectionBehavior: 1usize << 6];
     }
     set_traffic_lights_visible(view, false);
+}
+
+/// Drops the title bar style of a floating card window: no system corner mask or edge (their radius depends on the
+/// macOS version), the GPUI content draws its own rounded card.
+pub fn make_borderless(view: *mut c_void) {
+    let win = window_of(view);
+    if win.is_null() {
+        return;
+    }
+    unsafe {
+        // NSWindowStyleMaskBorderless (0) | NSWindowStyleMaskFullSizeContentView (1 << 15): GPUI's frame math keeps the
+        // content rect equal to the frame.
+        let _: () = msg_send![win, setStyleMask: 1usize << 15];
+        // A style mask change resets the first responder: give it back to the GPUI view (text fields).
+        let _: bool = msg_send![win, makeFirstResponder: view as *mut AnyObject];
+    }
 }
 
 /// The system setting "Reduce motion".

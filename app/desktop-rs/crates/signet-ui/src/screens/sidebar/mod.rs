@@ -715,8 +715,16 @@ fn downloads_active(s: &Snapshot) -> bool {
     s.downloads.iter().any(|d| d.status == DownloadStatus::Progressing)
 }
 
+impl Sidebar {
+    /// Floating sidebar: a new reveal starts (the pointer is on the window edge, not over the bar yet).
+    pub fn on_reveal(&mut self) {
+        self.inside = true;
+    }
+}
+
 impl Render for Sidebar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let _span = if self.floating { crate::trace::span("sidebar.render") } else { None };
         let t = cx.signet().clone();
         let snap = ui_state(cx).read(cx).snapshot.clone();
         let pending = self.opt.read(cx).pending().clone();
@@ -1115,7 +1123,7 @@ impl Render for Sidebar {
             .flex_none()
             .text_size(t.type_scale.base)
             .text_color(t.text)
-            .when(self.floating, |d| d.rounded(radius::POP).bg(t.glass_view).border_1().border_color(t.border))
+            .when(self.floating, |d| d.rounded(radius::POP).bg(t.glass_view).border(px(0.5)).border_color(t.border))
             .child(probe(root_cell))
             .on_hover(cx.listener(move |this, hovered: &bool, _w, cx| {
                 if !this.floating {

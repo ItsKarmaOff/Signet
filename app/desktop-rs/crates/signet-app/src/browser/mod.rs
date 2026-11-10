@@ -103,6 +103,12 @@ pub struct Dirty {
 #[derive(Default)]
 pub struct Hover {
     pub sidebar: bool,
+    /// Pending "pointer left the floating sidebar" timer (a return cancels it).
+    pub sidebar_leave: signet_core::floating::LeaveGate,
+    /// The floating sidebar window is warmed (kept parked) while the sidebar is hidden.
+    pub sidebar_warm: bool,
+    /// The warm-up timer is pending.
+    pub sidebar_warming: bool,
     pub toolbar: bool,
 }
 

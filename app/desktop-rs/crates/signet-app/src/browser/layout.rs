@@ -11,6 +11,7 @@ use signet_core::types::{OverlayPayload, Pane, Rect};
 use signet_web::{Bounds, ProfileKind, WebView};
 
 use super::Core;
+use crate::windows::{Cmd, Later};
 
 /// Window-level state of the layout that does not belong to another module: the sidebar slide (`layout.ts`
 /// `slideMotion`), the overlay window handle (the Peek view lives in it) and the gesture marks Peek needs.
@@ -207,11 +208,12 @@ impl Core {
     /// Rectangles (window coordinates) of the floating surfaces.
     fn compute_desired(&mut self, w: f64, h: f64, area: Rect, fullscreen: bool) {
         let mut d = super::super::windows::Desired::default();
+        let side_w = self.live_sidebar_width.unwrap_or(self.state().sidebar_width);
+        let right = self.sidebar_right();
         if !fullscreen {
             let st = self.state();
-            let side_w = self.live_sidebar_width.unwrap_or(st.sidebar_width);
             if self.hover.sidebar && !self.sidebar_on() && !self.horizontal() && self.ov.payload.is_none() {
-                d.sidebar = Some(Rect::new(if self.sidebar_right() { w - 6.0 - side_w } else { 6.0 }, 6.0, side_w, h - 12.0));
+                d.sidebar = Some(signet_core::floating::sidebar_rect(w, h, side_w, right));
             }
             if st.settings.compact_mode && (self.hover.toolbar || matches!(self.ov.payload, Some(signet_core::types::OverlayPayload::Popover { .. }))) {
                 d.toolbar = Some(if self.horizontal() {
@@ -243,6 +245,18 @@ impl Core {
         }
         if self.quit.shown {
             d.quit = Some(Rect::new((w - 320.0) / 2.0, (h - 120.0) / 2.0, 320.0, 120.0));
+        }
+        // Warm-up: once the sidebar stays hidden for a while its window is created and parked, so a reveal only slides it
+        // in (a fullscreen video keeps the parked window).
+        if !self.can_float_sidebar() {
+            self.hover.sidebar_warm = false;
+            self.hover.sidebar_warming = false;
+        } else if !self.hover.sidebar_warm && !self.hover.sidebar_warming {
+            self.hover.sidebar_warming = true;
+            self.send(Cmd::Later(signet_core::floating::SIDEBAR_WARM_MS, Later::SidebarWarm));
+        }
+        if self.hover.sidebar_warm && self.can_float_sidebar() {
+            d.sidebar_warm = Some(signet_core::floating::sidebar_rect(w, h, side_w, right));
         }
         self.desired = d;
         self.update_traffic_lights();

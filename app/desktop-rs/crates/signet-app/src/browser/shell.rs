@@ -96,16 +96,25 @@ impl Core {
         self.changed();
     }
 
+    /// The floating sidebar can exist: a main window, the sidebar hidden and in the vertical layout.
+    pub(crate) fn can_float_sidebar(&self) -> bool {
+        self.win.is_some() && !self.sidebar_on() && !self.horizontal()
+    }
+
     /// The mouse touches the window's left edge (true) or left the floating sidebar (false).
     pub fn set_sidebar_hover(&mut self, hover: bool) {
         if hover {
+            self.hover.sidebar_leave.cancel();
             if self.sidebar_on() || self.horizontal() || self.ov.payload.is_some() || self.hover.sidebar {
                 return;
             }
+            signet_ui::trace::mark(|| "hover enter".into());
             self.hover.sidebar = true;
             self.changed_view();
-        } else if self.hover.sidebar {
-            self.send(Cmd::Later(HIDE_DELAY, Later::SidebarLeave));
+        } else if self.hover.sidebar
+            && let Some(g) = self.hover.sidebar_leave.arm()
+        {
+            self.send(Cmd::Later(HIDE_DELAY, Later::SidebarLeave(g)));
         }
     }
 
@@ -125,10 +134,18 @@ impl Core {
     pub fn on_later(&mut self, what: Later) {
         match what {
             Later::UndoExpire(id) => self.undo_expired(id),
-            Later::SidebarLeave => {
-                if self.hover.sidebar {
+            Later::SidebarLeave(g) => {
+                if self.hover.sidebar_leave.fire(g) && self.hover.sidebar {
                     self.hover.sidebar = false;
                     self.changed_view();
+                }
+            }
+            Later::SidebarWarm => {
+                self.hover.sidebar_warming = false;
+                if self.can_float_sidebar() && !self.hover.sidebar_warm {
+                    self.hover.sidebar_warm = true;
+                    self.dirty.layout = true;
+                    self.apply();
                 }
             }
             Later::ToolbarLeave => {

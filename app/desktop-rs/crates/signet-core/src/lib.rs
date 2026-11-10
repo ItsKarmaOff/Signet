@@ -6,6 +6,7 @@ pub mod api;
 pub mod core;
 pub mod devhosts;
 pub mod factory;
+pub mod floating;
 pub mod i18n;
 pub mod ids;
 pub mod languages;
