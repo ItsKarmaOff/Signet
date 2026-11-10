@@ -358,6 +358,12 @@ impl FloatMotion {
     }
 }
 
+/// The parked card takes no pointer event (the hidden view is not in the window in the Electron version): hidden, and
+/// its exit slide is over. While the exit plays, a return re-reveals it.
+fn card_shielded(shown: bool, motion: Option<FloatMotion>) -> bool {
+    !shown && motion.is_none_or(|m| m.done())
+}
+
 /// macOS slides the floating sidebar in the window server (Core Animation, see `mac::card_slide`); the other platforms
 /// animate it with GPUI.
 const NATIVE_SLIDE: bool = cfg!(target_os = "macos");
@@ -422,6 +428,13 @@ impl Render for FloatingSidebar {
             self.shown = want;
             if want {
                 self.sidebar.update(cx, |sb, _| sb.on_reveal());
+            } else {
+                // Re-render once the exit is over so the shield appears (the native slide paints nothing meanwhile).
+                cx.spawn(async move |this, cx| {
+                    cx.background_executor().timer(dur).await;
+                    this.update(cx, |_, cx| cx.notify()).ok();
+                })
+                .detach();
             }
         }
         if crate::trace::on() {
@@ -435,9 +448,12 @@ impl Render for FloatingSidebar {
         // No background and no border here: the Sidebar draws the one rounded card.
         let body = div().absolute().size_full().child(self.sidebar.clone());
         let root = div().relative().size_full().overflow_hidden();
+        // On macOS the parked window still gets pointer moves from its tracking area although it ignores the mouse, and
+        // GPUI's hitboxes stay at rest: this occluding layer keeps the invisible card quiet (no reveal, cursor, tooltip).
+        let shield = || card_shielded(self.shown, self.motion).then(|| div().id("float-shield").absolute().top(px(0.0)).left(px(0.0)).size_full().occlude());
         if NATIVE_SLIDE {
             // The card is always painted at rest: the window manager slides and fades the window's layer natively.
-            return root.child(body).into_any_element();
+            return root.child(body).children(shield()).into_any_element();
         }
         match self.motion {
             Some(m) if self.shown || !m.done() => {
@@ -446,10 +462,11 @@ impl Render for FloatingSidebar {
                     let (offset, opacity) = float_pose(m.from, m.to, m.eased(p, reduced));
                     el.left(relative(offset)).opacity(opacity)
                 }))
+                .children(shield())
                 .into_any_element()
             }
-            // Parked: past its edge and invisible (the window ignores the mouse meanwhile).
-            _ => root.child(body.left(relative(parked)).opacity(0.0)).into_any_element(),
+            // Parked: past its edge and invisible, and shielded from the mouse.
+            _ => root.child(body.left(relative(parked)).opacity(0.0)).children(shield()).into_any_element(),
         }
     }
 }
@@ -529,6 +546,19 @@ mod tests {
         assert_eq!(lerp_rect(a, b, 0.0), a);
         assert_eq!(lerp_rect(a, b, 1.0), b);
         assert_eq!(lerp_rect(a, b, 0.5), Rect::new(50.0, 25.0, 150.0, 100.0));
+    }
+
+    fn motion(ago_ms: u64, dur_ms: u64, enter: bool) -> FloatMotion {
+        FloatMotion { at: Instant::now() - Duration::from_millis(ago_ms), from: 0.0, to: -1.0, dur: Duration::from_millis(dur_ms), enter }
+    }
+
+    #[test]
+    fn parked_card_is_shielded() {
+        assert!(card_shielded(false, None));
+        assert!(!card_shielded(true, None));
+        assert!(!card_shielded(true, Some(motion(1000, 320, true))));
+        assert!(!card_shielded(false, Some(motion(0, 200, false))));
+        assert!(card_shielded(false, Some(motion(1000, 200, false))));
     }
 
     #[test]
