@@ -145,11 +145,18 @@ pub fn ease_out(x: f32) -> f32 {
     cubic_bezier(0.2, 0.8, 0.2, 1.0)(x)
 }
 
+/// The stops (time, progress) of [`spring_curve`], piecewise linear.
+pub const SPRING_STOPS: [(f32, f32); 8] = [(0.0, 0.0), (0.04, 0.17), (0.10, 0.48), (0.17, 0.72), (0.25, 0.87), (0.34, 0.95), (0.45, 0.985), (1.0, 1.0)];
+
+/// Key frames (key time, value) of a move from `from` to `to` along [`spring_curve`], for a native linear animation.
+pub fn slide_keyframes(from: f64, to: f64) -> Vec<(f64, f64)> {
+    SPRING_STOPS.iter().map(|&(x, y)| (f64::from(x), from + (to - from) * f64::from(y))).collect()
+}
+
 /// `--spring`: the CSS `linear(0, 0.17 4%, 0.48 10%, 0.72 17%, 0.87 25%, 0.95 34%, 0.985 45%, 1)` curve.
 pub fn spring_curve(x: f32) -> f32 {
-    const STOPS: [(f32, f32); 8] = [(0.0, 0.0), (0.04, 0.17), (0.10, 0.48), (0.17, 0.72), (0.25, 0.87), (0.34, 0.95), (0.45, 0.985), (1.0, 1.0)];
     let x = x.clamp(0.0, 1.0);
-    for w in STOPS.windows(2) {
+    for w in SPRING_STOPS.windows(2) {
         let ((x0, y0), (x1, y1)) = (w[0], w[1]);
         if x <= x1 {
             return y0 + (y1 - y0) * (x - x0) / (x1 - x0);
@@ -277,6 +284,24 @@ impl<T: Clone> Presence<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spring_matches_its_stops() {
+        for (x, y) in SPRING_STOPS {
+            assert!((spring_curve(x) - y).abs() < 1e-6);
+        }
+        let ((x0, y0), (x1, y1)) = (SPRING_STOPS[2], SPRING_STOPS[3]);
+        assert!((spring_curve((x0 + x1) / 2.0) - (y0 + y1) / 2.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn slide_keyframes_span_the_move() {
+        let k = slide_keyframes(-200.0, 0.0);
+        assert_eq!(k.len(), 8);
+        assert_eq!(k[0], (0.0, -200.0));
+        assert_eq!(k[7], (1.0, 0.0));
+        assert!(k.windows(2).all(|w| w[0].0 < w[1].0));
+    }
 
     #[test]
     fn rubberband_roundtrip() {

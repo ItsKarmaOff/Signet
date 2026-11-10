@@ -336,3 +336,213 @@ pub fn titlebar_action() -> signet_core::titlebar::TitlebarAction {
         signet_core::titlebar::mac_action(action.as_deref(), legacy_min)
     }
 }
+
+// ------------------------------------------------------------------ floating card: native slide and corner radius
+
+/// How the floating card's layer changes (the window stays in place and clips it).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CardSlide {
+    /// Parked at once, no animation.
+    Hide,
+    /// Slides in from its edge and fades in.
+    Enter,
+    /// Slides out to its edge and fades out.
+    Exit,
+}
+
+unsafe fn ns_number(v: f64) -> *mut AnyObject {
+    unsafe { msg_send![objc2::class!(NSNumber), numberWithDouble: v] }
+}
+
+unsafe fn ns_str(s: &str) -> Retained<NSString> {
+    NSString::from_str(s)
+}
+
+unsafe fn key_value(layer: *mut AnyObject, path: &str) -> Option<f64> {
+    if layer.is_null() {
+        return None;
+    }
+    unsafe {
+        let n: *mut AnyObject = msg_send![layer, valueForKeyPath: &*ns_str(path)];
+        if n.is_null() {
+            return None;
+        }
+        let v: f64 = msg_send![n, doubleValue];
+        Some(v)
+    }
+}
+
+/// Slides and fades the GPUI layer of a floating card in the window server (Core Animation), so the motion costs no
+/// GPUI frame. `dx`: offset of the parked card in points (minus the width on the left, plus on the right).
+pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool) {
+    use objc2::runtime::AnyClass;
+    if view.is_null() {
+        return;
+    }
+    let (Some(txn), Some(kf_cls), Some(basic_cls), Some(timing_cls)) =
+        (AnyClass::get(c"CATransaction"), AnyClass::get(c"CAKeyframeAnimation"), AnyClass::get(c"CABasicAnimation"), AnyClass::get(c"CAMediaTimingFunction"))
+    else {
+        return;
+    };
+    let v = view as *mut AnyObject;
+    unsafe {
+        let layer: *mut AnyObject = msg_send![v, layer];
+        if layer.is_null() {
+            return;
+        }
+        let _: () = msg_send![txn, begin];
+        let _: () = msg_send![txn, setDisableActions: true];
+        // Where an interrupted motion stands right now.
+        let pres: *mut AnyObject = msg_send![layer, presentationLayer];
+        let src = if pres.is_null() { layer } else { pres };
+        let cur_x = key_value(src, "transform.translation.x").unwrap_or(0.0);
+        let cur_a = key_value(src, "opacity").unwrap_or(1.0);
+        let hidden_before = cur_a <= 0.001;
+        let _: () = msg_send![layer, removeAnimationForKey: &*ns_str("signet.slide")];
+        let _: () = msg_send![layer, removeAnimationForKey: &*ns_str("signet.fade")];
+        let visible = how == CardSlide::Enter;
+        // NSView alpha is the layer opacity: the model value is the end state, AppKit keeps the frame and position.
+        let _: () = msg_send![v, setAlphaValue: if visible { 1.0f64 } else { 0.0f64 }];
+        let from_x = if how == CardSlide::Enter && hidden_before && cur_x.abs() < 0.5 { dx } else { cur_x };
+        signet_ui::trace::mark(|| format!("native slide {how:?} from {from_x:.0} dx {dx:.0} alpha {cur_a:.2} reduced {reduced}"));
+        // `+[CAMediaTimingFunction functionWithControlPoints::::]`: unnamed parts, sent by hand.
+        let timing = |c1: f32, c2: f32, c3: f32, c4: f32| -> *mut AnyObject {
+            let f: unsafe extern "C" fn(*const AnyClass, objc2::runtime::Sel, f32, f32, f32, f32) -> *mut AnyObject = std::mem::transmute(objc2::ffi::objc_msgSend as *const ());
+            f(timing_cls, objc2::runtime::Sel::register(c"functionWithControlPoints::::"), c1, c2, c3, c4)
+        };
+        let ease_out = timing(0.2, 0.8, 0.2, 1.0);
+        match how {
+            CardSlide::Hide => {}
+            CardSlide::Enter => {
+                if !reduced {
+                    let anim: *mut AnyObject = msg_send![kf_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                    let values: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
+                    let times: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
+                    for (t, x) in signet_ui::motion::slide_keyframes(from_x, 0.0) {
+                        let _: () = msg_send![values, addObject: ns_number(x)];
+                        let _: () = msg_send![times, addObject: ns_number(t)];
+                    }
+                    let _: () = msg_send![anim, setValues: values];
+                    let _: () = msg_send![anim, setKeyTimes: times];
+                    let _: () = msg_send![anim, setCalculationMode: &*ns_str("linear")];
+                    let _: () = msg_send![anim, setDuration: signet_ui::theme::duration::SLOW.as_secs_f64()];
+                    let _: () = msg_send![layer, addAnimation: anim, forKey: &*ns_str("signet.slide")];
+                }
+                let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
+                let _: () = msg_send![fade, setFromValue: ns_number(if hidden_before { 0.0 } else { cur_a })];
+                let _: () = msg_send![fade, setToValue: ns_number(1.0)];
+                let _: () = msg_send![fade, setDuration: signet_ui::theme::duration::FAST.as_secs_f64()];
+                let _: () = msg_send![fade, setTimingFunction: ease_out];
+                let _: () = msg_send![layer, addAnimation: fade, forKey: &*ns_str("signet.fade")];
+            }
+            CardSlide::Exit => {
+                let dur = if reduced { signet_ui::theme::duration::FAST } else { signet_ui::theme::duration::NORMAL }.as_secs_f64();
+                if !reduced {
+                    let anim: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                    let _: () = msg_send![anim, setFromValue: ns_number(from_x)];
+                    let _: () = msg_send![anim, setToValue: ns_number(dx)];
+                    let _: () = msg_send![anim, setDuration: dur];
+                    let _: () = msg_send![anim, setTimingFunction: ease_out];
+                    let _: () = msg_send![layer, addAnimation: anim, forKey: &*ns_str("signet.slide")];
+                }
+                let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
+                let _: () = msg_send![fade, setFromValue: ns_number(cur_a)];
+                let _: () = msg_send![fade, setToValue: ns_number(0.0)];
+                let _: () = msg_send![fade, setDuration: dur];
+                let _: () = msg_send![fade, setTimingFunction: ease_out];
+                let _: () = msg_send![layer, addAnimation: fade, forKey: &*ns_str("signet.fade")];
+            }
+        }
+        let _: () = msg_send![txn, commit];
+    }
+}
+
+/// Sends a getter selector (no argument) whose return type was checked to be `d`.
+unsafe fn send_f64(obj: *mut AnyObject, sel: objc2::runtime::Sel) -> f64 {
+    unsafe {
+        let f: unsafe extern "C" fn(*mut AnyObject, objc2::runtime::Sel) -> f64 = std::mem::transmute(objc2::ffi::objc_msgSend as *const ());
+        f(obj, sel)
+    }
+}
+
+/// Sends a getter selector (no argument) whose return type was checked to be an object.
+unsafe fn send_obj(obj: *mut AnyObject, sel: objc2::runtime::Sel) -> *mut AnyObject {
+    unsafe {
+        let f: unsafe extern "C" fn(*mut AnyObject, objc2::runtime::Sel) -> *mut AnyObject = std::mem::transmute(objc2::ffi::objc_msgSend as *const ());
+        f(obj, sel)
+    }
+}
+
+/// Reads a CGFloat result of `sel` on `obj` when the object answers it with a `d` return type.
+unsafe fn cgfloat_of(obj: *mut AnyObject, name: &std::ffi::CStr) -> Option<f64> {
+    use objc2::runtime::Sel;
+    use std::ffi::c_char;
+    if obj.is_null() {
+        return None;
+    }
+    unsafe {
+        let sel = Sel::register(name);
+        let ok: bool = msg_send![obj, respondsToSelector: sel];
+        if !ok {
+            return None;
+        }
+        let sig: *mut AnyObject = msg_send![obj, methodSignatureForSelector: sel];
+        if sig.is_null() {
+            return None;
+        }
+        let ty: *const c_char = msg_send![sig, methodReturnType];
+        if ty.is_null() || *ty as u8 != b'd' {
+            return None;
+        }
+        Some(send_f64(obj, sel))
+    }
+}
+
+/// Corner radius of the window of `view` as AppKit draws it, when the system tells (macOS 26.1+ SPI
+/// `-[NSView effectiveCornerRadii]` / `_effectiveCornerRadii` on the content view); None otherwise. `right`: the
+/// card sits on the right side. Every step is guarded: any mismatch gives None.
+pub fn window_corner_radius(view: *mut c_void, right: bool) -> Option<f64> {
+    use objc2::runtime::Sel;
+    use std::ffi::c_char;
+    let win = window_of(view);
+    if win.is_null() {
+        return None;
+    }
+    unsafe {
+        let content: *mut AnyObject = msg_send![win, contentView];
+        if content.is_null() {
+            return None;
+        }
+        let sup: *mut AnyObject = msg_send![content, superview];
+        let (a, b): (&std::ffi::CStr, &std::ffi::CStr) = if right { (c"topRight", c"bottomRight") } else { (c"topLeft", c"bottomLeft") };
+        for obj in [content, sup] {
+            if obj.is_null() {
+                continue;
+            }
+            for name in [c"effectiveCornerRadii", c"_effectiveCornerRadii"] {
+                let sel = Sel::register(name);
+                let ok: bool = msg_send![obj, respondsToSelector: sel];
+                if !ok {
+                    continue;
+                }
+                let sig: *mut AnyObject = msg_send![obj, methodSignatureForSelector: sel];
+                if sig.is_null() {
+                    continue;
+                }
+                let ty: *const c_char = msg_send![sig, methodReturnType];
+                // Only an object result (a boxed radii value) is read; a struct return is not touched blindly.
+                if ty.is_null() || *ty as u8 != b'@' {
+                    continue;
+                }
+                let radii = send_obj(obj, sel);
+                let (Some(x), Some(y)) = (cgfloat_of(radii, a), cgfloat_of(radii, b)) else { continue };
+                let r = x.max(y);
+                signet_ui::trace::mark(|| format!("window corner radius {r} from {}", name.to_string_lossy()));
+                return Some(r);
+            }
+        }
+        let r = cgfloat_of(win, c"_cornerRadius")?;
+        signet_ui::trace::mark(|| format!("window corner radius {r} from _cornerRadius"));
+        Some(r)
+    }
+}

@@ -187,6 +187,9 @@ pub struct SignetTheme {
     /// Floating layers (popovers, menus).
     pub glass: Hsla,
     pub glass_view: Hsla,
+    /// Fill of the floating sidebar over the page: the page is right under it and there is no backdrop blur, so it is
+    /// practically opaque (two `glass_view` layers, the look before the single card fill).
+    pub glass_float: Hsla,
     /// Selection background (`--sel`).
     pub sel: Hsla,
     pub scrim: Hsla,
@@ -260,6 +263,7 @@ impl SignetTheme {
         let sel = with_alpha(tint, if dark { 0.18 } else { 0.14 });
         let glass_alpha = if settings.glass && !hc { if dark { 0.82 } else { 0.78 } } else { 1.0 };
         let glass_view_alpha = if settings.glass && !hc { 0.94 } else { 1.0 };
+        let glass_float_alpha = 1.0 - (1.0 - glass_view_alpha) * (1.0 - glass_view_alpha);
 
         let (text, mut text_2, mut text_3) = if dark {
             (rgba8(236, 236, 240, 1.0), rgba8(165, 164, 173, 1.0), rgba8(144, 143, 152, 1.0))
@@ -322,6 +326,7 @@ impl SignetTheme {
             },
             glass: hsla(with_alpha(surface, glass_alpha)),
             glass_view: hsla(with_alpha(surface, glass_view_alpha)),
+            glass_float: hsla(with_alpha(surface, glass_float_alpha)),
             sel: hsla(sel),
             scrim: hsla(rgba8(0, 0, 0, if dark { 0.36 } else { 0.18 })),
             scrim_peek: hsla(rgba8(0, 0, 0, 0.45)),
@@ -493,6 +498,19 @@ pub fn motion_duration(d: Duration, reduced: bool) -> Duration {
     if reduced { Duration::from_millis(1) } else { d }
 }
 
+/// Corner radius of the app window as the system draws it (macOS only), in points; unset when unknown.
+#[derive(Clone, Copy, Default)]
+pub struct WindowCorner(pub Option<f32>);
+impl Global for WindowCorner {}
+
+pub fn set_window_corner(cx: &mut App, r: Option<f32>) {
+    cx.set_global(WindowCorner(r));
+}
+
+pub fn window_corner(cx: &App) -> Option<f32> {
+    cx.try_global::<WindowCorner>().and_then(|r| r.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -513,6 +531,17 @@ mod tests {
         s.hues = vec![20.0];
         let b = SignetTheme::compute(&s, Scheme::Light).accent;
         assert!((a.h - b.h).abs() > 0.05);
+    }
+
+    #[test]
+    fn glass_float_is_nearly_opaque() {
+        for scheme in [Scheme::Light, Scheme::Dark] {
+            assert!(SignetTheme::compute(&ThemeSettings::default(), scheme).glass_float.a > 0.99);
+        }
+        let s = ThemeSettings { glass: false, ..Default::default() };
+        assert_eq!(SignetTheme::compute(&s, Scheme::Dark).glass_float.a, 1.0);
+        let s = ThemeSettings { high_contrast: true, ..Default::default() };
+        assert_eq!(SignetTheme::compute(&s, Scheme::Light).glass_float.a, 1.0);
     }
 
     #[test]

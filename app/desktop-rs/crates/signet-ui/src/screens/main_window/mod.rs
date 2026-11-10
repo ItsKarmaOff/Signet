@@ -197,11 +197,7 @@ impl Render for MainWindow {
             root = root.child(drag_area(hover, covered));
         }
         if !s.sidebar_visible && !horizontal {
-            let rim = div().id("rim-hover").absolute().top(px(0.0)).bottom(px(0.0)).w(space::GAP).on_hover(|hover, _, cx| {
-                if *hover {
-                    api(cx).set_sidebar_hover(true);
-                }
-            });
+            let rim = div().id("rim-hover").absolute().top(px(0.0)).bottom(px(0.0)).w(space::GAP).on_mouse_move(|_, _, cx| api(cx).set_sidebar_hover(true));
             root = root.child(if side_right { rim.right(px(0.0)) } else { rim.left(px(0.0)) });
         }
         if s.sidebar_visible {
@@ -362,6 +358,10 @@ impl FloatMotion {
     }
 }
 
+/// macOS slides the floating sidebar in the window server (Core Animation, see `mac::card_slide`); the other platforms
+/// animate it with GPUI.
+const NATIVE_SLIDE: bool = cfg!(target_os = "macos");
+
 /// The sidebar shown over the window while it is hidden (route `#sidebar`): slides in from its edge.
 pub struct FloatingSidebar {
     sidebar: Entity<Sidebar>,
@@ -435,6 +435,10 @@ impl Render for FloatingSidebar {
         // No background and no border here: the Sidebar draws the one rounded card.
         let body = div().absolute().size_full().child(self.sidebar.clone());
         let root = div().relative().size_full().overflow_hidden();
+        if NATIVE_SLIDE {
+            // The card is always painted at rest: the window manager slides and fades the window's layer natively.
+            return root.child(body).into_any_element();
+        }
         match self.motion {
             Some(m) if self.shown || !m.done() => {
                 let id = SharedString::from(format!("float-sidebar-{}", self.generation));
@@ -493,7 +497,7 @@ impl Render for FloatingToolbar {
             .left(px(0.0))
             .right(px(0.0))
             .h_full()
-            .rounded(radius::POP)
+            .rounded(px(signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32))
             .bg(t.glass_view)
             .border(px(0.5))
             .border_color(t.border)

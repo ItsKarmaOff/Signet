@@ -411,21 +411,52 @@ impl Manager {
                     } else {
                         self.open_floating(browser, main, s, rect, g, cx);
                     }
-                    self.set_parked(s, parked);
+                    #[cfg(target_os = "macos")]
+                    if s == Surface::Sidebar && !parked {
+                        self.update_window_corner(browser, cx);
+                    }
+                    self.set_parked(browser, s, parked, cx);
                 }
             }
         }
     }
 
-    fn set_parked(&mut self, s: Surface, parked: bool) {
+    fn set_parked(&mut self, browser: &Rc<Browser>, s: Surface, parked: bool, cx: &App) {
         let Some(f) = self.floating.get_mut(&s) else { return };
         if f.parked == parked {
             return;
         }
         f.parked = parked;
+        signet_ui::trace::mark(|| format!("parked {parked} ({})", s.name()));
         #[cfg(target_os = "macos")]
         if let Some(raw) = &f.raw {
             crate::mac::set_ignores_mouse(raw_ptr(raw), parked);
+            // The card is painted at rest; Core Animation slides its layer in and out (no GPUI frame per step).
+            if s == Surface::Sidebar {
+                let (width, right) = (f.rect.width, browser.core.borrow().sidebar_right());
+                let dx = if right { width } else { -width };
+                let how = if parked { crate::mac::CardSlide::Exit } else { crate::mac::CardSlide::Enter };
+                crate::mac::card_slide(raw_ptr(raw), how, dx, signet_ui::motion::reduced_motion(cx));
+            }
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = (browser, cx);
+    }
+
+    /// Measures the app window's corner radius and hands it to the floating sidebar (concentric card). Logged once
+    /// per value.
+    #[cfg(target_os = "macos")]
+    fn update_window_corner(&mut self, browser: &Rc<Browser>, cx: &mut App) {
+        let right = browser.core.borrow().sidebar_right();
+        let r = browser.core.borrow().views.parent.as_ref().and_then(|p| crate::mac::window_corner_radius(raw_ptr(p), right)).map(|r| r as f32);
+        if r == signet_ui::theme::window_corner(cx) {
+            return;
+        }
+        signet_ui::theme::set_window_corner(cx, r);
+        browser.core.borrow().log(format!("window corner radius {r:?}"));
+        eprintln!("signet: window corner radius {r:?}");
+        if let Some(f) = self.floating.get(&Surface::Sidebar) {
+            let _ = f.handle.update(cx, |_, w, _| w.refresh());
         }
     }
 
@@ -487,6 +518,11 @@ impl Manager {
                     if matches!(s, Surface::Sidebar | Surface::Toolbar) {
                         crate::mac::make_borderless(raw_ptr(child));
                     }
+                    // The sidebar card starts parked (hidden, mouse ignored): the reveal that follows slides it in.
+                    if s == Surface::Sidebar {
+                        crate::mac::card_slide(raw_ptr(child), crate::mac::CardSlide::Hide, 0.0, false);
+                        crate::mac::set_ignores_mouse(raw_ptr(child), true);
+                    }
                     crate::mac::add_child(raw_ptr(parent), raw_ptr(child));
                     crate::mac::set_frame(raw_ptr(child), g.x, g.y, g.width, g.height);
                     // A style change and a native frame while the App is borrowed: GPUI must learn the new bounds.
@@ -504,7 +540,7 @@ impl Manager {
                 if let (Some(child), Some(parent)) = (raw_out, b.core.borrow().views.parent) {
                     let _ = signet_web::overlay::attach_child_window(parent, child);
                 }
-                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect, parked: false });
+                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect, parked: cfg!(target_os = "macos") && s == Surface::Sidebar });
                 // The surfaces that missed an event sent before they existed, and the Peek view that lives in the
                 // overlay window.
                 match s {

@@ -9,7 +9,7 @@
 //!   (`h_full()`); the main window places it (left or right, see `Snapshot.settings.sidebar_side`) and animates the
 //!   slide (`UiState.sidebar_slide`). Read the width to lay out with [`Sidebar::current_width`].
 //! - Floating sidebar window (`#sidebar`): `Sidebar::new_floating(window, cx)` (no traffic light padding, hairline
-//!   border and glass fill; pointer enter/leave call `set_sidebar_hover`, held while a drag, a rename, a panel or the
+//!   border and glass fill; pointer moves and window exits call `set_sidebar_hover` (real events only), held while a drag, a rename, a panel or the
 //!   icon form is open).
 //! - Panels hosted by other modules: the sidebar emits [`SidebarEvent`]; the host builds the space form and the
 //!   downloads panel and hands them back with [`Sidebar::set_space_form`] and [`Sidebar::set_downloads_panel`]
@@ -720,6 +720,11 @@ impl Sidebar {
     pub fn on_reveal(&mut self) {
         self.inside = true;
     }
+
+    /// Floating bar: a panel, a rename or a drag holds it open (the pointer may leave meanwhile).
+    fn hover_blocked(&self) -> bool {
+        self.dragging || self.editing.is_some() || self.icon_form.is_some() || self.space_form.is_some() || self.downloads.is_some()
+    }
 }
 
 impl Render for Sidebar {
@@ -1065,7 +1070,7 @@ impl Render for Sidebar {
         let bottom = self.bottom_bar(&snap, &space, width, &t, window, cx);
 
         // Floating bar: moving the mouse out closes it, unless a drag is in progress or a panel is open.
-        let blocked = self.dragging || self.editing.is_some() || self.icon_form.is_some() || self.space_form.is_some() || self.downloads.is_some();
+        let blocked = self.hover_blocked();
         if self.floating && !blocked && !self.inside {
             api(cx).set_sidebar_hover(false);
         }
@@ -1112,7 +1117,6 @@ impl Render for Sidebar {
         let origin = self.root.get().origin;
         let ghosts: Vec<AnyElement> = self.ghosts.iter().enumerate().map(|(i, g)| ghost_row(g, i, origin, &t)).collect();
         let root_cell = self.root.clone();
-        let hover_blocked = blocked;
         div()
             .id("sidebar")
             .relative()
@@ -1123,16 +1127,25 @@ impl Render for Sidebar {
             .flex_none()
             .text_size(t.type_scale.base)
             .text_color(t.text)
-            .when(self.floating, |d| d.rounded(radius::POP).bg(t.glass_view).border(px(0.5)).border_color(t.border))
+            .when(self.floating, |d| {
+                let r = signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32;
+                d.rounded(px(r)).bg(t.glass_float).border(px(0.5)).border_color(t.border)
+            })
             .child(probe(root_cell))
-            .on_hover(cx.listener(move |this, hovered: &bool, _w, cx| {
+            // Real events only: GPUI's `on_hover` also fires at paint time from the last known pointer position, which
+            // stays inside the card after the pointer left the window, and that phantom "enter" kept the bar open.
+            .on_mouse_move(cx.listener(|this, _: &gpui::MouseMoveEvent, _w, cx| {
+                if this.floating && !this.inside {
+                    this.inside = true;
+                    api(cx).set_sidebar_hover(true);
+                }
+            }))
+            .on_mouse_exit(cx.listener(|this, _: &gpui::MouseExitEvent, _w, cx| {
                 if !this.floating {
                     return;
                 }
-                this.inside = *hovered;
-                if *hovered {
-                    api(cx).set_sidebar_hover(true);
-                } else if !hover_blocked && !this.dragging {
+                this.inside = false;
+                if !this.hover_blocked() && !cx.has_active_drag() {
                     api(cx).set_sidebar_hover(false);
                 }
             }))
@@ -1142,7 +1155,7 @@ impl Render for Sidebar {
             .child(head)
             .child({
                 // Edge fades where the list continues (CSS `scroll-edges`, 12 px).
-                let color = if self.floating { t.glass_view } else { t.bg };
+                let color = if self.floating { t.glass_float } else { t.bg };
                 let (off, max) = (self.scroll.offset().y, self.scroll.max_offset().y);
                 let fades = if t.settings.high_contrast { [None, None] } else { crate::widgets::vertical_fades(f32::from(off), f32::from(max), 12.0, color) };
                 div().relative().flex_1().min_h_0().flex().flex_col().px(px(GAP)).child(scroll).children(fades.into_iter().flatten())
@@ -1418,7 +1431,7 @@ impl Sidebar {
             _window.request_animation_frame();
         }
         let x = self.strip_swipe.offset();
-        let fade_color = if self.floating { t.glass_view } else { t.bg };
+        let fade_color = if self.floating { t.glass_float } else { t.bg };
         let mut track = div().relative().flex().flex_row().left(px(-(shown as f32) * strip_w + x));
         for (pi, chunk) in snap.spaces.chunks(per).enumerate() {
             let mut page = div().flex().flex_none().justify_center().w(px(strip_w));

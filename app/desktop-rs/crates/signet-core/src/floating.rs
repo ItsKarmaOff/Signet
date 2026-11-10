@@ -74,6 +74,18 @@ pub fn float_pose(start: f32, target: f32, eased: f32) -> (f32, f32) {
     (offset, opacity)
 }
 
+/// Radius of the floating card (Electron `--r-pop`) when nothing better is known.
+pub const CARD_RADIUS: f64 = 14.0;
+
+/// Radius of a card inset by `FLOAT_INSET` in a window whose corners have `window_radius`: concentric with them,
+/// never tighter than `CARD_RADIUS`. Absurd values (an SPI that changed meaning) are ignored.
+pub fn card_radius(window_radius: Option<f64>) -> f64 {
+    match window_radius {
+        Some(r) if r.is_finite() && r > 0.0 && r <= 64.0 => (r - FLOAT_INSET).max(CARD_RADIUS),
+        _ => CARD_RADIUS,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,6 +98,15 @@ mod tests {
     fn rect_left_and_right() {
         assert_eq!(sidebar_rect(1200., 800., 240., false), Rect::new(6., 6., 240., 788.));
         assert_eq!(sidebar_rect(1200., 800., 240., true).x, 1200. - 6. - 240.);
+    }
+
+    #[test]
+    fn card_radius_follows_the_window() {
+        assert_eq!(card_radius(None), 14.0);
+        for r in [10.0, 16.0, 20.0, 0.0, f64::NAN, 500.0] {
+            assert_eq!(card_radius(Some(r)), 14.0, "{r}");
+        }
+        assert_eq!(card_radius(Some(26.0)), 20.0);
     }
 
     #[test]

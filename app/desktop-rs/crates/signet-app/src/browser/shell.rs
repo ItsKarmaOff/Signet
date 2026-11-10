@@ -11,6 +11,7 @@ const HIDE_DELAY: u64 = 250;
 impl Core {
     fn hide_floating(&mut self) {
         self.hover.sidebar = false;
+        self.hover.sidebar_leave.cancel();
         self.hover.toolbar = false;
     }
 
@@ -103,6 +104,7 @@ impl Core {
 
     /// The mouse touches the window's left edge (true) or left the floating sidebar (false).
     pub fn set_sidebar_hover(&mut self, hover: bool) {
+        signet_ui::trace::mark(|| format!("hover {hover} shown={}", self.hover.sidebar));
         if hover {
             self.hover.sidebar_leave.cancel();
             if self.sidebar_on() || self.horizontal() || self.ov.payload.is_some() || self.hover.sidebar {
@@ -135,6 +137,7 @@ impl Core {
         match what {
             Later::UndoExpire(id) => self.undo_expired(id),
             Later::SidebarLeave(g) => {
+                signet_ui::trace::mark(|| format!("leave fired g={g:?}"));
                 if self.hover.sidebar_leave.fire(g) && self.hover.sidebar {
                     self.hover.sidebar = false;
                     self.changed_view();
