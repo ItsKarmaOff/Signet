@@ -263,6 +263,17 @@ pub fn prefers_reduced_motion() -> bool {
     }
 }
 
+/// The system setting "Reduce transparency".
+pub fn prefers_reduced_transparency() -> bool {
+    unsafe {
+        let ws: *mut AnyObject = msg_send![objc2::class!(NSWorkspace), sharedWorkspace];
+        if ws.is_null() {
+            return false;
+        }
+        msg_send![ws, accessibilityDisplayShouldReduceTransparency]
+    }
+}
+
 /// Work area (menu bar and Dock excluded) of every screen as `(x, y, width, height)` in the GPUI global coordinates:
 /// top-left origin of the primary screen. GPUI's own display bounds are local to each display.
 pub fn work_areas() -> Vec<(f64, f64, f64, f64)> {
@@ -372,9 +383,226 @@ unsafe fn key_value(layer: *mut AnyObject, path: &str) -> Option<f64> {
     }
 }
 
-/// Slides and fades the GPUI layer of a floating card in the window server (Core Animation), so the motion costs no
-/// GPUI frame. `dx`: offset of the parked card in points (minus the width on the left, plus on the right).
-pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool) {
+// NSWindowBelow (NSWindowOrderingMode).
+const NS_WINDOW_BELOW: isize = -1;
+// NSViewWidthSizable | NSViewHeightSizable (NSAutoresizingMaskOptions).
+const NS_VIEW_WIDTH_HEIGHT_SIZABLE: usize = 2 | 16;
+// NSVisualEffectMaterialUnderWindowBackground, NSVisualEffectBlendingModeBehindWindow, NSVisualEffectStateActive.
+const NS_VE_MATERIAL_UNDER_WINDOW_BACKGROUND: isize = 21;
+const NS_VE_BLENDING_BEHIND_WINDOW: isize = 0;
+const NS_VE_STATE_ACTIVE: isize = 1;
+// NSImageResizingModeStretch.
+const NS_IMAGE_RESIZING_STRETCH: isize = 1;
+const CARD_BLUR_ID: &str = "signet.card-blur";
+
+/// The card's blur view (sibling below the GPUI view), if installed.
+unsafe fn card_blur_view(view: *mut AnyObject) -> *mut AnyObject {
+    if view.is_null() {
+        return std::ptr::null_mut();
+    }
+    unsafe {
+        let sup: *mut AnyObject = msg_send![view, superview];
+        if sup.is_null() {
+            return std::ptr::null_mut();
+        }
+        let subs: *mut AnyObject = msg_send![sup, subviews];
+        if subs.is_null() {
+            return std::ptr::null_mut();
+        }
+        let count: usize = msg_send![subs, count];
+        let want = ns_str(CARD_BLUR_ID);
+        for i in 0..count {
+            let sub: *mut AnyObject = msg_send![subs, objectAtIndex: i];
+            if sub.is_null() {
+                continue;
+            }
+            let id: *mut AnyObject = msg_send![sub, identifier];
+            if !id.is_null() {
+                let same: bool = msg_send![id, isEqualToString: &*want];
+                if same {
+                    return sub;
+                }
+            }
+        }
+        std::ptr::null_mut()
+    }
+}
+
+/// Sets the rounded mask image of a blur view: a stretchable rounded rect (cap insets = radius), the documented way to
+/// clip a visual effect view.
+unsafe fn blur_set_mask(blur: *mut AnyObject, radius: f64) {
+    use objc2::runtime::Bool;
+    use objc2_foundation::NSEdgeInsets;
+    unsafe {
+        let side = signet_core::floating::blur_mask_side(radius);
+        let r = (side - 1.0) / 2.0;
+        let block = block2::RcBlock::new(move |rect: NSRect| -> Bool {
+            let color: *mut AnyObject = msg_send![objc2::class!(NSColor), blackColor];
+            let _: () = msg_send![color, set];
+            let path: *mut AnyObject = msg_send![objc2::class!(NSBezierPath), bezierPathWithRoundedRect: rect, xRadius: r, yRadius: r];
+            let _: () = msg_send![path, fill];
+            Bool::YES
+        });
+        let image: *mut AnyObject = msg_send![objc2::class!(NSImage), imageWithSize: NSSize::new(side, side), flipped: false, drawingHandler: &*block];
+        if image.is_null() {
+            return;
+        }
+        let _: () = msg_send![image, setCapInsets: NSEdgeInsets { top: r, left: r, bottom: r, right: r }];
+        let _: () = msg_send![image, setResizingMode: NS_IMAGE_RESIZING_STRETCH];
+        let _: () = msg_send![blur, setMaskImage: image];
+    }
+}
+
+/// Installs the card's blur view under the GPUI view (hidden, alpha 0), once. Returns whether a blur view is present
+/// afterwards. `radius`: corner radius of the card in points.
+pub fn card_blur_install(view: *mut c_void, radius: f64) -> bool {
+    use objc2::runtime::AnyClass;
+    let v = view as *mut AnyObject;
+    if v.is_null() {
+        return false;
+    }
+    unsafe {
+        let existing = card_blur_view(v);
+        if !existing.is_null() {
+            blur_set_mask(existing, radius);
+            return true;
+        }
+        let sup: *mut AnyObject = msg_send![v, superview];
+        if sup.is_null() {
+            return false;
+        }
+        let frame: NSRect = msg_send![sup, bounds];
+        // GPUI's own subclass: same material, same tint and saturation stripping as the docked sidebar's blur.
+        let blur: *mut AnyObject = if let Some(cls) = AnyClass::get(c"BlurredView") {
+            let a: *mut AnyObject = msg_send![cls, alloc];
+            msg_send![a, initWithFrame: frame]
+        } else {
+            signet_ui::trace::mark(|| "card blur: BlurredView class missing, plain NSVisualEffectView".into());
+            let a: *mut AnyObject = msg_send![objc2::class!(NSVisualEffectView), alloc];
+            let b: *mut AnyObject = msg_send![a, initWithFrame: frame];
+            if !b.is_null() {
+                let _: () = msg_send![b, setMaterial: NS_VE_MATERIAL_UNDER_WINDOW_BACKGROUND];
+                let _: () = msg_send![b, setBlendingMode: NS_VE_BLENDING_BEHIND_WINDOW];
+                let _: () = msg_send![b, setState: NS_VE_STATE_ACTIVE];
+            }
+            b
+        };
+        if blur.is_null() {
+            return false;
+        }
+        // Hidden before it joins the view tree: no blurred rectangle can be committed. Never set `appearance`: the view
+        // inherits NSApp's, like the docked sidebar.
+        let _: () = msg_send![blur, setIdentifier: &*ns_str(CARD_BLUR_ID)];
+        let _: () = msg_send![blur, setAutoresizingMask: NS_VIEW_WIDTH_HEIGHT_SIZABLE];
+        let _: () = msg_send![blur, setWantsLayer: true];
+        let _: () = msg_send![blur, setAlphaValue: 0.0f64];
+        let _: () = msg_send![blur, setHidden: true];
+        blur_set_mask(blur, radius);
+        if let Some(txn) = AnyClass::get(c"CATransaction") {
+            let _: () = msg_send![txn, begin];
+            let _: () = msg_send![txn, setDisableActions: true];
+            let _: () = msg_send![sup, addSubview: blur, positioned: NS_WINDOW_BELOW, relativeTo: v];
+            let _: () = msg_send![txn, commit];
+        } else {
+            let _: () = msg_send![sup, addSubview: blur, positioned: NS_WINDOW_BELOW, relativeTo: v];
+        }
+        // The superview holds the only lasting reference now.
+        let _: () = msg_send![blur, release];
+        signet_ui::trace::mark(|| format!("card blur installed r={radius}"));
+        true
+    }
+}
+
+/// Rebuilds the rounded mask of the card's blur view (the radius follows the window corner).
+pub fn card_blur_shape(view: *mut c_void, radius: f64) {
+    unsafe {
+        let bv = card_blur_view(view as *mut AnyObject);
+        if !bv.is_null() {
+            blur_set_mask(bv, radius);
+        }
+    }
+}
+
+/// Removes the card's blur view.
+pub fn card_blur_remove(view: *mut c_void) {
+    unsafe {
+        let bv = card_blur_view(view as *mut AnyObject);
+        if !bv.is_null() {
+            let _: () = msg_send![bv, removeFromSuperview];
+            signet_ui::trace::mark(|| "card blur removed".into());
+        }
+    }
+}
+
+/// Cold open: the blur view joins the slide and fade already running on the GPUI layer, once the window presented its
+/// first frame. No-op when the card is parked.
+pub fn card_blur_join(view: *mut c_void) {
+    use objc2::runtime::AnyClass;
+    let v = view as *mut AnyObject;
+    if v.is_null() {
+        return;
+    }
+    unsafe {
+        let bv = card_blur_view(v);
+        if bv.is_null() {
+            return;
+        }
+        let a: f64 = msg_send![v, alphaValue];
+        if a < 0.5 {
+            return;
+        }
+        let layer: *mut AnyObject = msg_send![v, layer];
+        let blayer: *mut AnyObject = msg_send![bv, layer];
+        let txn = AnyClass::get(c"CATransaction");
+        if let Some(t) = txn {
+            let _: () = msg_send![t, begin];
+            let _: () = msg_send![t, setDisableActions: true];
+        }
+        let _: () = msg_send![bv, setHidden: false];
+        let _: () = msg_send![bv, setAlphaValue: 1.0f64];
+        if !layer.is_null() && !blayer.is_null() {
+            for key in ["signet.slide", "signet.fade"] {
+                let anim: *mut AnyObject = msg_send![layer, animationForKey: &*ns_str(key)];
+                if !anim.is_null() {
+                    let _: () = msg_send![blayer, addAnimation: anim, forKey: &*ns_str(key)];
+                }
+            }
+        }
+        if let Some(t) = txn {
+            let _: () = msg_send![t, commit];
+        }
+        signet_ui::trace::mark(|| "card blur joined".into());
+    }
+}
+
+/// After an exit is over: hides the blur view if the card is still parked. No-op when it was revealed again.
+pub fn card_blur_park(view: *mut c_void) {
+    let v = view as *mut AnyObject;
+    if v.is_null() {
+        return;
+    }
+    unsafe {
+        let bv = card_blur_view(v);
+        if bv.is_null() {
+            return;
+        }
+        let a: f64 = msg_send![v, alphaValue];
+        if a >= 0.5 {
+            return;
+        }
+        let blayer: *mut AnyObject = msg_send![bv, layer];
+        if !blayer.is_null() {
+            let _: () = msg_send![blayer, removeAnimationForKey: &*ns_str("signet.slide")];
+            let _: () = msg_send![blayer, removeAnimationForKey: &*ns_str("signet.fade")];
+        }
+        let _: () = msg_send![bv, setHidden: true];
+    }
+}
+
+/// Slides and fades the GPUI layer of a floating card (and its blur view when `blur`) in the window server (Core
+/// Animation), so the motion costs no GPUI frame. `dx`: offset of the parked card in points (minus the width on the
+/// left, plus on the right).
+pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool, blur: bool) {
     use objc2::runtime::AnyClass;
     if view.is_null() {
         return;
@@ -392,65 +620,89 @@ pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool) {
         }
         let _: () = msg_send![txn, begin];
         let _: () = msg_send![txn, setDisableActions: true];
-        // Where an interrupted motion stands right now.
+        // Where an interrupted motion stands right now (read once, shared by both targets).
         let pres: *mut AnyObject = msg_send![layer, presentationLayer];
         let src = if pres.is_null() { layer } else { pres };
         let cur_x = key_value(src, "transform.translation.x").unwrap_or(0.0);
-        let cur_a = key_value(src, "opacity").unwrap_or(1.0);
-        let hidden_before = cur_a <= 0.001;
-        let _: () = msg_send![layer, removeAnimationForKey: &*ns_str("signet.slide")];
-        let _: () = msg_send![layer, removeAnimationForKey: &*ns_str("signet.fade")];
+        // The GPUI view first, then the blur view.
+        let mut targets: Vec<(*mut AnyObject, *mut AnyObject)> = vec![(v, layer)];
+        let bv = card_blur_view(v);
+        if !bv.is_null() {
+            let bl: *mut AnyObject = msg_send![bv, layer];
+            if blur && how != CardSlide::Hide && !bl.is_null() {
+                let _: () = msg_send![bv, setHidden: false];
+                targets.push((bv, bl));
+            } else {
+                if !bl.is_null() {
+                    let _: () = msg_send![bl, removeAnimationForKey: &*ns_str("signet.slide")];
+                    let _: () = msg_send![bl, removeAnimationForKey: &*ns_str("signet.fade")];
+                }
+                let _: () = msg_send![bv, setAlphaValue: 0.0f64];
+                let _: () = msg_send![bv, setHidden: true];
+            }
+        }
         let visible = how == CardSlide::Enter;
-        // NSView alpha is the layer opacity: the model value is the end state, AppKit keeps the frame and position.
-        let _: () = msg_send![v, setAlphaValue: if visible { 1.0f64 } else { 0.0f64 }];
-        let from_x = if how == CardSlide::Enter && hidden_before && cur_x.abs() < 0.5 { dx } else { cur_x };
-        signet_ui::trace::mark(|| format!("native slide {how:?} from {from_x:.0} dx {dx:.0} alpha {cur_a:.2} reduced {reduced}"));
         // `+[CAMediaTimingFunction functionWithControlPoints::::]`: unnamed parts, sent by hand.
         let timing = |c1: f32, c2: f32, c3: f32, c4: f32| -> *mut AnyObject {
             let f: unsafe extern "C" fn(*const AnyClass, objc2::runtime::Sel, f32, f32, f32, f32) -> *mut AnyObject = std::mem::transmute(objc2::ffi::objc_msgSend as *const ());
             f(timing_cls, objc2::runtime::Sel::register(c"functionWithControlPoints::::"), c1, c2, c3, c4)
         };
         let ease_out = timing(0.2, 0.8, 0.2, 1.0);
-        match how {
-            CardSlide::Hide => {}
-            CardSlide::Enter => {
-                if !reduced {
-                    let anim: *mut AnyObject = msg_send![kf_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
-                    let values: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
-                    let times: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
-                    for (t, x) in signet_ui::motion::slide_keyframes(from_x, 0.0) {
-                        let _: () = msg_send![values, addObject: ns_number(x)];
-                        let _: () = msg_send![times, addObject: ns_number(t)];
-                    }
-                    let _: () = msg_send![anim, setValues: values];
-                    let _: () = msg_send![anim, setKeyTimes: times];
-                    let _: () = msg_send![anim, setCalculationMode: &*ns_str("linear")];
-                    let _: () = msg_send![anim, setDuration: signet_ui::theme::duration::SLOW.as_secs_f64()];
-                    let _: () = msg_send![layer, addAnimation: anim, forKey: &*ns_str("signet.slide")];
-                }
-                let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
-                let _: () = msg_send![fade, setFromValue: ns_number(if hidden_before { 0.0 } else { cur_a })];
-                let _: () = msg_send![fade, setToValue: ns_number(1.0)];
-                let _: () = msg_send![fade, setDuration: signet_ui::theme::duration::FAST.as_secs_f64()];
-                let _: () = msg_send![fade, setTimingFunction: ease_out];
-                let _: () = msg_send![layer, addAnimation: fade, forKey: &*ns_str("signet.fade")];
+        let mut from_x = cur_x;
+        for (i, &(view_i, layer_i)) in targets.iter().enumerate() {
+            let pres_i: *mut AnyObject = msg_send![layer_i, presentationLayer];
+            let src_i = if pres_i.is_null() { layer_i } else { pres_i };
+            let cur_a = key_value(src_i, "opacity").unwrap_or(1.0);
+            let hidden_before = cur_a <= 0.001;
+            let _: () = msg_send![layer_i, removeAnimationForKey: &*ns_str("signet.slide")];
+            let _: () = msg_send![layer_i, removeAnimationForKey: &*ns_str("signet.fade")];
+            // NSView alpha is the layer opacity: the model value is the end state, AppKit keeps the frame and position.
+            let _: () = msg_send![view_i, setAlphaValue: if visible { 1.0f64 } else { 0.0f64 }];
+            if i == 0 {
+                from_x = if how == CardSlide::Enter && hidden_before && cur_x.abs() < 0.5 { dx } else { cur_x };
+                signet_ui::trace::mark(|| format!("native slide {how:?} from {from_x:.0} dx {dx:.0} alpha {cur_a:.2} reduced {reduced} blur {}", targets.len() > 1));
             }
-            CardSlide::Exit => {
-                let dur = if reduced { signet_ui::theme::duration::FAST } else { signet_ui::theme::duration::NORMAL }.as_secs_f64();
-                if !reduced {
-                    let anim: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
-                    let _: () = msg_send![anim, setFromValue: ns_number(from_x)];
-                    let _: () = msg_send![anim, setToValue: ns_number(dx)];
-                    let _: () = msg_send![anim, setDuration: dur];
-                    let _: () = msg_send![anim, setTimingFunction: ease_out];
-                    let _: () = msg_send![layer, addAnimation: anim, forKey: &*ns_str("signet.slide")];
+            match how {
+                CardSlide::Hide => {}
+                CardSlide::Enter => {
+                    if !reduced {
+                        let anim: *mut AnyObject = msg_send![kf_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                        let values: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
+                        let times: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
+                        for (t, x) in signet_ui::motion::slide_keyframes(from_x, 0.0) {
+                            let _: () = msg_send![values, addObject: ns_number(x)];
+                            let _: () = msg_send![times, addObject: ns_number(t)];
+                        }
+                        let _: () = msg_send![anim, setValues: values];
+                        let _: () = msg_send![anim, setKeyTimes: times];
+                        let _: () = msg_send![anim, setCalculationMode: &*ns_str("linear")];
+                        let _: () = msg_send![anim, setDuration: signet_ui::theme::duration::SLOW.as_secs_f64()];
+                        let _: () = msg_send![layer_i, addAnimation: anim, forKey: &*ns_str("signet.slide")];
+                    }
+                    let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
+                    let _: () = msg_send![fade, setFromValue: ns_number(if hidden_before { 0.0 } else { cur_a })];
+                    let _: () = msg_send![fade, setToValue: ns_number(1.0)];
+                    let _: () = msg_send![fade, setDuration: signet_ui::theme::duration::FAST.as_secs_f64()];
+                    let _: () = msg_send![fade, setTimingFunction: ease_out];
+                    let _: () = msg_send![layer_i, addAnimation: fade, forKey: &*ns_str("signet.fade")];
                 }
-                let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
-                let _: () = msg_send![fade, setFromValue: ns_number(cur_a)];
-                let _: () = msg_send![fade, setToValue: ns_number(0.0)];
-                let _: () = msg_send![fade, setDuration: dur];
-                let _: () = msg_send![fade, setTimingFunction: ease_out];
-                let _: () = msg_send![layer, addAnimation: fade, forKey: &*ns_str("signet.fade")];
+                CardSlide::Exit => {
+                    let dur = if reduced { signet_ui::theme::duration::FAST } else { signet_ui::theme::duration::NORMAL }.as_secs_f64();
+                    if !reduced {
+                        let anim: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                        let _: () = msg_send![anim, setFromValue: ns_number(from_x)];
+                        let _: () = msg_send![anim, setToValue: ns_number(dx)];
+                        let _: () = msg_send![anim, setDuration: dur];
+                        let _: () = msg_send![anim, setTimingFunction: ease_out];
+                        let _: () = msg_send![layer_i, addAnimation: anim, forKey: &*ns_str("signet.slide")];
+                    }
+                    let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
+                    let _: () = msg_send![fade, setFromValue: ns_number(cur_a)];
+                    let _: () = msg_send![fade, setToValue: ns_number(0.0)];
+                    let _: () = msg_send![fade, setDuration: dur];
+                    let _: () = msg_send![fade, setTimingFunction: ease_out];
+                    let _: () = msg_send![layer_i, addAnimation: fade, forKey: &*ns_str("signet.fade")];
+                }
             }
         }
         let _: () = msg_send![txn, commit];

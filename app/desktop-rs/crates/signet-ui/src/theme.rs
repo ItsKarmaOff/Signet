@@ -6,7 +6,8 @@
 //! Vibrancy: GPUI offers `WindowBackgroundAppearance::Blurred` (macOS vibrancy, Wayland/KDE blur) per window,
 //! but no per-element backdrop blur (CSS `backdrop-filter`). `bg` is therefore translucent (alpha 0.72) and the
 //! window must be opened with [`SignetTheme::window_background`]; floating layers (`glass`) are drawn with high
-//! alpha without blurring what is behind them.
+//! alpha without blurring what is behind them. The floating sidebar is the exception on macOS: it has its own native
+//! blur under the card and uses the translucent `bg` (see [`SignetTheme::float_fill`]).
 
 use crate::color::*;
 use gpui::{App, BoxShadow, Global, Hsla, Pixels, Rgba, WindowAppearance, WindowBackgroundAppearance, point, px};
@@ -187,8 +188,8 @@ pub struct SignetTheme {
     /// Floating layers (popovers, menus).
     pub glass: Hsla,
     pub glass_view: Hsla,
-    /// Fill of the floating sidebar over the page: the page is right under it and there is no backdrop blur, so it is
-    /// practically opaque (two `glass_view` layers, the look before the single card fill).
+    /// Fill of the floating sidebar over the page when there is no backdrop blur (Linux, Windows, macOS without
+    /// translucency): practically opaque (two `glass_view` layers). On macOS with translucency see `float_fill`.
     pub glass_float: Hsla,
     /// Selection background (`--sel`).
     pub sel: Hsla,
@@ -355,6 +356,12 @@ impl SignetTheme {
         if self.settings.glass && !self.settings.high_contrast { WindowBackgroundAppearance::Blurred } else { WindowBackgroundAppearance::Opaque }
     }
 
+    /// Fill of the floating sidebar card. Over a real blur (macOS, `blurred`) it is the docked sidebar's translucent
+    /// `bg`; otherwise the page is right under it, unblurred, so it stays practically opaque (`glass_float`).
+    pub fn float_fill(&self, blurred: bool) -> Hsla {
+        if blurred && self.settings.glass && !self.settings.high_contrast { self.bg } else { self.glass_float }
+    }
+
     /// Text colour for a given tint amount of the muted foreground.
     pub fn text_dim(&self, a: f32) -> Hsla {
         let mut c = self.text;
@@ -511,6 +518,19 @@ pub fn window_corner(cx: &App) -> Option<f32> {
     cx.try_global::<WindowCorner>().and_then(|r| r.0)
 }
 
+/// The floating sidebar window has a behind-window blur under its card (macOS, set by the window manager).
+#[derive(Clone, Copy, Default)]
+pub struct FloatBlur(pub bool);
+impl Global for FloatBlur {}
+
+pub fn set_float_blur(cx: &mut App, on: bool) {
+    cx.set_global(FloatBlur(on));
+}
+
+pub fn float_blur(cx: &App) -> bool {
+    cx.try_global::<FloatBlur>().is_some_and(|b| b.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -531,6 +551,21 @@ mod tests {
         s.hues = vec![20.0];
         let b = SignetTheme::compute(&s, Scheme::Light).accent;
         assert!((a.h - b.h).abs() > 0.05);
+    }
+
+    #[test]
+    fn float_fill_is_bg_only_over_a_blur() {
+        for scheme in [Scheme::Light, Scheme::Dark] {
+            let t = SignetTheme::compute(&ThemeSettings::default(), scheme);
+            assert_eq!(t.float_fill(true), t.bg);
+            assert!(t.float_fill(true).a < 0.8);
+            assert_eq!(t.float_fill(false), t.glass_float);
+            let off = SignetTheme::compute(&ThemeSettings { glass: false, ..Default::default() }, scheme);
+            assert_eq!(off.float_fill(true), off.glass_float);
+            assert_eq!(off.float_fill(true).a, 1.0);
+            let hc = SignetTheme::compute(&ThemeSettings { high_contrast: true, ..Default::default() }, scheme);
+            assert_eq!(hc.float_fill(true), hc.glass_float);
+        }
     }
 
     #[test]

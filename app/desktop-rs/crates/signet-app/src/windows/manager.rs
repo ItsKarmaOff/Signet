@@ -22,6 +22,20 @@ struct Floating {
     rect: Rect,
     /// Open but waiting: transparent and ignoring the mouse (the floating sidebar on macOS).
     parked: bool,
+    /// macOS: the floating sidebar's blur view is installed under the card.
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    blur: bool,
+    /// macOS: the window presented its first frame (the blur may show from then on).
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    presented: Rc<std::cell::Cell<bool>>,
+}
+
+/// The floating sidebar's blur: translucency on, no high contrast, no system Reduce transparency (macOS).
+#[cfg(target_os = "macos")]
+fn float_blur_wanted_now(cx: &App) -> bool {
+    use signet_ui::theme::ThemeExt as _;
+    let t = &cx.signet().settings;
+    signet_core::floating::float_blur_wanted(t.glass, t.high_contrast, crate::mac::prefers_reduced_transparency())
 }
 
 #[derive(Default)]
@@ -421,7 +435,7 @@ impl Manager {
         }
     }
 
-    fn set_parked(&mut self, browser: &Rc<Browser>, s: Surface, parked: bool, cx: &App) {
+    fn set_parked(&mut self, browser: &Rc<Browser>, s: Surface, parked: bool, cx: &mut App) {
         let Some(f) = self.floating.get_mut(&s) else { return };
         if f.parked == parked {
             return;
@@ -429,18 +443,60 @@ impl Manager {
         f.parked = parked;
         signet_ui::trace::mark(|| format!("parked {parked} ({})", s.name()));
         #[cfg(target_os = "macos")]
-        if let Some(raw) = &f.raw {
-            crate::mac::set_ignores_mouse(raw_ptr(raw), parked);
+        if let Some(raw) = f.raw {
+            crate::mac::set_ignores_mouse(raw_ptr(&raw), parked);
             // The card is painted at rest; Core Animation slides its layer in and out (no GPUI frame per step).
             if s == Surface::Sidebar {
                 let (width, right) = (f.rect.width, browser.core.borrow().sidebar_right());
+                if !parked {
+                    Self::ensure_card_blur(f, &raw, cx);
+                    if f.blur {
+                        let radius = signet_core::floating::card_radius(signet_ui::theme::window_corner(cx).map(f64::from));
+                        crate::mac::card_blur_shape(raw_ptr(&raw), radius);
+                    }
+                }
                 let dx = if right { width } else { -width };
                 let how = if parked { crate::mac::CardSlide::Exit } else { crate::mac::CardSlide::Enter };
-                crate::mac::card_slide(raw_ptr(raw), how, dx, signet_ui::motion::reduced_motion(cx));
+                let reduced = signet_ui::motion::reduced_motion(cx);
+                let drive = f.blur && f.presented.get();
+                crate::mac::card_slide(raw_ptr(&raw), how, dx, reduced, drive);
+                if parked && f.blur {
+                    // Hide the blur once the exit is over (a re-reveal meanwhile makes this a no-op).
+                    let base = if reduced { signet_ui::theme::duration::FAST } else { signet_ui::theme::duration::NORMAL };
+                    let dur = base + Duration::from_millis(50);
+                    let handle = f.handle;
+                    cx.spawn(async move |cx| {
+                        cx.background_executor().timer(dur).await;
+                        let _ = handle.update(cx, |_, w, _| {
+                            if let Ok(hw) = w.window_handle() {
+                                crate::mac::card_blur_park(raw_ptr(&hw.as_raw()));
+                            }
+                        });
+                    })
+                    .detach();
+                }
             }
         }
         #[cfg(not(target_os = "macos"))]
         let _ = (browser, cx);
+    }
+
+    /// Follows a Transparency / Reduce transparency change while the parked window lives on.
+    #[cfg(target_os = "macos")]
+    fn ensure_card_blur(f: &mut Floating, raw: &RawWindowHandle, cx: &mut App) {
+        let want = float_blur_wanted_now(cx);
+        let ptr = raw_ptr(raw);
+        if want && !f.blur {
+            let radius = signet_core::floating::card_radius(signet_ui::theme::window_corner(cx).map(f64::from));
+            f.blur = crate::mac::card_blur_install(ptr, radius);
+        } else if !want && f.blur {
+            crate::mac::card_blur_remove(ptr);
+            f.blur = false;
+        }
+        if signet_ui::theme::float_blur(cx) != f.blur {
+            signet_ui::theme::set_float_blur(cx, f.blur);
+            let _ = f.handle.update(cx, |_, w, _| w.refresh());
+        }
     }
 
     /// Measures the app window's corner radius and hands it to the floating sidebar (concentric card). Logged once
@@ -484,6 +540,16 @@ impl Manager {
         let t_start = std::time::Instant::now();
         let mut raw_out: Option<RawWindowHandle> = None;
         let raw_cell = std::cell::Cell::new(None::<RawWindowHandle>);
+        #[cfg(target_os = "macos")]
+        let want_blur = s == Surface::Sidebar && float_blur_wanted_now(cx);
+        #[cfg(not(target_os = "macos"))]
+        let want_blur = false;
+        if s == Surface::Sidebar {
+            signet_ui::theme::set_float_blur(cx, want_blur);
+        }
+        #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
+        let mut blur = false;
+        let presented = Rc::new(std::cell::Cell::new(!cfg!(target_os = "macos")));
         let opened = cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(Bounds::new(point(px(g.x as f32), px(g.y as f32)), size(px(g.width.max(1.0) as f32), px(g.height.max(1.0) as f32))))),
@@ -522,7 +588,15 @@ impl Manager {
                     }
                     // The sidebar card starts parked (hidden, mouse ignored): the reveal that follows slides it in.
                     if s == Surface::Sidebar {
-                        crate::mac::card_slide(raw_ptr(child), crate::mac::CardSlide::Hide, 0.0, false);
+                        crate::mac::card_slide(raw_ptr(child), crate::mac::CardSlide::Hide, 0.0, false, false);
+                        if want_blur {
+                            let r = signet_core::floating::card_radius(signet_ui::theme::window_corner(cx).map(f64::from));
+                            blur = crate::mac::card_blur_install(raw_ptr(child), r);
+                            if !blur {
+                                signet_ui::theme::set_float_blur(cx, false);
+                                let _ = h.update(cx, |_, w, _| w.refresh());
+                            }
+                        }
                         crate::mac::set_ignores_mouse(raw_ptr(child), true);
                     }
                     crate::mac::add_child(raw_ptr(parent), raw_ptr(child));
@@ -533,6 +607,20 @@ impl Manager {
                     if take_focus {
                         crate::mac::make_key(raw_ptr(child));
                     }
+                    if s == Surface::Sidebar && blur {
+                        // The blur may show from the first presented frame on (no empty frosted card before the content).
+                        let p = presented.clone();
+                        let _ = h.update(cx, |_, w, _| {
+                            w.on_next_frame(move |w, _| {
+                                w.on_next_frame(move |w, _| {
+                                    p.set(true);
+                                    if let Ok(hw) = w.window_handle() {
+                                        crate::mac::card_blur_join(raw_ptr(&hw.as_raw()));
+                                    }
+                                });
+                            });
+                        });
+                    }
                 }
                 let _ = (&main, IS_MAC);
                 signet_ui::trace::mark(|| format!("open {} window {open_ms:.1} ms total {:.1} ms", s.name(), t_start.elapsed().as_secs_f64() * 1000.0));
@@ -542,7 +630,7 @@ impl Manager {
                 if let (Some(child), Some(parent)) = (raw_out, b.core.borrow().views.parent) {
                     let _ = signet_web::overlay::attach_child_window(parent, child);
                 }
-                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect, parked: cfg!(target_os = "macos") && s == Surface::Sidebar });
+                self.floating.insert(s, Floating { handle: h.into(), raw: raw_out, rect, parked: cfg!(target_os = "macos") && s == Surface::Sidebar, blur, presented });
                 // The surfaces that missed an event sent before they existed, and the Peek view that lives in the
                 // overlay window.
                 match s {

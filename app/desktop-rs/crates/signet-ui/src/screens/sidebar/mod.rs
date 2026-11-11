@@ -731,6 +731,8 @@ impl Render for Sidebar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let _span = if self.floating { crate::trace::span("sidebar.render") } else { None };
         let t = cx.signet().clone();
+        // Floating card fill: the docked sidebar's translucent `bg` over the native blur (macOS), else opaque.
+        let float_fill = t.float_fill(crate::theme::float_blur(cx));
         let snap = ui_state(cx).read(cx).snapshot.clone();
         let pending = self.opt.read(cx).pending().clone();
         let Some(space) = active_space(&snap, pending.space_id.as_deref()).cloned() else { return div().into_any_element() };
@@ -1129,7 +1131,7 @@ impl Render for Sidebar {
             .text_color(t.text)
             .when(self.floating, |d| {
                 let r = signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32;
-                d.rounded(px(r)).bg(t.glass_float).border(px(0.5)).border_color(t.border)
+                d.rounded(px(r)).bg(float_fill).border(px(0.5)).border_color(t.border)
             })
             .child(probe(root_cell))
             // Real events only: GPUI's `on_hover` also fires at paint time from the last known pointer position, which
@@ -1155,7 +1157,7 @@ impl Render for Sidebar {
             .child(head)
             .child({
                 // Edge fades where the list continues (CSS `scroll-edges`, 12 px).
-                let color = if self.floating { t.glass_float } else { t.bg };
+                let color = if self.floating { float_fill } else { t.bg };
                 let (off, max) = (self.scroll.offset().y, self.scroll.max_offset().y);
                 let fades = if t.settings.high_contrast { [None, None] } else { crate::widgets::vertical_fades(f32::from(off), f32::from(max), 12.0, color) };
                 div().relative().flex_1().min_h_0().flex().flex_col().px(px(GAP)).child(scroll).children(fades.into_iter().flatten())
@@ -1431,7 +1433,7 @@ impl Sidebar {
             _window.request_animation_frame();
         }
         let x = self.strip_swipe.offset();
-        let fade_color = if self.floating { t.glass_float } else { t.bg };
+        let fade_color = if self.floating { t.float_fill(crate::theme::float_blur(cx)) } else { t.bg };
         let mut track = div().relative().flex().flex_row().left(px(-(shown as f32) * strip_w + x));
         for (pi, chunk) in snap.spaces.chunks(per).enumerate() {
             let mut page = div().flex().flex_none().justify_center().w(px(strip_w));

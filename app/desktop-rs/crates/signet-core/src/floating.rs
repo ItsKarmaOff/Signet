@@ -90,6 +90,19 @@ pub fn card_radius(window_radius: Option<f64>) -> f64 {
     }
 }
 
+/// The floating card gets a real behind-window blur under a translucent fill (macOS): translucency on, no high
+/// contrast, no system "Reduce transparency". Otherwise it keeps the opaque fill (Electron `tokens.css`).
+pub fn float_blur_wanted(glass: bool, high_contrast: bool, reduce_transparency: bool) -> bool {
+    glass && !high_contrast && !reduce_transparency
+}
+
+/// Side of the stretchable mask image of a blurred card with corner `radius` (points): two corners and one
+/// stretchable middle point (`capInsets` = radius on every side). A bad radius gives the smallest image.
+pub fn blur_mask_side(radius: f64) -> f64 {
+    let r = if radius.is_finite() && radius > 0.0 { radius.ceil() } else { 0.0 };
+    2.0 * r + 1.0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -115,6 +128,23 @@ mod tests {
         // A tiny window radius hits the floor instead of going square or negative.
         assert_eq!(card_radius(Some(8.0)), 4.0);
         assert_eq!(card_radius(Some(2.0)), 4.0);
+    }
+
+    #[test]
+    fn blur_only_with_translucency() {
+        assert!(float_blur_wanted(true, false, false));
+        assert!(!float_blur_wanted(false, false, false));
+        assert!(!float_blur_wanted(true, true, false));
+        assert!(!float_blur_wanted(true, false, true));
+    }
+
+    #[test]
+    fn mask_side() {
+        assert_eq!(blur_mask_side(10.0), 21.0);
+        assert_eq!(blur_mask_side(9.5), 21.0);
+        for r in [0.0, -2.0, f64::NAN, f64::INFINITY] {
+            assert_eq!(blur_mask_side(r), 1.0, "{r}");
+        }
     }
 
     #[test]

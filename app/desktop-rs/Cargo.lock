@@ -6998,6 +6998,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "block2 0.6.2",
  "chrono",
  "dirs 6.0.0",
  "futures",
