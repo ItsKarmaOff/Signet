@@ -171,6 +171,7 @@ impl Core {
                 }
             }
             Later::WindowCorner => {
+                self.update_traffic_lights(true);
                 if self.update_window_corner() {
                     self.dirty.layout = true;
                     self.dirty.needs_full = true;

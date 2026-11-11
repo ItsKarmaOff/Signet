@@ -16,6 +16,7 @@ impl Core {
     pub fn on_main_created(&mut self, raw: Option<RawWindowHandle>, size: (f64, f64), origin: (f64, f64)) {
         self.views.parent = raw;
         self.win = Some(MainWin { size, origin, fullscreen: false, active: true, corner: None });
+        self.lx.lights_hidden = false;
         self.update_window_corner();
         self.refresh_key_table();
         self.request_focus();
@@ -29,6 +30,7 @@ impl Core {
     /// `MainWindow.onClosed`: the layers and every tab view go, the store is written.
     pub fn on_main_closed(&mut self) {
         self.win = None;
+        self.lx.lights_hidden = false;
         self.drop_peek();
         self.ov.payload = None;
         self.ov.leaving = false;
@@ -118,6 +120,9 @@ impl Core {
         } else if moved {
             // Moved only: floating surfaces follow (non-macOS reopen them).
             self.desired_dirty();
+        }
+        if flipped {
+            self.update_traffic_lights(true);
         }
     }
 

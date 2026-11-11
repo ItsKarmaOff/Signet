@@ -30,6 +30,8 @@ pub struct LayoutExtra {
     pub clicks: HashMap<String, (i64, Option<(f64, f64)>)>,
     /// Last Peek payload sent (title and address changes are sent again).
     pub peek_sent: Option<(String, String)>,
+    /// macOS: the traffic lights are hidden (last applied), Electron `buttonsVisible` inverted.
+    pub lights_hidden: bool,
 }
 
 /// Shadow margin around the compact overlays (password prompt, zoom bubble).
@@ -267,28 +269,36 @@ impl Core {
             d.toolbar_warm = Some(tb);
         }
         self.desired = d;
-        self.update_traffic_lights();
+        self.update_traffic_lights(false);
     }
 
     /// macOS: the traffic lights follow the sidebar (hidden with it), like `LayoutManager.update`.
     #[cfg(target_os = "macos")]
-    fn update_traffic_lights(&mut self) {
-        let (compact, right, horizontal, sidebar_on) = (self.state().settings.compact_mode, self.sidebar_right(), self.horizontal(), self.sidebar_on());
-        thread_local! {
-            static LAST: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
-        }
+    pub(crate) fn update_traffic_lights(&mut self, force: bool) {
+        let full = self.win.as_ref().is_some_and(|w| w.fullscreen);
         let floating = self.hover.toolbar || self.hover.sidebar;
-        let visible = if horizontal || right { !compact || floating } else { sidebar_on || (compact && floating) };
-        if LAST.with(|l| l.replace(Some(visible))) == Some(visible) || self.lx.progress.is_some() && visible {
-            return;
-        }
+        let want = signet_core::model::chrome::traffic_lights_wanted(
+            self.horizontal(),
+            self.sidebar_right(),
+            self.state().settings.compact_mode,
+            floating,
+            self.sidebar_on(),
+            full,
+        );
+        let applied = !self.lx.lights_hidden;
+        let next = match signet_core::model::chrome::traffic_lights_step(applied, want, self.lx.progress.is_some()) {
+            Some(v) => v,
+            None if force => applied,
+            None => return,
+        };
+        self.lx.lights_hidden = !next;
         if let Some(raw_window_handle::RawWindowHandle::AppKit(a)) = self.views.parent {
-            crate::mac::set_traffic_lights_visible(a.ns_view.as_ptr(), visible);
+            crate::mac::set_traffic_lights_visible(a.ns_view.as_ptr(), next);
         }
     }
 
     #[cfg(not(target_os = "macos"))]
-    fn update_traffic_lights(&mut self) {}
+    pub(crate) fn update_traffic_lights(&mut self, _force: bool) {}
 
     /// Requests the keyboard for the active page at the next layout.
     pub fn request_focus(&mut self) {
