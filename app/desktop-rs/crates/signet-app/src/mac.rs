@@ -600,9 +600,9 @@ pub fn card_blur_park(view: *mut c_void) {
 }
 
 /// Slides and fades the GPUI layer of a floating card (and its blur view when `blur`) in the window server (Core
-/// Animation), so the motion costs no GPUI frame. `dx`: offset of the parked card in points (minus the width on the
-/// left, plus on the right).
-pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool, blur: bool) {
+/// Animation), so the motion costs no GPUI frame. `m`: the card's motion (axis, parked offset, durations).
+pub fn card_slide(view: *mut c_void, how: CardSlide, m: &signet_core::floating::CardMotion, blur: bool) {
+    use signet_core::floating::SlideAxis;
     use objc2::runtime::AnyClass;
     if view.is_null() {
         return;
@@ -623,7 +623,19 @@ pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool, blu
         // Where an interrupted motion stands right now (read once, shared by both targets).
         let pres: *mut AnyObject = msg_send![layer, presentationLayer];
         let src = if pres.is_null() { layer } else { pres };
-        let cur_x = key_value(src, "transform.translation.x").unwrap_or(0.0);
+        let path = match m.axis {
+            SlideAxis::X => "transform.translation.x",
+            SlideAxis::Y => "transform.translation.y",
+        };
+        let cur_x = key_value(src, path).unwrap_or(0.0);
+        // Core Animation's y grows upward in an unflipped superview.
+        let sup: *mut AnyObject = msg_send![v, superview];
+        let flipped = !sup.is_null() && {
+            let f: bool = msg_send![sup, isFlipped];
+            f
+        };
+        let dx = signet_core::floating::layer_offset(m, flipped);
+        let reduced = !m.slide;
         // The GPUI view first, then the blur view.
         let mut targets: Vec<(*mut AnyObject, *mut AnyObject)> = vec![(v, layer)];
         let bv = card_blur_view(v);
@@ -660,13 +672,13 @@ pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool, blu
             let _: () = msg_send![view_i, setAlphaValue: if visible { 1.0f64 } else { 0.0f64 }];
             if i == 0 {
                 from_x = if how == CardSlide::Enter && hidden_before && cur_x.abs() < 0.5 { dx } else { cur_x };
-                signet_ui::trace::mark(|| format!("native slide {how:?} from {from_x:.0} dx {dx:.0} alpha {cur_a:.2} reduced {reduced} blur {}", targets.len() > 1));
+                signet_ui::trace::mark(|| format!("native slide {how:?} axis {:?} from {from_x:.0} dx {dx:.0} alpha {cur_a:.2} reduced {reduced} blur {}", m.axis, targets.len() > 1));
             }
             match how {
                 CardSlide::Hide => {}
                 CardSlide::Enter => {
                     if !reduced {
-                        let anim: *mut AnyObject = msg_send![kf_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                        let anim: *mut AnyObject = msg_send![kf_cls, animationWithKeyPath: &*ns_str(path)];
                         let values: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
                         let times: *mut AnyObject = msg_send![objc2::class!(NSMutableArray), array];
                         for (t, x) in signet_ui::motion::slide_keyframes(from_x, 0.0) {
@@ -676,20 +688,20 @@ pub fn card_slide(view: *mut c_void, how: CardSlide, dx: f64, reduced: bool, blu
                         let _: () = msg_send![anim, setValues: values];
                         let _: () = msg_send![anim, setKeyTimes: times];
                         let _: () = msg_send![anim, setCalculationMode: &*ns_str("linear")];
-                        let _: () = msg_send![anim, setDuration: signet_ui::theme::duration::SLOW.as_secs_f64()];
+                        let _: () = msg_send![anim, setDuration: m.enter_ms as f64 / 1000.0];
                         let _: () = msg_send![layer_i, addAnimation: anim, forKey: &*ns_str("signet.slide")];
                     }
                     let fade: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("opacity")];
                     let _: () = msg_send![fade, setFromValue: ns_number(if hidden_before { 0.0 } else { cur_a })];
                     let _: () = msg_send![fade, setToValue: ns_number(1.0)];
-                    let _: () = msg_send![fade, setDuration: signet_ui::theme::duration::FAST.as_secs_f64()];
+                    let _: () = msg_send![fade, setDuration: m.enter_fade_ms as f64 / 1000.0];
                     let _: () = msg_send![fade, setTimingFunction: ease_out];
                     let _: () = msg_send![layer_i, addAnimation: fade, forKey: &*ns_str("signet.fade")];
                 }
                 CardSlide::Exit => {
-                    let dur = if reduced { signet_ui::theme::duration::FAST } else { signet_ui::theme::duration::NORMAL }.as_secs_f64();
+                    let dur = m.exit_ms as f64 / 1000.0;
                     if !reduced {
-                        let anim: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str("transform.translation.x")];
+                        let anim: *mut AnyObject = msg_send![basic_cls, animationWithKeyPath: &*ns_str(path)];
                         let _: () = msg_send![anim, setFromValue: ns_number(from_x)];
                         let _: () = msg_send![anim, setToValue: ns_number(dx)];
                         let _: () = msg_send![anim, setDuration: dur];

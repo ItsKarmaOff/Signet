@@ -50,15 +50,24 @@ impl Core {
     }
 
     pub fn close_overlay(&mut self, instant: bool) {
-        if self.ov.payload.take().is_none() && !self.ov.leaving {
+        let old = self.ov.payload.take();
+        if old.is_none() && !self.ov.leaving {
             return;
         }
+        // A popover or the command bar opened from the toolbar's address held it open: re-arm its leave.
+        let was_hold = matches!(
+            old,
+            Some(OverlayPayload::Popover { .. }) | Some(OverlayPayload::Palette { palette_mode: PaletteMode::EditUrl, anchor: Some(_), .. })
+        );
         self.ov.leaving = false;
         self.drop_peek();
         self.dragging = false;
         self.emit(UiEvent::OverlayHide { instant });
         self.request_focus();
         self.changed_view();
+        if was_hold {
+            self.set_toolbar_hover(false);
+        }
     }
 
     pub fn open_popover(&mut self, popover: PopoverRequest, anchor: Rect) {

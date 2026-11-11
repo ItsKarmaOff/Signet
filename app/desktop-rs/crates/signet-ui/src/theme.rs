@@ -356,10 +356,15 @@ impl SignetTheme {
         if self.settings.glass && !self.settings.high_contrast { WindowBackgroundAppearance::Blurred } else { WindowBackgroundAppearance::Opaque }
     }
 
-    /// Fill of the floating sidebar card. Over a real blur (macOS, `blurred`) it is the docked sidebar's translucent
+    /// The floating card is drawn translucent: over a real blur (`blurred`) with translucency on and no high contrast.
+    pub fn float_translucent(&self, blurred: bool) -> bool {
+        blurred && self.settings.glass && !self.settings.high_contrast
+    }
+
+    /// Fill of the floating cards (sidebar, compact toolbar). Over a real blur (macOS, `blurred`) it is the docked sidebar's translucent
     /// `bg`; otherwise the page is right under it, unblurred, so it stays practically opaque (`glass_float`).
     pub fn float_fill(&self, blurred: bool) -> Hsla {
-        if blurred && self.settings.glass && !self.settings.high_contrast { self.bg } else { self.glass_float }
+        if self.float_translucent(blurred) { self.bg } else { self.glass_float }
     }
 
     /// Text colour for a given tint amount of the muted foreground.
@@ -518,17 +523,35 @@ pub fn window_corner(cx: &App) -> Option<f32> {
     cx.try_global::<WindowCorner>().and_then(|r| r.0)
 }
 
-/// The floating sidebar window has a behind-window blur under its card (macOS, set by the window manager).
-#[derive(Clone, Copy, Default)]
-pub struct FloatBlur(pub bool);
-impl Global for FloatBlur {}
-
-pub fn set_float_blur(cx: &mut App, on: bool) {
-    cx.set_global(FloatBlur(on));
+/// A floating card window (macOS blur, fill).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatCard {
+    Sidebar,
+    Toolbar,
 }
 
-pub fn float_blur(cx: &App) -> bool {
-    cx.try_global::<FloatBlur>().is_some_and(|b| b.0)
+/// Which floating card windows have a behind-window blur under their card (macOS, set by the window manager).
+#[derive(Clone, Copy, Default)]
+pub struct FloatBlur {
+    pub sidebar: bool,
+    pub toolbar: bool,
+}
+impl Global for FloatBlur {}
+
+pub fn set_float_blur(cx: &mut App, card: FloatCard, on: bool) {
+    let mut b = cx.try_global::<FloatBlur>().copied().unwrap_or_default();
+    match card {
+        FloatCard::Sidebar => b.sidebar = on,
+        FloatCard::Toolbar => b.toolbar = on,
+    }
+    cx.set_global(b);
+}
+
+pub fn float_blur(cx: &App, card: FloatCard) -> bool {
+    cx.try_global::<FloatBlur>().is_some_and(|b| match card {
+        FloatCard::Sidebar => b.sidebar,
+        FloatCard::Toolbar => b.toolbar,
+    })
 }
 
 #[cfg(test)]
@@ -566,6 +589,27 @@ mod tests {
             let hc = SignetTheme::compute(&ThemeSettings { high_contrast: true, ..Default::default() }, scheme);
             assert_eq!(hc.float_fill(true), hc.glass_float);
         }
+    }
+
+    #[test]
+    fn float_translucency_needs_blur_glass_and_no_high_contrast() {
+        let t = SignetTheme::compute(&ThemeSettings::default(), Scheme::Light);
+        assert!(!t.float_translucent(false));
+        assert!(t.float_translucent(true));
+        let off = SignetTheme::compute(&ThemeSettings { glass: false, ..Default::default() }, Scheme::Light);
+        assert!(!off.float_translucent(true));
+        let hc = SignetTheme::compute(&ThemeSettings { high_contrast: true, ..Default::default() }, Scheme::Light);
+        assert!(!hc.float_translucent(true));
+    }
+
+    #[test]
+    fn card_motion_durations_match_the_theme() {
+        use signet_core::floating::sidebar_motion;
+        let m = sidebar_motion(1.0, false, false);
+        assert_eq!(duration::SLOW.as_millis() as u64, m.enter_ms);
+        assert_eq!(duration::FAST.as_millis() as u64, m.enter_fade_ms);
+        assert_eq!(duration::NORMAL.as_millis() as u64, m.exit_ms);
+        assert_eq!(duration::FAST.as_millis() as u64, sidebar_motion(1.0, false, true).exit_ms);
     }
 
     #[test]

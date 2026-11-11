@@ -112,6 +112,12 @@ pub struct Hover {
     /// The warm-up timer is pending.
     pub sidebar_warming: bool,
     pub toolbar: bool,
+    /// Pending "pointer left the compact toolbar" timer (a return, or any hover, cancels it).
+    pub toolbar_leave: signet_core::floating::LeaveGate,
+    /// The compact toolbar window is warmed (kept parked) while compact mode is on (macOS).
+    pub toolbar_warm: bool,
+    /// The warm-up timer is pending.
+    pub toolbar_warming: bool,
 }
 
 /// Quit confirmation state (`app/quit.ts`).
@@ -441,6 +447,7 @@ impl Core {
             boosted_sites: st.boosts.values().filter(|b| b.enabled).map(|b| b.site.clone()).collect(),
             overlay_open: self.ov.payload.is_some() || self.ov.leaving,
             window_corner: self.win.as_ref().and_then(|w| w.corner),
+            toolbar_origin: self.desired.toolbar.or(self.desired.toolbar_warm).map(|r| (r.x, r.y)),
         }
     }
 

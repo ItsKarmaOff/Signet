@@ -112,11 +112,18 @@ impl Core {
         }
     }
 
+    /// An extension popup is open (the compact toolbar stays open under it).
+    pub(crate) fn ext_popup_open(&self) -> bool {
+        self.phase3.extensions.rt.as_ref().is_some_and(|r| r.popup.is_some())
+    }
+
     pub(super) fn ext_close_popup(&mut self) {
         let Some(rt) = self.phase3.extensions.rt.as_mut() else { return };
         if let Some(p) = rt.popup.take() {
             rt.shared.popup_view.store(0, Ordering::Relaxed);
             p.view.close();
+            // Re-arm the toolbar's leave (Electron `compact.hover(false)`); the hold checks again when it fires.
+            self.set_toolbar_hover(false);
         }
     }
 

@@ -6,7 +6,7 @@
 //! one, no extension button is drawn.
 
 use super::anchor::Anchor;
-use super::util::{BarColors, badge_colors, count_text};
+use super::util::{BarColors, badge_colors, count_text, shifted};
 use crate::app_state::{api, tr, ui_state};
 use crate::icon::IconName;
 use crate::theme::{ThemeExt, radius};
@@ -155,6 +155,8 @@ pub struct ExtensionButtons {
     subscribed: Option<(String, Subscription)>,
     refresh_tx: mpsc::UnboundedSender<()>,
     pending_run: Option<(String, String)>,
+    /// Origin of the floating toolbar window in the main window (anchors are sent in window coordinates).
+    origin: (f64, f64),
 }
 
 impl ExtensionButtons {
@@ -192,6 +194,7 @@ impl ExtensionButtons {
                 subscribed: None,
                 refresh_tx: tx,
                 pending_run: None,
+                origin: (0.0, 0.0),
             }
         });
         let weak = this.downgrade();
@@ -207,6 +210,10 @@ impl ExtensionButtons {
     }
 
     /// Props from the toolbar. Cheap when nothing changed.
+    pub fn set_origin(&mut self, origin: (f64, f64)) {
+        self.origin = origin;
+    }
+
     pub fn set(&mut self, partition: &str, order: &[String], pinned: &[String], bar: BarColors, cx: &mut Context<Self>) {
         let changed = self.partition != partition || self.order != order || self.pinned != pinned || self.bar != bar;
         if self.order != order {
@@ -271,7 +278,7 @@ impl ExtensionButtons {
 
     fn take_run(&mut self, cx: &mut Context<Self>) {
         let Some((token, id)) = self.pending_run.take() else { return };
-        let anchor = self.slots.borrow().get(&id).map(|a| a.rect()).or_else(|| (self.list_anchor.bounds().size.width > px(0.0)).then(|| self.list_anchor.rect()));
+        let anchor = self.slots.borrow().get(&id).map(|a| a.rect()).or_else(|| (self.list_anchor.bounds().size.width > px(0.0)).then(|| self.list_anchor.rect())).map(|r| shifted(r, self.origin));
         // Without a button, main gets no answer and opens the popup on its own.
         let Some(anchor) = anchor else { return };
         // Several toolbars can be mounted: the first to be acknowledged opens it.
@@ -298,6 +305,7 @@ impl Render for ExtensionButtons {
             self.drag = None;
         }
         self.take_run(cx);
+        let origin = self.origin;
         let Some(state) = self.state.clone().filter(|s| !s.actions.is_empty()) else {
             return div().into_any_element();
         };
@@ -330,7 +338,7 @@ impl Render for ExtensionButtons {
                 .tooltip(move |w, cx| Tooltip::new(tr("toolbar.extensions")).build(w, cx))
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .on_click(move |_, _, cx| {
-                    let rect = anchor.rect();
+                    let rect = shifted(anchor.rect(), origin);
                     let this = this.clone();
                     // The Extensions button opens a menu; the chosen extension then opens under this button.
                     this.update(cx, |t, cx| (t.focus_tab)(cx));
@@ -457,7 +465,7 @@ impl Render for ExtensionButtons {
                         cx.notify();
                     }))
                     .on_click(move |_, _, cx| {
-                        let rect = click_anchor.rect();
+                        let rect = shifted(click_anchor.rect(), origin);
                         let id = click_id.clone();
                         this.update(cx, |t, cx| t.launch(&id, rect, cx));
                     })

@@ -732,7 +732,7 @@ impl Render for Sidebar {
         let _span = if self.floating { crate::trace::span("sidebar.render") } else { None };
         let t = cx.signet().clone();
         // Floating card fill: the docked sidebar's translucent `bg` over the native blur (macOS), else opaque.
-        let float_fill = t.float_fill(crate::theme::float_blur(cx));
+        let float_fill = t.float_fill(crate::theme::float_blur(cx, crate::theme::FloatCard::Sidebar));
         let snap = ui_state(cx).read(cx).snapshot.clone();
         let pending = self.opt.read(cx).pending().clone();
         let Some(space) = active_space(&snap, pending.space_id.as_deref()).cloned() else { return div().into_any_element() };
@@ -1433,7 +1433,7 @@ impl Sidebar {
             _window.request_animation_frame();
         }
         let x = self.strip_swipe.offset();
-        let fade_color = if self.floating { t.float_fill(crate::theme::float_blur(cx)) } else { t.bg };
+        let fade_color = if self.floating { t.float_fill(crate::theme::float_blur(cx, crate::theme::FloatCard::Sidebar)) } else { t.bg };
         let mut track = div().relative().flex().flex_row().left(px(-(shown as f32) * strip_w + x));
         for (pi, chunk) in snap.spaces.chunks(per).enumerate() {
             let mut page = div().flex().flex_none().justify_center().w(px(strip_w));

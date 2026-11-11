@@ -82,6 +82,8 @@ pub struct MainWindow {
     dividers: Entity<Dividers>,
     devtools: HashMap<String, Entity<DevToolsCard>>,
     responsive: HashMap<String, Entity<ResponsiveFrame>>,
+    /// The pointer is in the compact mode's top strip (it reveals the floating toolbar; leaving it re-arms the leave).
+    top_inside: bool,
     strip: AnyView,
     ring: Ring,
     /// Color fade of each pane's bar (site color change, 240 ms).
@@ -118,7 +120,7 @@ impl MainWindow {
                 }
             })
             .detach();
-            Self { toolbars: HashMap::new(), bookmarks: HashMap::new(), sidebar, dividers, devtools: HashMap::new(), responsive: HashMap::new(), strip, ring: Ring::default(), fades: HashMap::new(), _sidebar_sub: sidebar_sub }
+            Self { toolbars: HashMap::new(), bookmarks: HashMap::new(), sidebar, dividers, devtools: HashMap::new(), responsive: HashMap::new(), top_inside: false, strip, ring: Ring::default(), fades: HashMap::new(), _sidebar_sub: sidebar_sub }
         })
     }
 }
@@ -177,6 +179,16 @@ impl Render for MainWindow {
         for layer in layers(&t) {
             root = root.child(div().absolute().size_full().bg(layer));
         }
+        if compact {
+            root = root.on_mouse_move(cx.listener(|this, e: &gpui::MouseMoveEvent, _, cx| {
+                // Left the strip into the window without entering the bar (Electron `onMouseLeave`): the bar closes after
+                // its delay unless the pointer reaches it (its first move cancels the leave).
+                if this.top_inside && e.position.y >= space::GAP {
+                    this.top_inside = false;
+                    api(cx).set_toolbar_hover(false);
+                }
+            }));
+        }
 
         // Window drag strip along the top edge.
         if !compact && !horizontal {
@@ -194,7 +206,18 @@ impl Render for MainWindow {
                 .left(px(0.0))
                 .right(px(0.0))
                 .h(px(6.0))
-                .on_hover(|hover, _, cx| api(cx).set_toolbar_hover(*hover));
+                .on_mouse_move(cx.listener(|this, _: &gpui::MouseMoveEvent, _, cx| {
+                    if !this.top_inside {
+                        this.top_inside = true;
+                        api(cx).set_toolbar_hover(true);
+                    }
+                }))
+                .on_mouse_exit(cx.listener(|this, _: &gpui::MouseExitEvent, _, cx| {
+                    // Left the window upward from the strip.
+                    if std::mem::take(&mut this.top_inside) {
+                        api(cx).set_toolbar_hover(false);
+                    }
+                }));
             root = root.child(drag_area(hover, covered));
         }
         if !s.sidebar_visible && !horizontal {
@@ -365,20 +388,86 @@ fn card_shielded(shown: bool, motion: Option<FloatMotion>) -> bool {
     !shown && motion.is_none_or(|m| m.done())
 }
 
-/// macOS slides the floating sidebar in the window server (Core Animation, see `mac::card_slide`); the other platforms
-/// animate it with GPUI.
+/// macOS slides the floating cards in the window server (Core Animation, see `mac::card_slide`); the other platforms
+/// animate them with GPUI.
 const NATIVE_SLIDE: bool = cfg!(target_os = "macos");
 
-/// The sidebar shown over the window while it is hidden (route `#sidebar`): slides in from its edge.
-pub struct FloatingSidebar {
-    sidebar: Entity<Sidebar>,
-    /// The window presented its first frames: a fresh window's first frames are slow (Metal pipelines, empty glyph
-    /// atlas, the whole sidebar's first layout), the slide waits for them like the React version waits two animation
-    /// frames.
+/// Reveal state of a floating card window (sidebar, compact toolbar): armed once the window presented its first frames,
+/// shown, and the motion in progress (drawn by GPUI on Linux and Windows; on macOS only its clock, for the shield).
+#[derive(Default)]
+struct CardPresence {
     armed: bool,
     shown: bool,
     generation: u64,
     motion: Option<FloatMotion>,
+}
+
+/// What `CardPresence::follow` decided.
+#[derive(Debug, PartialEq)]
+enum CardChange {
+    Enter,
+    Exit(Duration),
+}
+
+impl CardPresence {
+    /// Follows the snapshot. `parked`: parked offset in card units; `exit`: exit duration.
+    fn follow(&mut self, want: bool, parked: f32, exit: Duration, reduced: bool) -> Option<CardChange> {
+        let want = want && self.armed;
+        if want == self.shown {
+            return None;
+        }
+        // Only an unfinished motion is continued (a finished one may be on the other side after a setting change).
+        let from = match self.motion {
+            Some(m) if !m.done() => m.offset_now(reduced),
+            _ => {
+                if want {
+                    parked
+                } else {
+                    0.0
+                }
+            }
+        };
+        let (to, dur) = if want { (0.0, duration::SLOW) } else { (parked, exit) };
+        self.generation += 1;
+        self.motion = Some(FloatMotion { at: Instant::now(), from, to, dur, enter: want });
+        self.shown = want;
+        Some(if want { CardChange::Enter } else { CardChange::Exit(dur) })
+    }
+
+    /// The occluding layer that keeps a parked card quiet. On macOS the parked window still gets pointer moves from its
+    /// tracking area although it ignores the mouse, and GPUI's hitboxes stay at rest (no reveal, cursor, tooltip).
+    fn shield(&self) -> Option<gpui::Stateful<gpui::Div>> {
+        card_shielded(self.shown, self.motion).then(|| div().id("float-shield").absolute().top(px(0.0)).left(px(0.0)).size_full().occlude())
+    }
+}
+
+/// Arms a card after the window's first two frames (a fresh window's first frames are slow: Metal pipelines, empty
+/// glyph atlas, the first layout; React waits two animation frames).
+fn arm_after_first_frames<T: 'static>(window: &mut Window, weak: gpui::WeakEntity<T>, presence: fn(&mut T) -> &mut CardPresence) {
+    window.on_next_frame(move |window, _| {
+        window.on_next_frame(move |_, cx| {
+            let _ = weak.update(cx, |this, cx| {
+                presence(this).armed = true;
+                cx.notify();
+            });
+        });
+    });
+}
+
+/// Re-renders once an exit is over, so the shield appears (the native slide paints nothing meanwhile).
+fn notify_after<T: 'static>(dur: Duration, cx: &mut Context<T>) {
+    cx.spawn(async move |this, cx| {
+        cx.background_executor().timer(dur).await;
+        this.update(cx, |_, cx| cx.notify()).ok();
+    })
+    .detach();
+}
+
+/// The sidebar shown over the window while it is hidden (route `#sidebar`): slides in from its edge.
+pub struct FloatingSidebar {
+    sidebar: Entity<Sidebar>,
+    /// Armed once the window presented its first frames (see [`arm_after_first_frames`]).
+    presence: CardPresence,
     last_render: Option<Instant>,
     _sidebar_sub: gpui::Subscription,
 }
@@ -389,17 +478,9 @@ impl FloatingSidebar {
         let this = cx.new(|cx| {
             let (sidebar, sub) = embed::sidebar(window, true, cx);
             cx.observe(&ui_state(cx), |_, _, cx| cx.notify()).detach();
-            Self { sidebar, armed: false, shown: false, generation: 0, motion: None, last_render: None, _sidebar_sub: sub }
+            Self { sidebar, presence: CardPresence::default(), last_render: None, _sidebar_sub: sub }
         });
-        let weak = this.downgrade();
-        window.on_next_frame(move |window, _| {
-            window.on_next_frame(move |_, cx| {
-                let _ = weak.update(cx, |this, cx| {
-                    this.armed = true;
-                    cx.notify();
-                });
-            });
-        });
+        arm_after_first_frames(window, this.downgrade(), |t| &mut t.presence);
         api(cx).overlay_ready();
         this
     }
@@ -410,74 +491,51 @@ impl Render for FloatingSidebar {
         let s = snapshot(cx);
         let parked = if s.settings.sidebar_side == Some(SidebarSide::Right) { 1.0 } else { -1.0 };
         let reduced = reduced_motion(cx);
-        let want = s.sidebar_floating && self.armed;
-        if want != self.shown {
-            // Only an unfinished motion is continued (a finished one may be on the other side after a setting change).
-            let from = match self.motion {
-                Some(m) if !m.done() => m.offset_now(reduced),
-                _ => {
-                    if want {
-                        parked
-                    } else {
-                        0.0
-                    }
-                }
-            };
-            let (to, dur) = if want { (0.0, duration::SLOW) } else { (parked, if reduced { duration::FAST } else { duration::NORMAL }) };
-            self.generation += 1;
-            self.motion = Some(FloatMotion { at: Instant::now(), from, to, dur, enter: want });
-            self.shown = want;
-            if want {
-                self.sidebar.update(cx, |sb, _| sb.on_reveal());
-            } else {
-                // Re-render once the exit is over so the shield appears (the native slide paints nothing meanwhile).
-                cx.spawn(async move |this, cx| {
-                    cx.background_executor().timer(dur).await;
-                    this.update(cx, |_, cx| cx.notify()).ok();
-                })
-                .detach();
-            }
+        let exit = Duration::from_millis(signet_core::floating::sidebar_motion(0.0, false, reduced).exit_ms);
+        match self.presence.follow(s.sidebar_floating, parked, exit, reduced) {
+            Some(CardChange::Enter) => self.sidebar.update(cx, |sb, _| sb.on_reveal()),
+            Some(CardChange::Exit(d)) => notify_after(d, cx),
+            None => {}
         }
         if crate::trace::on() {
             let now = Instant::now();
             let dt = self.last_render.map(|t| now.duration_since(t).as_secs_f64() * 1000.0).unwrap_or(0.0);
-            if let Some(m) = self.motion.filter(|m| m.at.elapsed() < m.dur + Duration::from_millis(100)) {
-                crate::trace::mark(|| format!("motion +{:.1} ms dt={dt:.1} ms gen={} enter={}", m.at.elapsed().as_secs_f64() * 1000.0, self.generation, m.enter));
+            if let Some(m) = self.presence.motion.filter(|m| m.at.elapsed() < m.dur + Duration::from_millis(100)) {
+                crate::trace::mark(|| format!("motion +{:.1} ms dt={dt:.1} ms gen={} enter={}", m.at.elapsed().as_secs_f64() * 1000.0, self.presence.generation, m.enter));
             }
             self.last_render = Some(now);
         }
         // No background and no border here: the Sidebar draws the one rounded card.
         let body = div().absolute().size_full().child(self.sidebar.clone());
         let root = div().relative().size_full().overflow_hidden();
-        // On macOS the parked window still gets pointer moves from its tracking area although it ignores the mouse, and
-        // GPUI's hitboxes stay at rest: this occluding layer keeps the invisible card quiet (no reveal, cursor, tooltip).
-        let shield = || card_shielded(self.shown, self.motion).then(|| div().id("float-shield").absolute().top(px(0.0)).left(px(0.0)).size_full().occlude());
         if NATIVE_SLIDE {
             // The card is always painted at rest: the window manager slides and fades the window's layer natively.
-            return root.child(body).children(shield()).into_any_element();
+            return root.child(body).children(self.presence.shield()).into_any_element();
         }
-        match self.motion {
-            Some(m) if self.shown || !m.done() => {
-                let id = SharedString::from(format!("float-sidebar-{}", self.generation));
+        match self.presence.motion {
+            Some(m) if self.presence.shown || !m.done() => {
+                let id = SharedString::from(format!("float-sidebar-{}", self.presence.generation));
                 root.child(body.with_animation(id, Animation::new(m.dur), move |el, p| {
                     let (offset, opacity) = float_pose(m.from, m.to, m.eased(p, reduced));
                     el.left(relative(offset)).opacity(opacity)
                 }))
-                .children(shield())
+                .children(self.presence.shield())
                 .into_any_element()
             }
             // Parked: past its edge and invisible, and shielded from the mouse.
-            _ => root.child(body.left(relative(parked)).opacity(0.0)).children(shield()).into_any_element(),
+            _ => root.child(body.left(relative(parked)).opacity(0.0)).children(self.presence.shield()).into_any_element(),
         }
     }
 }
 
-/// The compact mode's toolbar shown over the window (route `#toolbar`): fade in and a 6 px slide.
+/// The compact mode's toolbar shown over the window (route `#toolbar`): fade in and a 6 px slide. macOS: a parked
+/// window like the floating sidebar (native slide, shield, blur); the other platforms create and close it.
 pub struct FloatingToolbar {
     strip: AnyView,
     toolbar: Entity<Toolbar>,
-    shown: bool,
-    generation: u64,
+    presence: CardPresence,
+    /// The pointer is over the card (set by its sensor, cleared on exit and at each reveal).
+    inside: bool,
 }
 
 impl FloatingToolbar {
@@ -485,10 +543,12 @@ impl FloatingToolbar {
         let strip = embed::tab_strip(window, cx, true);
         let props = ToolbarProps { leading: IS_MAC, sidebar_toggle: true, floating: true, ..Default::default() };
         let toolbar = Toolbar::new(props, cx);
-        cx.new(|cx| {
+        let this = cx.new(|cx| {
             cx.observe(&ui_state(cx), |_, _, cx| cx.notify()).detach();
-            Self { strip, toolbar, shown: false, generation: 0 }
-        })
+            Self { strip, toolbar, presence: CardPresence::default(), inside: false }
+        });
+        arm_after_first_frames(window, this.downgrade(), |t| &mut t.presence);
+        this
     }
 }
 
@@ -496,10 +556,15 @@ impl Render for FloatingToolbar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let s = snapshot(cx);
         let t = cx.signet().clone();
-        if s.toolbar_floating && !self.shown {
-            self.generation += 1;
+        let reduced = reduced_motion(cx);
+        let m = signet_core::floating::toolbar_motion(reduced);
+        match self.presence.follow(s.toolbar_floating, -1.0, Duration::from_millis(m.exit_ms), reduced) {
+            // The pointer is still in the main window's top strip: the first real move over the card must call
+            // `set_toolbar_hover(true)` to cancel the strip's leave.
+            Some(CardChange::Enter) => self.inside = false,
+            Some(CardChange::Exit(d)) => notify_after(d, cx),
+            None => {}
         }
-        self.shown = s.toolbar_floating;
         let horizontal = s.settings.tab_layout == Some(TabLayout::Horizontal);
         let content: gpui::AnyElement = if horizontal {
             self.strip.clone().into_any_element()
@@ -508,7 +573,7 @@ impl Render for FloatingToolbar {
             self.toolbar.update(cx, |tb, cx| tb.set_props(props, cx));
             self.toolbar.clone().into_any_element()
         };
-        let reduced = reduced_motion(cx);
+        let blurred = crate::theme::float_blur(cx, crate::theme::FloatCard::Toolbar);
         let body = div()
             .id("float-toolbar")
             .absolute()
@@ -516,22 +581,47 @@ impl Render for FloatingToolbar {
             .right(px(0.0))
             .h_full()
             .rounded(px(signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32))
-            .bg(t.glass_view)
+            .bg(t.float_fill(blurred))
             .border(px(0.5))
             .border_color(t.border)
             .overflow_hidden()
-            .on_hover(|hover, _, cx| api(cx).set_toolbar_hover(*hover))
             .child(content);
+        // Real events only (GPUI `on_hover` also fires at paint time). On top of the bar: its buttons occlude, a listener
+        // on the card would not be hovered over them and would miss the window exit made from a button.
+        let sensor = div()
+            .id("float-toolbar-sensor")
+            .absolute()
+            .top(px(0.0))
+            .left(px(0.0))
+            .size_full()
+            .on_mouse_move(cx.listener(|this, _: &gpui::MouseMoveEvent, _, cx| {
+                if this.presence.shown && !this.inside {
+                    this.inside = true;
+                    api(cx).set_toolbar_hover(true);
+                }
+            }))
+            .on_mouse_exit(cx.listener(|this, _: &gpui::MouseExitEvent, _, cx| {
+                this.inside = false;
+                if !cx.has_active_drag() {
+                    api(cx).set_toolbar_hover(false);
+                }
+            }));
         let root = div().relative().size_full().overflow_hidden();
-        if !self.shown {
-            return root.child(body.top(px(-6.0)).opacity(0.0)).into_any_element();
+        if NATIVE_SLIDE {
+            // At rest: the window manager slides and fades the window's layer natively.
+            return root.child(body).child(sensor).children(self.presence.shield()).into_any_element();
         }
-        let id = SharedString::from(format!("float-toolbar-{}", self.generation));
+        if !self.presence.shown {
+            return root.child(body.top(px(-6.0)).opacity(0.0)).child(sensor).children(self.presence.shield()).into_any_element();
+        }
+        let id = SharedString::from(format!("float-toolbar-{}", self.presence.generation));
         root.child(body.with_animation(
             id,
             Animation::new(duration::SLOW).with_easing(if reduced { ease_out } else { spring_curve }),
             move |el, p| el.top(px(-6.0 * (1.0 - p))).opacity((p * 2.0).min(1.0)),
         ))
+        .child(sensor)
+        .children(self.presence.shield())
         .into_any_element()
     }
 }
@@ -547,6 +637,28 @@ mod tests {
         assert_eq!(lerp_rect(a, b, 0.0), a);
         assert_eq!(lerp_rect(a, b, 1.0), b);
         assert_eq!(lerp_rect(a, b, 0.5), Rect::new(50.0, 25.0, 150.0, 100.0));
+    }
+
+    #[test]
+    fn presence_follows_the_snapshot() {
+        let mut p = CardPresence::default();
+        let exit = Duration::from_millis(200);
+        // Not armed yet: nothing happens.
+        assert_eq!(p.follow(true, -1.0, exit, false), None);
+        p.armed = true;
+        assert_eq!(p.follow(true, -1.0, exit, false), Some(CardChange::Enter));
+        assert_eq!(p.follow(true, -1.0, exit, false), None);
+        // Halfway through the enter, an exit starts from where the card is.
+        assert_eq!(p.follow(false, -1.0, exit, false), Some(CardChange::Exit(exit)));
+        assert_eq!(p.follow(false, -1.0, exit, false), None);
+        let m = p.motion.unwrap();
+        assert_eq!(m.to, -1.0);
+        // A new enter interrupts the unfinished exit and starts from its current offset.
+        let now = m.offset_now(false);
+        assert_eq!(p.follow(true, -1.0, exit, false), Some(CardChange::Enter));
+        let e = p.motion.unwrap();
+        assert!((e.from - now).abs() < 0.05, "{} vs {now}", e.from);
+        assert_eq!(e.to, 0.0);
     }
 
     fn motion(ago_ms: u64, dur_ms: u64, enter: bool) -> FloatMotion {

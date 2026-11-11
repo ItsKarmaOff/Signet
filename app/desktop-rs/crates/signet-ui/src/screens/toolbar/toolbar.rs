@@ -4,7 +4,7 @@
 use super::anchor::Anchor;
 use super::extensions::ExtensionButtons;
 use super::util::{
-    BarColors, BarFade, IS_MAC, bar_colors, count99, device_key, device_name, domain_of, host_port, is_bookmarkable, is_http, is_secure, language_name, norm,
+    BarColors, BarFade, IS_MAC, bar_colors, count99, floating_bar_fill, shifted, site_color, device_key, device_name, domain_of, host_port, is_bookmarkable, is_http, is_secure, language_name, norm,
 };
 use crate::app_state::{api, snapshot, tr, tr_args, ui_state};
 use crate::theme::{ThemeExt, radius, space, weight};
@@ -153,6 +153,8 @@ impl Render for Toolbar {
         let s = snapshot(cx);
         let t = cx.signet().clone();
         let p = self.props.clone();
+        // Anchors measured in the floating toolbar's window are moved to main window coordinates.
+        let origin = if p.floating { s.toolbar_origin.unwrap_or_default() } else { (0.0, 0.0) };
         let Some(space) = active_space(&s).cloned() else { return div().into_any_element() };
         let id = p.tab_id.clone().or_else(|| space.active_tab_id.clone());
         let tab: Option<TabInfo> = id.as_ref().and_then(|i| s.tabs.get(i)).cloned();
@@ -224,10 +226,19 @@ impl Render for Toolbar {
         let partition = if isolated { format!("persist:space-{}", space.id) } else { "_self".to_string() };
         let order = s.settings.extension_order.clone().unwrap_or_default();
         let pinned = s.settings.pinned_extensions.clone().unwrap_or_default();
-        self.ext.update(cx, |e, cx| e.set(&partition, &order, &pinned, bar, cx));
+        self.ext.update(cx, |e, cx| {
+            e.set_origin(origin);
+            e.set(&partition, &order, &pinned, bar, cx)
+        });
         let narrow = p.narrow;
         let tab_id = id.clone();
         let props = p.clone();
+
+        // Floating bar: concentric with the card, translucent over a blur.
+        let blurred = crate::theme::float_blur(cx, crate::theme::FloatCard::Toolbar);
+        let card_alpha = t.float_translucent(blurred).then(|| t.float_fill(true).a);
+        let site_tinted = site_color(tab.as_ref().and_then(|t| t.theme_color.as_deref())).is_some();
+        let card_r = px(signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32);
 
         // Left controls.
         let mut row = div()
@@ -237,7 +248,7 @@ impl Render for Toolbar {
             .items_center()
             .gap(space::HALF)
             .h_full()
-            .when(p.floating, |d| d.size_full().rounded(radius::POP).bg(bar.bg))
+            .when(p.floating, |d| d.size_full().rounded(card_r).when_some(floating_bar_fill(bar.bg, site_tinted, card_alpha), |d, c| d.bg(c)))
             .when(!p.floating, |d| d.w_full())
             .pl(if p.leading { px(78.0) } else { space::S1 })
             .pr(space::S2)
@@ -276,7 +287,7 @@ impl Render for Toolbar {
                 .child(anchor.track());
             line = line.child(click(btn, false, move |_, _, cx| {
                 focus_tab(&pr, cx);
-                api(cx).open_site_panel(anchor.rect());
+                api(cx).open_site_panel(shifted(anchor.rect(), origin));
             }));
         }
         {
@@ -326,7 +337,7 @@ impl Render for Toolbar {
                     .on_click(move |_, _, cx| {
                         focus_tab(&pr, cx);
                         // The address field serves as the anchor: the command bar grows from it.
-                        api(cx).open_palette(PaletteMode::EditUrl, Some(anchor.rect()));
+                        api(cx).open_palette(PaletteMode::EditUrl, Some(shifted(anchor.rect(), origin)));
                     })
                     .child(content)
                     .child(self.address.track()),
@@ -436,7 +447,7 @@ impl Render for Toolbar {
                 line = line.child(click(b, false, move |_, _, cx| {
                     focus_tab(&pr, cx);
                     if let Some(id) = &tid {
-                        api(cx).open_password_key(id, anchor.rect());
+                        api(cx).open_password_key(id, shifted(anchor.rect(), origin));
                     }
                 }));
             }

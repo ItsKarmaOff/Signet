@@ -68,7 +68,6 @@ pub const TAB_BAR: f64 = 40.0;
 pub const TAB_BAR_GAP: f64 = 4.0;
 pub const BOOKMARK_BAR: f64 = signet_features::bookmarks::BOOKMARK_BAR as f64;
 pub const COMPACT_MARGIN: f64 = 6.0;
-const FLOAT_HEIGHT: f64 = 40.0;
 const FIND_W: f64 = 360.0;
 const FIND_H: f64 = 48.0;
 const FIND_MARGIN: f64 = 12.0;
@@ -211,17 +210,14 @@ impl Core {
         let mut d = super::super::windows::Desired::default();
         let side_w = self.live_sidebar_width.unwrap_or(self.state().sidebar_width);
         let right = self.sidebar_right();
+        let tb = signet_core::floating::toolbar_rect(w, area, self.horizontal());
         if !fullscreen {
             let st = self.state();
             if self.hover.sidebar && !self.sidebar_on() && !self.horizontal() && self.ov.payload.is_none() {
                 d.sidebar = Some(signet_core::floating::sidebar_rect(w, h, side_w, right));
             }
             if st.settings.compact_mode && (self.hover.toolbar || matches!(self.ov.payload, Some(signet_core::types::OverlayPayload::Popover { .. }))) {
-                d.toolbar = Some(if self.horizontal() {
-                    Rect::new(COMPACT_MARGIN, COMPACT_MARGIN, (w - COMPACT_MARGIN * 2.0).max(200.0), FLOAT_HEIGHT)
-                } else {
-                    Rect::new(area.x + 8.0, COMPACT_MARGIN, (area.width - 16.0).max(200.0), FLOAT_HEIGHT)
-                });
+                d.toolbar = Some(tb);
             }
             if self.find.tab_id.is_some()
                 && let Some(p) = self.panes.iter().find(|p| p.focused)
@@ -258,6 +254,17 @@ impl Core {
         }
         if self.hover.sidebar_warm && self.can_float_sidebar() {
             d.sidebar_warm = Some(signet_core::floating::sidebar_rect(w, h, side_w, right));
+        }
+        // Same for the compact toolbar window (macOS parks it; the other platforms ignore the warm rectangle).
+        if !self.can_float_toolbar() {
+            self.hover.toolbar_warm = false;
+            self.hover.toolbar_warming = false;
+        } else if !self.hover.toolbar_warm && !self.hover.toolbar_warming {
+            self.hover.toolbar_warming = true;
+            self.send(Cmd::Later(signet_core::floating::TOOLBAR_WARM_MS, Later::ToolbarWarm));
+        }
+        if self.hover.toolbar_warm && self.can_float_toolbar() {
+            d.toolbar_warm = Some(tb);
         }
         self.desired = d;
         self.update_traffic_lights();

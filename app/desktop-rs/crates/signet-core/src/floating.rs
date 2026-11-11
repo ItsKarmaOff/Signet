@@ -13,7 +13,7 @@ pub fn sidebar_rect(w: f64, h: f64, side_w: f64, right: bool) -> Rect {
     Rect::new(if right { w - FLOAT_INSET - side_w } else { FLOAT_INSET }, FLOAT_INSET, side_w, h - 2.0 * FLOAT_INSET)
 }
 
-/// What the window manager does with the floating sidebar window.
+/// What the window manager does with a floating card window (sidebar, compact toolbar).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SidebarWindow {
     Closed,
@@ -106,6 +106,70 @@ pub fn web_card_radius(window_radius: Option<f64>) -> f64 {
     concentric_radius(window_radius, FLOAT_INSET, MIN_WEB_CARD_RADIUS, WEB_CARD_RADIUS)
 }
 
+/// Axis of a floating card's native slide.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum SlideAxis {
+    #[default]
+    X,
+    Y,
+}
+
+/// Native motion of a floating card (`mac::card_slide`). `offset`: where the parked card sits, in points, window
+/// coordinates (top-left origin: negative = left / up). Durations in ms (`--t-fast` 120, `--t` 200, `--t-slow` 320).
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct CardMotion {
+    pub axis: SlideAxis,
+    pub offset: f64,
+    /// Translate at all (false with reduced motion: fades only).
+    pub slide: bool,
+    pub enter_ms: u64,
+    pub enter_fade_ms: u64,
+    pub exit_ms: u64,
+}
+
+/// Floating sidebar: slides its own width from its edge (`.float-sidebar`), fade in `--t-fast`, exit `--t`.
+pub fn sidebar_motion(width: f64, right: bool, reduced: bool) -> CardMotion {
+    CardMotion { axis: SlideAxis::X, offset: if right { width } else { -width }, slide: !reduced, enter_ms: 320, enter_fade_ms: 120, exit_ms: if reduced { 120 } else { 200 } }
+}
+
+/// Distance of the compact toolbar's slide (`.float-toolbar` `translateY(-6px)`).
+pub const TOOLBAR_SLIDE: f64 = 6.0;
+
+/// Compact mode's floating toolbar: comes down 6 px (spring, `--t-slow`) while fading in (`--t`); exit `--t`
+/// (`floatExitMs`: 120 with reduced motion, fades only).
+pub fn toolbar_motion(reduced: bool) -> CardMotion {
+    CardMotion { axis: SlideAxis::Y, offset: -TOOLBAR_SLIDE, slide: !reduced, enter_ms: 320, enter_fade_ms: 200, exit_ms: if reduced { 120 } else { 200 } }
+}
+
+/// The parked offset in the layer's own space: Core Animation's y grows upward in an unflipped superview.
+pub fn layer_offset(m: &CardMotion, superview_flipped: bool) -> f64 {
+    match m.axis {
+        SlideAxis::X => m.offset,
+        SlideAxis::Y => {
+            if superview_flipped {
+                m.offset
+            } else {
+                -m.offset
+            }
+        }
+    }
+}
+
+/// Warm-up of the compact toolbar window once compact mode is on (same as the sidebar).
+pub const TOOLBAR_WARM_MS: u64 = SIDEBAR_WARM_MS;
+/// Height of the floating toolbar and its inset from the web card's sides (`compact.ts` FLOAT_HEIGHT, `+ 8`).
+pub const TOOLBAR_HEIGHT: f64 = 40.0;
+const TOOLBAR_SIDE_INSET: f64 = 8.0;
+
+/// Window rectangle of the compact mode's floating toolbar (`compact.ts` `bounds` / `stripBounds`); `area`: the web card area.
+pub fn toolbar_rect(w: f64, area: Rect, horizontal: bool) -> Rect {
+    if horizontal {
+        Rect::new(FLOAT_INSET, FLOAT_INSET, (w - FLOAT_INSET * 2.0).max(200.0), TOOLBAR_HEIGHT)
+    } else {
+        Rect::new(area.x + TOOLBAR_SIDE_INSET, FLOAT_INSET, (area.width - 2.0 * TOOLBAR_SIDE_INSET).max(200.0), TOOLBAR_HEIGHT)
+    }
+}
+
 /// The floating card gets a real behind-window blur under a translucent fill (macOS): translucency on, no high
 /// contrast, no system "Reduce transparency". Otherwise it keeps the opaque fill (Electron `tokens.css`).
 pub fn float_blur_wanted(glass: bool, high_contrast: bool, reduce_transparency: bool) -> bool {
@@ -157,6 +221,36 @@ mod tests {
         // Older macOS (about 10 px window corners) keeps the floor.
         assert_eq!(web_card_radius(Some(10.0)), 8.0);
         assert_eq!(web_card_radius(Some(8.0)), 8.0);
+    }
+
+    #[test]
+    fn motions() {
+        let s = sidebar_motion(240.0, false, false);
+        assert_eq!((s.axis, s.offset, s.slide, s.enter_ms, s.enter_fade_ms, s.exit_ms), (SlideAxis::X, -240.0, true, 320, 120, 200));
+        assert_eq!(sidebar_motion(240.0, true, false).offset, 240.0);
+        let r = sidebar_motion(240.0, false, true);
+        assert!(!r.slide);
+        assert_eq!(r.exit_ms, 120);
+        let t = toolbar_motion(false);
+        assert_eq!((t.axis, t.offset, t.slide, t.enter_fade_ms, t.exit_ms), (SlideAxis::Y, -6.0, true, 200, 200));
+        assert_eq!(toolbar_motion(true).exit_ms, 120);
+        assert!(!toolbar_motion(true).slide);
+    }
+
+    #[test]
+    fn layer_offsets() {
+        assert_eq!(layer_offset(&toolbar_motion(false), false), 6.0);
+        assert_eq!(layer_offset(&toolbar_motion(false), true), -6.0);
+        assert_eq!(layer_offset(&sidebar_motion(240.0, false, false), false), -240.0);
+        assert_eq!(layer_offset(&sidebar_motion(240.0, true, false), true), 240.0);
+    }
+
+    #[test]
+    fn toolbar_rects() {
+        let area = Rect::new(6.0, 6.0, 1188.0, 788.0);
+        assert_eq!(toolbar_rect(1200.0, area, false), Rect::new(14.0, 6.0, 1172.0, 40.0));
+        assert_eq!(toolbar_rect(1200.0, area, true), Rect::new(6.0, 6.0, 1188.0, 40.0));
+        assert_eq!(toolbar_rect(150.0, Rect::new(6.0, 6.0, 138.0, 100.0), false).width, 200.0);
     }
 
     #[test]

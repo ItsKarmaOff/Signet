@@ -13,6 +13,7 @@ impl Core {
         self.hover.sidebar = false;
         self.hover.sidebar_leave.cancel();
         self.hover.toolbar = false;
+        self.hover.toolbar_leave.cancel();
     }
 
     pub fn toggle_sidebar(&mut self) {
@@ -120,16 +121,34 @@ impl Core {
         }
     }
 
+    /// The compact floating toolbar can exist: a main window in compact mode.
+    pub(crate) fn can_float_toolbar(&self) -> bool {
+        self.win.is_some() && self.state().settings.compact_mode
+    }
+
+    /// The compact toolbar stays open: one of its popovers, the command bar opened from its address field, an
+    /// extension popup (Electron keeps it under a popover; the command bar is kept too, it grows from the address).
+    pub(crate) fn toolbar_held(&self) -> bool {
+        use signet_core::types::{OverlayPayload, PaletteMode};
+        matches!(self.ov.payload, Some(OverlayPayload::Popover { .. }))
+            || matches!(self.ov.payload, Some(OverlayPayload::Palette { palette_mode: PaletteMode::EditUrl, anchor: Some(_), .. }))
+            || self.ext_popup_open()
+    }
+
     /// The mouse touches the web card's top edge (true) or left the floating toolbar (false).
     pub fn set_toolbar_hover(&mut self, hover: bool) {
         if hover {
+            self.hover.toolbar_leave.cancel();
             if !self.state().settings.compact_mode || self.ov.payload.is_some() || self.hover.toolbar {
                 return;
             }
             self.hover.toolbar = true;
             self.changed_view();
-        } else if self.hover.toolbar {
-            self.send(Cmd::Later(HIDE_DELAY, Later::ToolbarLeave));
+        } else if self.hover.toolbar
+            && !self.toolbar_held()
+            && let Some(g) = self.hover.toolbar_leave.arm()
+        {
+            self.send(Cmd::Later(HIDE_DELAY, Later::ToolbarLeave(g)));
         }
     }
 
@@ -158,10 +177,18 @@ impl Core {
                     self.apply();
                 }
             }
-            Later::ToolbarLeave => {
-                if self.hover.toolbar && !matches!(self.ov.payload, Some(signet_core::types::OverlayPayload::Popover { .. })) {
+            Later::ToolbarLeave(g) => {
+                if self.hover.toolbar_leave.fire(g) && self.hover.toolbar && !self.toolbar_held() {
                     self.hover.toolbar = false;
                     self.changed_view();
+                }
+            }
+            Later::ToolbarWarm => {
+                self.hover.toolbar_warming = false;
+                if self.can_float_toolbar() && !self.hover.toolbar_warm {
+                    self.hover.toolbar_warm = true;
+                    self.dirty.layout = true;
+                    self.apply();
                 }
             }
             Later::SleepCheck => {

@@ -892,7 +892,7 @@ impl Render for TabStrip {
             .pr(space::S2)
             .text_size(t.type_scale.base)
             .text_color(t.text)
-            .when(self.floating, |d| d.rounded(radius::POP))
+            .when(self.floating, |d| d.rounded(px(signet_core::floating::card_radius(crate::theme::window_corner(cx).map(f64::from)) as f32)))
             .when(!self.floating, crate::title_area::title_area)
             .child(probe(self.root.clone()))
             .on_drag_move::<TabDrag>(cx.listener(|this, e: &DragMoveEvent<TabDrag>, _w, cx| this.drag_over(e, cx)))
@@ -904,7 +904,7 @@ impl Render for TabStrip {
             .child({
                 // Edge fades where today's tabs continue (`--fl` / `--fr`, 24 px).
                 let (off, max) = (self.days.offset().x, self.days.max_offset().x);
-                let color = if self.floating { t.glass_view } else { t.bg };
+                let color = if self.floating { t.float_fill(crate::theme::float_blur(cx, crate::theme::FloatCard::Toolbar)) } else { t.bg };
                 let left = if off < px(-1.0) { crate::widgets::edge_fade(crate::widgets::FadeEdge::Left, 24.0, color) } else { None };
                 let right = if max + off > px(1.0) { crate::widgets::edge_fade(crate::widgets::FadeEdge::Right, 24.0, color) } else { None };
                 div().relative().flex().min_w_0().child(days).children(left).children(right)

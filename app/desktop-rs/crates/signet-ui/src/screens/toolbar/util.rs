@@ -36,10 +36,26 @@ fn black(a: f32) -> Hsla {
     Rgba { r: 0.0, g: 0.0, b: 0.0, a }.into()
 }
 
+/// The site's theme colour when it is a usable `#rrggbb` / `#rrggbbaa`.
+pub fn site_color(color: Option<&str>) -> Option<Rgba> {
+    color.and_then(|c| (c.len() == 7 || c.len() == 9).then(|| from_hex(c)).flatten())
+}
+
+/// Fill of the compact mode's floating bar inside its card. Over a blur (`card_alpha`: the card's translucent fill alpha)
+/// the theme bar draws nothing (the card's frosted `bg` shows) and a site colour keeps its hue at the card's alpha;
+/// without blur, the bar's own colour as before.
+pub fn floating_bar_fill(bar_bg: Hsla, site_colored: bool, card_alpha: Option<f32>) -> Option<Hsla> {
+    match card_alpha {
+        None => Some(bar_bg),
+        Some(_) if !site_colored => None,
+        Some(a) => Some(Hsla { a, ..bar_bg }),
+    }
+}
+
 /// Bar background = site color; light or dark content depending on contrast. No readable color: theme tokens.
 pub fn bar_colors(color: Option<&str>, t: &SignetTheme) -> BarColors {
     let themed = BarColors { bg: t.surface, fg: t.text, fg2: t.text_2, hover: t.surface_2 };
-    let Some(c) = color.and_then(|c| (c.len() == 7 || c.len() == 9).then(|| from_hex(c)).flatten()) else {
+    let Some(c) = site_color(color) else {
         return themed;
     };
     // `--bar-fg-2-alpha`: 0.5, raised in increased contrast.
@@ -243,12 +259,28 @@ pub fn wants_new_tab(modifiers: gpui::Modifiers, middle: bool) -> bool {
 }
 
 /// A rectangle in the api's coordinates from GPUI bounds.
+/// A rectangle measured in a floating window, moved by the window's origin in the main window.
+pub fn shifted(r: signet_core::types::Rect, origin: (f64, f64)) -> signet_core::types::Rect {
+    signet_core::types::Rect::new(r.x + origin.0, r.y + origin.1, r.width, r.height)
+}
+
 pub fn rect_of(b: gpui::Bounds<gpui::Pixels>) -> signet_core::types::Rect {
     signet_core::types::Rect::new(f32::from(b.origin.x) as f64, f32::from(b.origin.y) as f64, f32::from(b.size.width) as f64, f32::from(b.size.height) as f64)
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn floating_bar_fill_follows_the_blur() {
+        use super::floating_bar_fill;
+        let bg = gpui::hsla(0.3, 0.5, 0.4, 1.0);
+        assert_eq!(floating_bar_fill(bg, false, None), Some(bg));
+        assert_eq!(floating_bar_fill(bg, true, None), Some(bg));
+        assert_eq!(floating_bar_fill(bg, false, Some(0.6)), None);
+        let c = floating_bar_fill(bg, true, Some(0.6)).unwrap();
+        assert_eq!((c.h, c.s, c.l, c.a), (0.3, 0.5, 0.4, 0.6));
+    }
+
     use super::*;
     use serde_json::json;
 

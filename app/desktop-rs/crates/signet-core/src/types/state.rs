@@ -40,6 +40,9 @@ pub struct Snapshot {
     pub overlay_open: bool,
     /// Corner radius of the main window (macOS); None when unknown or in fullscreen. The web cards are concentric with it.
     pub window_corner: Option<f64>,
+    /// Where the compact floating toolbar window sits in the main window (x, y), shown or parked: its anchors are
+    /// sent in its own coordinates, the origin makes them window coordinates (Electron `uiOrigin`).
+    pub toolbar_origin: Option<(f64, f64)>,
 }
 
 /// Partial state update: only the changed fields of tabs already sent.
