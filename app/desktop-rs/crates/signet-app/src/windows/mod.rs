@@ -109,6 +109,7 @@ pub enum Later {
     UndoExpire(u64),
     SidebarLeave(u64),
     SidebarWarm,
+    WindowCorner,
     ToolbarLeave,
     SleepCheck,
     Sweep,

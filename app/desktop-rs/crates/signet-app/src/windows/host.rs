@@ -19,7 +19,7 @@ impl Render for LineHeight {
 pub struct MainHost {
     pub child: AnyView,
     pub browser: Rc<Browser>,
-    last: Option<(f64, f64, f64, f64)>,
+    last: Option<((f64, f64, f64, f64), bool)>,
 }
 
 impl MainHost {
@@ -33,9 +33,10 @@ impl Render for MainHost {
         let vp = window.viewport_size();
         let b = window.bounds();
         let cur = (f64::from(f32::from(vp.width)), f64::from(f32::from(vp.height)), f64::from(f32::from(b.origin.x)), f64::from(f32::from(b.origin.y)));
-        if self.last != Some(cur) {
-            self.last = Some(cur);
-            self.browser.core.borrow_mut().on_main_resized((cur.0, cur.1), (cur.2, cur.3));
+        let full = window.is_fullscreen();
+        if self.last != Some((cur, full)) {
+            self.last = Some((cur, full));
+            self.browser.core.borrow_mut().on_main_resized((cur.0, cur.1), (cur.2, cur.3), full);
         }
         crate::quitkeys::gpui_handlers(div()).size_full().child(self.child.clone())
     }

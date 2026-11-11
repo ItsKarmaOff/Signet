@@ -38,6 +38,8 @@ pub struct Snapshot {
     pub boosted_sites: Vec<String>,
     /// True while the overlay covers the main window.
     pub overlay_open: bool,
+    /// Corner radius of the main window (macOS); None when unknown or in fullscreen. The web cards are concentric with it.
+    pub window_corner: Option<f64>,
 }
 
 /// Partial state update: only the changed fields of tabs already sent.

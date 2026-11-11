@@ -80,14 +80,30 @@ pub const CARD_RADIUS: f64 = 14.0;
 /// Smallest radius a concentric card gets.
 const MIN_CARD_RADIUS: f64 = 4.0;
 
-/// Radius of a card inset by `FLOAT_INSET` in a window whose corners have `window_radius`: concentric with them,
-/// down to a small sanity floor (`MIN_CARD_RADIUS`) so a tiny radius never gives square corners. An unknown or absurd
-/// value (an SPI that changed meaning, Linux, Windows, fullscreen) gives `CARD_RADIUS`.
-pub fn card_radius(window_radius: Option<f64>) -> f64 {
+/// Radius of the web cards and of the native page views (Electron `--r-card`, `layout.ts`) when nothing better is known.
+pub const WEB_CARD_RADIUS: f64 = 12.0;
+
+/// Smallest radius a web card gets (older macOS has about 10 px window corners: keep the page corners from going tight).
+const MIN_WEB_CARD_RADIUS: f64 = 8.0;
+
+/// Radius of a card inset by `inset` in a window whose corners have `window_radius`: concentric with them, down to
+/// `min` so a tiny radius never gives square corners. An unknown or absurd value (an SPI that changed meaning, Linux,
+/// Windows, fullscreen) gives `fallback`.
+pub fn concentric_radius(window_radius: Option<f64>, inset: f64, min: f64, fallback: f64) -> f64 {
     match window_radius {
-        Some(r) if r.is_finite() && r > 0.0 && r <= 64.0 => (r - FLOAT_INSET).max(MIN_CARD_RADIUS),
-        _ => CARD_RADIUS,
+        Some(r) if r.is_finite() && r > 0.0 && r <= 64.0 => (r - inset).max(min),
+        _ => fallback,
     }
+}
+
+/// Radius of the floating card inset by `FLOAT_INSET`, concentric with the window (`CARD_RADIUS` when unknown).
+pub fn card_radius(window_radius: Option<f64>) -> f64 {
+    concentric_radius(window_radius, FLOAT_INSET, MIN_CARD_RADIUS, CARD_RADIUS)
+}
+
+/// Radius of the web cards (pages, their GPUI card, the focus ring minus 3 px): inset 6 px like the floating card.
+pub fn web_card_radius(window_radius: Option<f64>) -> f64 {
+    concentric_radius(window_radius, FLOAT_INSET, MIN_WEB_CARD_RADIUS, WEB_CARD_RADIUS)
 }
 
 /// The floating card gets a real behind-window blur under a translucent fill (macOS): translucency on, no high
@@ -128,6 +144,19 @@ mod tests {
         // A tiny window radius hits the floor instead of going square or negative.
         assert_eq!(card_radius(Some(8.0)), 4.0);
         assert_eq!(card_radius(Some(2.0)), 4.0);
+    }
+
+    #[test]
+    fn web_card_radius_follows_the_window() {
+        assert_eq!(web_card_radius(None), 12.0);
+        for r in [0.0, -3.0, f64::NAN, f64::INFINITY, 500.0] {
+            assert_eq!(web_card_radius(Some(r)), 12.0, "{r}");
+        }
+        assert_eq!(web_card_radius(Some(16.0)), 10.0);
+        assert_eq!(web_card_radius(Some(26.0)), 20.0);
+        // Older macOS (about 10 px window corners) keeps the floor.
+        assert_eq!(web_card_radius(Some(10.0)), 8.0);
+        assert_eq!(web_card_radius(Some(8.0)), 8.0);
     }
 
     #[test]

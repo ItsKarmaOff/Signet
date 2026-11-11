@@ -10,6 +10,11 @@ pub const GAP: f32 = 6.0;
 /// Extra height of the bar background below the bar, so the web view's rounded top corners rest on it.
 pub const BAR_OVERFLOW: f32 = 12.0;
 
+/// Radius of the web cards, concentric with the window corners (`Snapshot.window_corner`).
+pub fn card_radius(s: &Snapshot) -> gpui::Pixels {
+    gpui::px(signet_core::floating::web_card_radius(s.window_corner) as f32)
+}
+
 /// Position of the macOS traffic lights (`Layout.trafficLights`): left offset and top offset in px.
 pub fn traffic_lights(horizontal: bool, sidebar_right: bool, compact: bool) -> (f32, f32) {
     use crate::screens::toolbar::PANE_BAR;

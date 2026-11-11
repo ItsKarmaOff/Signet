@@ -10,7 +10,7 @@
 use super::pointer::track_pointer;
 use crate::app_state::{api, tr, tr_args, ui_state};
 use crate::icon::IconName;
-use crate::theme::{ThemeExt, radius, space, weight};
+use crate::theme::{ThemeExt, space, weight};
 use crate::widgets::IconButton;
 use gpui::{
     AppContext, Context, Entity, InteractiveElement, IntoElement, MouseButton, ParentElement, Pixels, Point, Render, StatefulInteractiveElement, Styled, Window, div, prelude::FluentBuilder, px,
@@ -153,7 +153,7 @@ impl Render for DevToolsCard {
         let tab_reset = self.tab_id.clone();
         let head = header(&self.tab_id, dock_of(info.dock), tr("devtools.title"), true, 12.0, cx).when(self.dim, |h| h.opacity(0.7));
 
-        let card = div().absolute().left(px(c.x as f32)).top(px(c.y as f32)).w(px(c.width as f32)).h(px(c.height as f32)).rounded(radius::CARD).bg(t.surface).shadow(t.shadow_card.clone()).child(head);
+        let card = div().absolute().left(px(c.x as f32)).top(px(c.y as f32)).w(px(c.width as f32)).h(px(c.height as f32)).rounded(crate::screens::main_window::card_radius(&crate::app_state::snapshot(cx))).bg(t.surface).shadow(t.shadow_card.clone()).child(head);
 
         let me_down = me.clone();
         let handle = div()

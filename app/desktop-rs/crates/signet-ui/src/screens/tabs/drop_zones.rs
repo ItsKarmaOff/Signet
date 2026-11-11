@@ -9,7 +9,7 @@ use signet_core::types::{DragSource, DropZone, Rect};
 
 use super::row::TabDrag;
 use crate::app_state::api;
-use crate::theme::{ThemeExt, radius};
+use crate::theme::ThemeExt;
 
 const EDGE: f32 = 0.25;
 /// Hysteresis (px): the current zone is kept until the pointer has crossed its boundary by this margin.
@@ -89,6 +89,7 @@ impl Render for DropZones {
             _ => whole,
         };
         let shown = self.zone.map(|z| preview_rect(z, whole, pane));
+        let card_r = crate::screens::main_window::card_radius(&crate::app_state::snapshot(cx));
         div()
             .id("dropzones")
             .absolute()
@@ -124,7 +125,7 @@ impl Render for DropZones {
                     .top(px(r.y as f32))
                     .w(px(r.width as f32))
                     .h(px(r.height as f32))
-                    .rounded(radius::CARD)
+                    .rounded(card_r)
                     .bg(t.accent_a(0.18))
                     .border_2()
                     .border_color(t.accent)

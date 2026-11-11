@@ -118,6 +118,7 @@ impl Core {
             return;
         };
         let (w, h) = win.size;
+        let card_r = signet_core::floating::web_card_radius(win.corner) as f32;
         let space = self.active_space().clone();
         let compact = self.state().settings.compact_mode;
         let side_w = self.live_sidebar_width.unwrap_or(self.state().sidebar_width);
@@ -160,7 +161,7 @@ impl Core {
             let is_full = full_tab.as_deref() == Some(tab_id.as_str());
             let placed = if is_full { Rect::new(0.0, 0.0, w, h) } else { rect };
             if let Some(v) = self.ensure_view(tab_id, placed, shown) {
-                v.set_corner_radius(if is_full { 0.0 } else { 12.0 });
+                v.set_corner_radius(if is_full { 0.0 } else { card_r });
                 if is_full {
                     v.set_bounds(web(placed));
                 } else {
@@ -539,6 +540,12 @@ impl Core {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn insets_match_the_floating_inset() {
+        assert_eq!(PAD, signet_core::floating::FLOAT_INSET);
+        assert_eq!(COMPACT_MARGIN, signet_core::floating::FLOAT_INSET);
+    }
 
     #[test]
     fn password_prompt_hugs_the_card_corner() {

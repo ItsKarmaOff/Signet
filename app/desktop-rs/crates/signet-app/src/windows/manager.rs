@@ -499,12 +499,11 @@ impl Manager {
         }
     }
 
-    /// Measures the app window's corner radius and hands it to the floating sidebar (concentric card). Logged once
+    /// Hands the app window's corner radius (measured by the core) to the floating cards (concentric). Logged once
     /// per value.
     #[cfg(target_os = "macos")]
     fn update_window_corner(&mut self, browser: &Rc<Browser>, cx: &mut App) {
-        let right = browser.core.borrow().sidebar_right();
-        let r = browser.core.borrow().views.parent.as_ref().and_then(|p| crate::mac::window_corner_radius(raw_ptr(p), right)).map(|r| r as f32);
+        let r = browser.core.borrow().win.as_ref().and_then(|w| w.corner).map(|r| r as f32);
         if r == signet_ui::theme::window_corner(cx) {
             return;
         }

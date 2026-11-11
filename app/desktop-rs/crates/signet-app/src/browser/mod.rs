@@ -55,6 +55,8 @@ pub struct MainWin {
     pub origin: (f64, f64),
     pub fullscreen: bool,
     pub active: bool,
+    /// Corner radius of the window as AppKit draws it (macOS); None when unknown or in fullscreen.
+    pub corner: Option<f64>,
 }
 
 /// Overlay state (`overlay.ts`).
@@ -438,6 +440,7 @@ impl Core {
             media: self.phase3.media_for(&displayed),
             boosted_sites: st.boosts.values().filter(|b| b.enabled).map(|b| b.site.clone()).collect(),
             overlay_open: self.ov.payload.is_some() || self.ov.leaving,
+            window_corner: self.win.as_ref().and_then(|w| w.corner),
         }
     }
 

@@ -151,6 +151,13 @@ impl Core {
                     self.apply();
                 }
             }
+            Later::WindowCorner => {
+                if self.update_window_corner() {
+                    self.dirty.layout = true;
+                    self.dirty.needs_full = true;
+                    self.apply();
+                }
+            }
             Later::ToolbarLeave => {
                 if self.hover.toolbar && !matches!(self.ov.payload, Some(signet_core::types::OverlayPayload::Popover { .. })) {
                     self.hover.toolbar = false;

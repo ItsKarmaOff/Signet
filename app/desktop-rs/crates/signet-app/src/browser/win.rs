@@ -9,10 +9,14 @@ use signet_core::types::{LibrarySection, QuitHudState};
 use super::{Core, MainWin};
 use crate::windows::{Cmd, Later, Win};
 
+/// Fullscreen animations end after the last resize: the corner is read again this much later.
+const CORNER_RECHECK_MS: u64 = 700;
+
 impl Core {
     pub fn on_main_created(&mut self, raw: Option<RawWindowHandle>, size: (f64, f64), origin: (f64, f64)) {
         self.views.parent = raw;
-        self.win = Some(MainWin { size, origin, fullscreen: false, active: true });
+        self.win = Some(MainWin { size, origin, fullscreen: false, active: true, corner: None });
+        self.update_window_corner();
         self.refresh_key_table();
         self.request_focus();
         self.send(Cmd::Later(60_000, Later::SleepCheck));
@@ -62,15 +66,42 @@ impl Core {
         self.open_windows.remove(&format!("{win:?}"));
     }
 
-    pub fn on_main_resized(&mut self, size: (f64, f64), origin: (f64, f64)) {
+    /// Reads the window corner again (macOS); true when it changed.
+    pub(crate) fn update_window_corner(&mut self) -> bool {
+        #[cfg(target_os = "macos")]
+        let r = match self.views.parent {
+            Some(RawWindowHandle::AppKit(a)) => crate::mac::window_corner_radius(a.ns_view.as_ptr(), false),
+            _ => None,
+        };
+        #[cfg(not(target_os = "macos"))]
+        let r = None;
+        let Some(w) = self.win.as_mut() else { return false };
+        if w.corner == r {
+            return false;
+        }
+        w.corner = r;
+        self.log(format!("window corner radius {r:?}"));
+        true
+    }
+
+    pub fn on_main_resized(&mut self, size: (f64, f64), origin: (f64, f64), fullscreen: bool) {
         let Some(w) = self.win.as_mut() else { return };
         let moved = w.origin != origin;
         let resized = w.size != size;
-        if !moved && !resized {
+        let flipped = w.fullscreen != fullscreen;
+        if !moved && !resized && !flipped {
             return;
         }
         w.size = size;
         w.origin = origin;
+        w.fullscreen = fullscreen;
+        let mut corner = false;
+        if resized || flipped {
+            corner = self.update_window_corner();
+        }
+        if flipped {
+            self.send(Cmd::Later(CORNER_RECHECK_MS, Later::WindowCorner));
+        }
         if resized {
             self.store.data.state.bounds = Some(signet_core::types::Rect::new(origin.0, origin.1, size.0, size.1));
             self.store.schedule(signet_core::core::store::LAZY_DELAY);
@@ -79,7 +110,12 @@ impl Core {
             self.log(format!("window resized {}x{}", size.0, size.1));
             self.apply();
             self.ext_replace_popup();
-        } else {
+        } else if corner {
+            // Fullscreen flipped without a size change: the web cards take the new corner.
+            self.dirty.layout = true;
+            self.dirty.needs_full = true;
+            self.apply();
+        } else if moved {
             // Moved only: floating surfaces follow (non-macOS reopen them).
             self.desired_dirty();
         }

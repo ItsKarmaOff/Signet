@@ -381,7 +381,7 @@ impl Render for ResponsiveFrame {
         });
 
         div()
-            .child(div().absolute().left(px(a.x as f32)).top(px(a.y as f32)).w(px(a.width as f32)).h(px(a.height as f32)).rounded_b(radius::CARD).bg(t.surface_2))
+            .child(div().absolute().left(px(a.x as f32)).top(px(a.y as f32)).w(px(a.width as f32)).h(px(a.height as f32)).rounded_b(crate::screens::main_window::card_radius(&crate::app_state::snapshot(cx))).bg(t.surface_2))
             .child(bar)
             .children(handles)
             .when(self.drag.is_some(), |d| d.child(track_pointer(me, Self::moved, Self::released, Self::cancel)))

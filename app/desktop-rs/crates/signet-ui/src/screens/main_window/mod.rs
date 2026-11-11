@@ -13,7 +13,7 @@ mod background;
 mod embed;
 mod geometry;
 
-pub use geometry::traffic_lights;
+pub use geometry::{card_radius, traffic_lights};
 
 use crate::app_state::{api, snapshot, tr, ui_state};
 use crate::icon::IconName;
@@ -136,6 +136,7 @@ impl Render for MainWindow {
         let slide = s.sidebar_slide.as_ref().map(|plan| slide_at(plan, progress.unwrap_or(plan.motion.from)));
         let (panes, dividers) = stretched(s, slide.as_ref());
         let covered = s.overlay_open;
+        let card_r = card_radius(s);
 
         let compact = s.settings.compact_mode;
         let horizontal = s.settings.tab_layout == Some(TabLayout::Horizontal);
@@ -213,10 +214,10 @@ impl Render for MainWindow {
             let tab = s.tabs.get(&p.tab_id);
             let bar = self.fades.entry(p.tab_id.clone()).or_default().step(bar_colors(tab.and_then(|t| t.theme_color.as_deref()), &t), reduced, window);
             let dim = panes.len() > 1 && !p.focused;
-            let mut card = place(div().id(SharedString::from(format!("pane-{}", p.tab_id))), p.card).rounded(radius::CARD).shadow(shadows.clone()).bg(if slide.is_some() { bar.bg } else { t.surface });
+            let mut card = place(div().id(SharedString::from(format!("pane-{}", p.tab_id))), p.card).rounded(card_r).shadow(shadows.clone()).bg(if slide.is_some() { bar.bg } else { t.surface });
             if !compact {
                 let fill = PANE_BAR + if bookmarks_on { BOOKMARK_BAR } else { 0.0 } + if p.responsive.is_some() { 0.0 } else { BAR_OVERFLOW };
-                card = card.child(div().absolute().top(px(0.0)).left(px(0.0)).right(px(0.0)).h(px(fill)).rounded_t(radius::CARD).bg(bar.bg));
+                card = card.child(div().absolute().top(px(0.0)).left(px(0.0)).right(px(0.0)).h(px(fill)).rounded_t(card_r).bg(bar.bg));
                 let props = ToolbarProps {
                     tab_id: Some(p.tab_id.clone()),
                     leading: corner == Some(index),
@@ -282,7 +283,7 @@ impl Render for MainWindow {
                 .items_center()
                 .justify_center()
                 .gap(space::S4)
-                .rounded(radius::CARD)
+                .rounded(card_r)
                 .bg(t.surface)
                 .shadow(shadows.clone())
                 .text_color(t.text_2)
@@ -305,7 +306,7 @@ impl Render for MainWindow {
                     .top(pxf(r.y - 3.0))
                     .w(pxf(r.width + 6.0))
                     .h(pxf(r.height + 6.0))
-                    .rounded(px(12.0 + 3.0))
+                    .rounded(card_r + px(3.0))
                     .border_2()
                     .border_color(t.accent)
             };
@@ -320,7 +321,7 @@ impl Render for MainWindow {
                             .top(pxf(r.y - 3.0))
                             .w(pxf(r.width + 6.0))
                             .h(pxf(r.height + 6.0))
-                            .rounded(px(15.0))
+                            .rounded(card_r + px(3.0))
                             .border_2()
                             .border_color(t.accent)
                     }));
